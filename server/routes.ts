@@ -1,5 +1,6 @@
 import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "node:http";
+import multer from "multer";
 import { storage } from "./storage";
 import {
   generateToken,
@@ -8,7 +9,10 @@ import {
   authenticateToken,
 } from "./auth";
 import { getUncachableStripeClient, getStripePublishableKey } from "./stripeClient";
+import { uploadAudioFile } from "./objectStorage";
 import { User } from "../shared/schema";
+
+const upload = multer({ storage: multer.memoryStorage() });
 
 interface AuthenticatedRequest extends Request {
   user?: User;
@@ -23,6 +27,24 @@ function authMiddleware(
   authenticateToken(authHeader).then((user) => {
     if (!user) {
       return res.status(401).json({ message: "Unauthorized" });
+    }
+    req.user = user;
+    next();
+  });
+}
+
+function adminMiddleware(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: () => void
+) {
+  const authHeader = req.headers.authorization;
+  authenticateToken(authHeader).then((user) => {
+    if (!user) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+    if (!user.isAdmin) {
+      return res.status(403).json({ message: "Admin access required" });
     }
     req.user = user;
     next();
@@ -52,6 +74,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         user: {
           id: user.id,
           email: user.email,
+          isAdmin: user.isAdmin,
           subscriptionStatus: user.subscriptionStatus,
         },
       });
@@ -86,6 +109,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         user: {
           id: user.id,
           email: user.email,
+          isAdmin: user.isAdmin,
           subscriptionStatus: user.subscriptionStatus,
         },
       });
@@ -100,6 +124,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({
       id: user.id,
       email: user.email,
+      isAdmin: user.isAdmin,
       subscriptionStatus: user.subscriptionStatus,
     });
   });
@@ -370,6 +395,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Billing portal error:", error);
       res.status(500).json({ message: "Failed to create billing portal session" });
+    }
+  });
+
+  app.post("/api/admin/tracks", adminMiddleware, upload.single("audio"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { title, description, frequency, category, duration } = req.body;
+      const file = req.file;
+
+      if (!file) {
+        return res.status(400).json({ message: "Audio file is required" });
+      }
+
+      if (!title || !frequency || !category || !duration) {
+        return res.status(400).json({ message: "Title, frequency, category, and duration are required" });
+      }
+
+      const validCategories = ["Delta", "Theta", "Alpha", "Beta", "Gamma"];
+      if (!validCategories.includes(category)) {
+        return res.status(400).json({ message: "Invalid category" });
+      }
+
+      const fileUrl = await uploadAudioFile(file.originalname, file.buffer);
+
+      const track = await storage.createTrack({
+        title,
+        description: description || null,
+        frequency,
+        category,
+        duration: parseInt(duration, 10),
+        fileUrl,
+        thumbnailUrl: null,
+      });
+
+      res.json(track);
+    } catch (error: any) {
+      console.error("Admin upload track error:", error);
+      res.status(500).json({ message: "Failed to upload track" });
+    }
+  });
+
+  app.delete("/api/admin/tracks/:id", adminMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      await storage.deleteTrack(id);
+      res.json({ message: "Track deleted" });
+    } catch (error: any) {
+      console.error("Admin delete track error:", error);
+      res.status(500).json({ message: "Failed to delete track" });
     }
   });
 

@@ -71,6 +71,12 @@ export class Storage {
     return newTrack;
   }
 
+  async deleteTrack(id: string): Promise<void> {
+    await db.delete(playlistTracks).where(eq(playlistTracks.trackId, id));
+    await db.delete(favorites).where(eq(favorites.trackId, id));
+    await db.delete(audioTracks).where(eq(audioTracks.id, id));
+  }
+
   async getUserPlaylists(userId: string): Promise<(Playlist & { trackCount: number })[]> {
     const result = await db.execute(sql`
       SELECT p.*, COUNT(pt.id)::int as track_count
