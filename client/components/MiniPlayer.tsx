@@ -35,6 +35,7 @@ export function MiniPlayer() {
     pause,
     resume,
     isPlayerVisible,
+    showPlayer,
   } = usePlayer();
 
   const borderAnimation = useSharedValue(0);
@@ -73,6 +74,7 @@ export function MiniPlayer() {
   const progressPercent = duration > 0 ? (progress / duration) * 100 : 0;
 
   function handlePress() {
+    showPlayer();
     navigation.navigate("Player");
   }
 

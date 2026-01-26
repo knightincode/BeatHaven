@@ -170,11 +170,13 @@ export default function PlayerScreen() {
     seek,
     setVisualType,
     setVisualEnabled,
+    hidePlayer,
   } = usePlayer();
 
   const [settingsVisible, setSettingsVisible] = useState(false);
 
   function handleClose() {
+    hidePlayer();
     navigation.goBack();
   }
 
