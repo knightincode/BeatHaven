@@ -9,7 +9,7 @@ import {
   authenticateToken,
 } from "./auth";
 import { getUncachableStripeClient, getStripePublishableKey } from "./stripeClient";
-import { uploadAudioFile } from "./objectStorage";
+import { uploadAudioFile, streamAudioFile } from "./objectStorage";
 import { User } from "../shared/schema";
 
 const upload = multer({ storage: multer.memoryStorage() });
@@ -169,10 +169,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/tracks", async (req: Request, res: Response) => {
     try {
       const tracks = await storage.getAllTracks();
-      res.json(tracks);
+      const baseUrl = `https://${process.env.REPLIT_DOMAINS?.split(",")[0] || process.env.REPLIT_DEV_DOMAIN}`;
+      const tracksWithUrls = tracks.map(track => ({
+        ...track,
+        fileUrl: `${baseUrl}/api/audio/${track.fileUrl}`,
+      }));
+      res.json(tracksWithUrls);
     } catch (error: any) {
       console.error("Get tracks error:", error);
       res.status(500).json({ message: "Failed to get tracks" });
+    }
+  });
+
+  app.get("/api/audio/:folder/:filename", async (req: Request, res: Response) => {
+    try {
+      const objectPath = decodeURIComponent(`${req.params.folder}/${req.params.filename}`);
+      
+      const stream = streamAudioFile(objectPath);
+      
+      res.setHeader("Content-Type", "audio/wav");
+      res.setHeader("Accept-Ranges", "bytes");
+      
+      stream.pipe(res);
+      
+      stream.on("error", (err: Error) => {
+        console.error("Stream error:", err);
+        if (!res.headersSent) {
+          res.status(404).json({ message: "Audio file not found" });
+        }
+      });
+    } catch (error: any) {
+      console.error("Audio stream error:", error);
+      res.status(500).json({ message: "Failed to stream audio" });
     }
   });
 

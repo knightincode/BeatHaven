@@ -10,16 +10,23 @@ export async function uploadAudioFile(
   
   await client.uploadFromBytes(objectName, fileBuffer);
   
-  const url = await client.getSignedDownloadUrl(objectName);
-  return url;
+  return objectName;
 }
 
 export async function deleteAudioFile(objectName: string): Promise<void> {
   await client.delete(objectName);
 }
 
-export async function getAudioFileUrl(objectName: string): Promise<string> {
-  return await client.getSignedDownloadUrl(objectName);
+export async function downloadAudioFile(objectName: string): Promise<Buffer | null> {
+  const result = await client.downloadAsBytes(objectName);
+  if (result.ok) {
+    return result.value[0];
+  }
+  return null;
+}
+
+export function streamAudioFile(objectName: string) {
+  return client.downloadAsStream(objectName);
 }
 
 export { client as storageClient };
