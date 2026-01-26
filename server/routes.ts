@@ -169,7 +169,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/tracks", async (req: Request, res: Response) => {
     try {
       const tracks = await storage.getAllTracks();
-      const baseUrl = `https://${process.env.REPLIT_DOMAINS?.split(",")[0] || process.env.REPLIT_DEV_DOMAIN}`;
+      const domain = process.env.REPLIT_DOMAINS?.split(",")[0] || process.env.REPLIT_DEV_DOMAIN;
+      const baseUrl = `https://${domain}:5000`;
       
       const tracksWithUrls = tracks.map(track => ({
         ...track,
