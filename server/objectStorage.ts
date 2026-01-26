@@ -29,4 +29,13 @@ export function streamAudioFile(objectName: string) {
   return client.downloadAsStream(objectName);
 }
 
+export async function getAudioFileAsBuffer(objectName: string): Promise<{ buffer: Buffer; size: number } | null> {
+  const result = await client.downloadAsBytes(objectName);
+  if (result.ok) {
+    const buffer = result.value[0];
+    return { buffer, size: buffer.length };
+  }
+  return null;
+}
+
 export { client as storageClient };

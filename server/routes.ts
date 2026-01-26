@@ -9,7 +9,7 @@ import {
   authenticateToken,
 } from "./auth";
 import { getUncachableStripeClient, getStripePublishableKey } from "./stripeClient";
-import { uploadAudioFile, streamAudioFile } from "./objectStorage";
+import { uploadAudioFile, streamAudioFile, getAudioFileAsBuffer } from "./objectStorage";
 import { User } from "../shared/schema";
 
 const upload = multer({ storage: multer.memoryStorage() });
@@ -170,10 +170,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const tracks = await storage.getAllTracks();
       const baseUrl = `https://${process.env.REPLIT_DOMAINS?.split(",")[0] || process.env.REPLIT_DEV_DOMAIN}`;
+      
       const tracksWithUrls = tracks.map(track => ({
         ...track,
         fileUrl: `${baseUrl}/api/audio/${track.fileUrl}`,
       }));
+      
+      tracksWithUrls.sort((a, b) => {
+        const beatFreqA = parseFloat(a.frequency.match(/(\d+\.?\d*)Hz beat/)?.[1] || "0");
+        const beatFreqB = parseFloat(b.frequency.match(/(\d+\.?\d*)Hz beat/)?.[1] || "0");
+        return beatFreqA - beatFreqB;
+      });
+      
       res.json(tracksWithUrls);
     } catch (error: any) {
       console.error("Get tracks error:", error);
@@ -185,19 +193,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const objectPath = decodeURIComponent(`${req.params.folder}/${req.params.filename}`);
       
-      const stream = streamAudioFile(objectPath);
+      const fileData = await getAudioFileAsBuffer(objectPath);
+      if (!fileData) {
+        return res.status(404).json({ message: "Audio file not found" });
+      }
       
-      res.setHeader("Content-Type", "audio/wav");
-      res.setHeader("Accept-Ranges", "bytes");
+      const { buffer, size } = fileData;
+      const range = req.headers.range;
       
-      stream.pipe(res);
-      
-      stream.on("error", (err: Error) => {
-        console.error("Stream error:", err);
-        if (!res.headersSent) {
-          res.status(404).json({ message: "Audio file not found" });
-        }
-      });
+      if (range) {
+        const parts = range.replace(/bytes=/, "").split("-");
+        const start = parseInt(parts[0], 10);
+        const end = parts[1] ? parseInt(parts[1], 10) : size - 1;
+        const chunkSize = end - start + 1;
+        
+        res.writeHead(206, {
+          "Content-Range": `bytes ${start}-${end}/${size}`,
+          "Accept-Ranges": "bytes",
+          "Content-Length": chunkSize,
+          "Content-Type": "audio/wav",
+        });
+        
+        res.end(buffer.slice(start, end + 1));
+      } else {
+        res.writeHead(200, {
+          "Content-Length": size,
+          "Content-Type": "audio/wav",
+          "Accept-Ranges": "bytes",
+        });
+        
+        res.end(buffer);
+      }
     } catch (error: any) {
       console.error("Audio stream error:", error);
       res.status(500).json({ message: "Failed to stream audio" });
