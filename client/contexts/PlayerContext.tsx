@@ -68,6 +68,9 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
   async function playTrack(track: Track) {
     try {
+      setCurrentTrack(track);
+      setIsPlayerVisible(true);
+      
       if (soundRef.current) {
         await soundRef.current.unloadAsync();
       }
@@ -84,11 +87,10 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       );
 
       soundRef.current = sound;
-      setCurrentTrack(track);
       setIsPlaying(true);
-      setIsPlayerVisible(true);
     } catch (error) {
       console.error("Error playing track:", error);
+      setIsPlaying(false);
     }
   }
 
