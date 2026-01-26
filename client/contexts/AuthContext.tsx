@@ -6,6 +6,7 @@ import { apiRequest, getApiUrl } from "@/lib/query-client";
 interface User {
   id: string;
   email: string;
+  isAdmin: boolean;
   subscriptionStatus: string;
 }
 
@@ -14,6 +15,7 @@ interface AuthContextType {
   token: string | null;
   isLoading: boolean;
   isAuthenticated: boolean;
+  isAdmin: boolean;
   hasActiveSubscription: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string) => Promise<void>;
@@ -122,6 +124,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const isAuthenticated = !!user;
+  const isAdmin = user?.isAdmin === true;
   const hasActiveSubscription = user?.subscriptionStatus === "active";
 
   return (
@@ -131,6 +134,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         token,
         isLoading,
         isAuthenticated,
+        isAdmin,
         hasActiveSubscription,
         login,
         register,

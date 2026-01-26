@@ -64,7 +64,7 @@ export default function AccountScreen() {
   const headerHeight = useHeaderHeight();
   const tabBarHeight = useBottomTabBarHeight();
   const navigation = useNavigation<NavigationProp>();
-  const { user, logout, hasActiveSubscription } = useAuth();
+  const { user, logout, hasActiveSubscription, isAdmin } = useAuth();
   const [logoutModalVisible, setLogoutModalVisible] = useState(false);
 
   function handleLogout() {
@@ -87,6 +87,13 @@ export default function AccountScreen() {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
     navigation.navigate("EditProfile");
+  }
+
+  function handleAdmin() {
+    if (Platform.OS !== "web") {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+    navigation.navigate("Admin");
   }
 
   return (
@@ -141,6 +148,21 @@ export default function AccountScreen() {
             />
           </Card>
         </View>
+
+        {isAdmin ? (
+          <View style={styles.section}>
+            <ThemedText style={styles.sectionTitle}>Admin</ThemedText>
+            <Card style={styles.menuCard}>
+              <MenuItem
+                icon="upload"
+                title="Upload Tracks"
+                subtitle="Add new binaural beats to the app"
+                onPress={handleAdmin}
+                color={Colors.dark.accent}
+              />
+            </Card>
+          </View>
+        ) : null}
 
         <View style={styles.section}>
           <ThemedText style={styles.sectionTitle}>Preferences</ThemedText>
