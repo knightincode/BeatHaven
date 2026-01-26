@@ -5,6 +5,7 @@ import {
   Pressable,
   Dimensions,
   Modal,
+  ActivityIndicator,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
@@ -158,6 +159,7 @@ export default function PlayerScreen() {
   const {
     currentTrack,
     isPlaying,
+    isLoading,
     progress,
     duration,
     visualType,
@@ -297,18 +299,29 @@ export default function PlayerScreen() {
           <Pressable
             style={[styles.playButton, { backgroundColor: categoryColor }]}
             onPress={handlePlayPause}
+            disabled={isLoading}
           >
-            <Feather
-              name={isPlaying ? "pause" : "play"}
-              size={32}
-              color="#FFFFFF"
-              style={isPlaying ? {} : { marginLeft: 4 }}
-            />
+            {isLoading ? (
+              <ActivityIndicator size="large" color="#FFFFFF" />
+            ) : (
+              <Feather
+                name={isPlaying ? "pause" : "play"}
+                size={32}
+                color="#FFFFFF"
+                style={isPlaying ? {} : { marginLeft: 4 }}
+              />
+            )}
           </Pressable>
           <Pressable style={styles.secondaryControl}>
             <Feather name="skip-forward" size={28} color={Colors.dark.text} />
           </Pressable>
         </View>
+        
+        {isLoading ? (
+          <View style={styles.loadingMessage}>
+            <ThemedText style={styles.loadingText}>Loading audio...</ThemedText>
+          </View>
+        ) : null}
       </View>
 
       <Modal
@@ -585,5 +598,13 @@ const styles = StyleSheet.create({
   visualOptionText: {
     color: Colors.dark.textSecondary,
     fontSize: 13,
+  },
+  loadingMessage: {
+    alignItems: "center",
+    marginTop: Spacing.lg,
+  },
+  loadingText: {
+    color: Colors.dark.textSecondary,
+    fontSize: 14,
   },
 });

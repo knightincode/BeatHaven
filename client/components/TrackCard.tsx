@@ -50,11 +50,13 @@ export function TrackCard({ track, onPress, color }: TrackCardProps) {
       <View style={[styles.iconContainer, { backgroundColor: color + "20" }]}>
         <Feather name="headphones" size={28} color={color} />
       </View>
-      <ThemedText style={styles.title} numberOfLines={1}>
+      <ThemedText style={styles.title} numberOfLines={2} ellipsizeMode="tail">
         {track.title}
       </ThemedText>
       <View style={styles.meta}>
-        <ThemedText style={styles.frequency}>{track.frequency}</ThemedText>
+        <ThemedText style={styles.frequency} numberOfLines={1} ellipsizeMode="tail">
+          {track.frequency}
+        </ThemedText>
         <ThemedText style={styles.duration}>{formatDuration(track.duration)}</ThemedText>
       </View>
       <View style={[styles.playButton, { backgroundColor: color }]}>
@@ -70,6 +72,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.dark.backgroundDefault,
     borderRadius: BorderRadius.lg,
     padding: Spacing.lg,
+    overflow: "hidden",
   },
   iconContainer: {
     width: 56,
@@ -83,19 +86,21 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "600",
     marginBottom: Spacing.xs,
+    flexShrink: 1,
   },
   meta: {
-    flexDirection: "row",
-    justifyContent: "space-between",
+    flexDirection: "column",
     marginBottom: Spacing.md,
+    gap: 2,
   },
   frequency: {
     color: Colors.dark.textSecondary,
-    fontSize: 12,
+    fontSize: 11,
+    flexShrink: 1,
   },
   duration: {
     color: Colors.dark.textSecondary,
-    fontSize: 12,
+    fontSize: 11,
   },
   playButton: {
     width: 32,

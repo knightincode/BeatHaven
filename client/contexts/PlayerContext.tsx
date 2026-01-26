@@ -17,6 +17,7 @@ type VisualType = "waves" | "particles" | "water" | "none";
 interface PlayerContextType {
   currentTrack: Track | null;
   isPlaying: boolean;
+  isLoading: boolean;
   progress: number;
   duration: number;
   visualType: VisualType;
@@ -38,6 +39,7 @@ const PlayerContext = createContext<PlayerContextType | undefined>(undefined);
 export function PlayerProvider({ children }: { children: ReactNode }) {
   const [currentTrack, setCurrentTrack] = useState<Track | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [duration, setDuration] = useState(0);
   const [visualType, setVisualType] = useState<VisualType>("waves");
@@ -70,6 +72,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     try {
       setCurrentTrack(track);
       setIsPlayerVisible(true);
+      setIsLoading(true);
       
       if (soundRef.current) {
         await soundRef.current.unloadAsync();
@@ -88,9 +91,11 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
       soundRef.current = sound;
       setIsPlaying(true);
+      setIsLoading(false);
     } catch (error) {
       console.error("Error playing track:", error);
       setIsPlaying(false);
+      setIsLoading(false);
     }
   }
 
@@ -140,6 +145,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       value={{
         currentTrack,
         isPlaying,
+        isLoading,
         progress,
         duration,
         visualType,
