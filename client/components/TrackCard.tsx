@@ -1,10 +1,15 @@
 import React from "react";
-import { View, StyleSheet, Pressable } from "react-native";
+import { View, StyleSheet, Pressable, Platform } from "react-native";
 import { Feather } from "@expo/vector-icons";
+import * as Haptics from "expo-haptics";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withSpring,
+  withSequence,
+  withTiming,
+  Easing,
+  runOnJS,
 } from "react-native-reanimated";
 
 import { ThemedText } from "@/components/ThemedText";
@@ -21,9 +26,16 @@ const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 export function TrackCard({ track, onPress, color }: TrackCardProps) {
   const scale = useSharedValue(1);
+  const glowOpacity = useSharedValue(0);
+  const glowScale = useSharedValue(1);
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
+  }));
+
+  const glowStyle = useAnimatedStyle(() => ({
+    opacity: glowOpacity.value,
+    transform: [{ scale: glowScale.value }],
   }));
 
   function handlePressIn() {
@@ -34,6 +46,27 @@ export function TrackCard({ track, onPress, color }: TrackCardProps) {
     scale.value = withSpring(1, { damping: 15, stiffness: 150 });
   }
 
+  function triggerHaptic() {
+    if (Platform.OS !== "web") {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    }
+  }
+
+  function handlePress() {
+    triggerHaptic();
+    
+    glowOpacity.value = withSequence(
+      withTiming(0.8, { duration: 150, easing: Easing.out(Easing.ease) }),
+      withTiming(0, { duration: 400, easing: Easing.out(Easing.ease) })
+    );
+    glowScale.value = withSequence(
+      withTiming(1.15, { duration: 150, easing: Easing.out(Easing.ease) }),
+      withTiming(1.3, { duration: 400, easing: Easing.out(Easing.ease) })
+    );
+    
+    setTimeout(onPress, 100);
+  }
+
   function formatDuration(seconds: number) {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
@@ -41,32 +74,52 @@ export function TrackCard({ track, onPress, color }: TrackCardProps) {
   }
 
   return (
-    <AnimatedPressable
-      onPress={onPress}
-      onPressIn={handlePressIn}
-      onPressOut={handlePressOut}
-      style={[styles.container, animatedStyle]}
-    >
-      <View style={[styles.iconContainer, { backgroundColor: color + "20" }]}>
-        <Feather name="headphones" size={28} color={color} />
-      </View>
-      <ThemedText style={styles.title} numberOfLines={2} ellipsizeMode="tail">
-        {track.title}
-      </ThemedText>
-      <View style={styles.meta}>
-        <ThemedText style={styles.frequency} numberOfLines={1} ellipsizeMode="tail">
-          {track.frequency}
+    <View style={styles.wrapper}>
+      <Animated.View
+        style={[
+          styles.glowEffect,
+          { backgroundColor: color },
+          glowStyle,
+        ]}
+      />
+      <AnimatedPressable
+        onPress={handlePress}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        style={[styles.container, animatedStyle]}
+      >
+        <View style={[styles.iconContainer, { backgroundColor: color + "20" }]}>
+          <Feather name="headphones" size={28} color={color} />
+        </View>
+        <ThemedText style={styles.title} numberOfLines={2} ellipsizeMode="tail">
+          {track.title}
         </ThemedText>
-        <ThemedText style={styles.duration}>{formatDuration(track.duration)}</ThemedText>
-      </View>
-      <View style={[styles.playButton, { backgroundColor: color }]}>
-        <Feather name="play" size={16} color="#FFFFFF" style={{ marginLeft: 2 }} />
-      </View>
-    </AnimatedPressable>
+        <View style={styles.meta}>
+          <ThemedText style={styles.frequency} numberOfLines={1} ellipsizeMode="tail">
+            {track.frequency}
+          </ThemedText>
+          <ThemedText style={styles.duration}>{formatDuration(track.duration)}</ThemedText>
+        </View>
+        <View style={[styles.playButton, { backgroundColor: color }]}>
+          <Feather name="play" size={16} color="#FFFFFF" style={{ marginLeft: 2 }} />
+        </View>
+      </AnimatedPressable>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  wrapper: {
+    position: "relative",
+  },
+  glowEffect: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderRadius: BorderRadius.lg,
+  },
   container: {
     width: 160,
     backgroundColor: Colors.dark.backgroundDefault,
