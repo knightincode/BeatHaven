@@ -27,11 +27,11 @@ import { Colors, Spacing, FrequencyColors, BorderRadius } from "@/constants/them
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
 const CATEGORIES = [
-  { id: "delta", name: "Delta", description: "0.5-4 Hz - Deep Sleep", color: FrequencyColors.delta },
-  { id: "theta", name: "Theta", description: "4-8 Hz - Meditation", color: FrequencyColors.theta },
-  { id: "alpha", name: "Alpha", description: "8-14 Hz - Relaxation", color: FrequencyColors.alpha },
-  { id: "beta", name: "Beta", description: "14-30 Hz - Focus", color: FrequencyColors.beta },
-  { id: "gamma", name: "Gamma", description: "30-100 Hz - Cognition", color: FrequencyColors.gamma },
+  { id: "delta", name: "Delta", description: "0.5-4.0 Hz - Deep Sleep", color: FrequencyColors.delta },
+  { id: "theta", name: "Theta", description: "4.5-8.0 Hz - Meditation", color: FrequencyColors.theta },
+  { id: "alpha", name: "Alpha", description: "8.5-12.0 Hz - Relaxation", color: FrequencyColors.alpha },
+  { id: "beta", name: "Beta", description: "13.0-30.0 Hz - Focus", color: FrequencyColors.beta },
+  { id: "gamma", name: "Gamma", description: "32.0-50.0 Hz - Cognition", color: FrequencyColors.gamma },
 ];
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
