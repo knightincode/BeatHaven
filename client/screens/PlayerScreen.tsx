@@ -1,10 +1,9 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect } from "react";
 import {
   View,
   StyleSheet,
   Pressable,
   Dimensions,
-  Modal,
   ActivityIndicator,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -20,138 +19,263 @@ import Animated, {
   Easing,
   interpolate,
 } from "react-native-reanimated";
+import Svg, { Circle } from "react-native-svg";
 import * as Haptics from "expo-haptics";
 import { Platform } from "react-native";
 
 import { ThemedText } from "@/components/ThemedText";
 import { usePlayer } from "@/contexts/PlayerContext";
 import { Colors, Spacing, BorderRadius, FrequencyColors } from "@/constants/theme";
+import type { LoopMode } from "@/contexts/PlayerContext";
 
-const { width, height } = Dimensions.get("window");
+const { width } = Dimensions.get("window");
+const ORB_SIZE = 220;
 
-function WaveAnimation() {
-  const wave1 = useSharedValue(0);
-  const wave2 = useSharedValue(0);
-  const wave3 = useSharedValue(0);
+const AnimatedSvg = Animated.createAnimatedComponent(Svg);
 
-  useEffect(() => {
-    wave1.value = withRepeat(
-      withTiming(1, { duration: 4000, easing: Easing.inOut(Easing.sin) }),
-      -1,
-      true
-    );
-    wave2.value = withRepeat(
-      withSequence(
-        withTiming(0, { duration: 500 }),
-        withTiming(1, { duration: 5000, easing: Easing.inOut(Easing.sin) })
-      ),
-      -1,
-      true
-    );
-    wave3.value = withRepeat(
-      withSequence(
-        withTiming(0, { duration: 1000 }),
-        withTiming(1, { duration: 6000, easing: Easing.inOut(Easing.sin) })
-      ),
-      -1,
-      true
-    );
-  }, []);
-
-  const style1 = useAnimatedStyle(() => ({
-    transform: [
-      { translateY: interpolate(wave1.value, [0, 1], [0, -30]) },
-      { scaleY: interpolate(wave1.value, [0, 0.5, 1], [1, 1.2, 1]) },
-    ],
-    opacity: interpolate(wave1.value, [0, 0.5, 1], [0.3, 0.6, 0.3]),
-  }));
-
-  const style2 = useAnimatedStyle(() => ({
-    transform: [
-      { translateY: interpolate(wave2.value, [0, 1], [0, -40]) },
-      { scaleY: interpolate(wave2.value, [0, 0.5, 1], [1, 1.3, 1]) },
-    ],
-    opacity: interpolate(wave2.value, [0, 0.5, 1], [0.2, 0.5, 0.2]),
-  }));
-
-  const style3 = useAnimatedStyle(() => ({
-    transform: [
-      { translateY: interpolate(wave3.value, [0, 1], [0, -50]) },
-      { scaleY: interpolate(wave3.value, [0, 0.5, 1], [1, 1.4, 1]) },
-    ],
-    opacity: interpolate(wave3.value, [0, 0.5, 1], [0.15, 0.4, 0.15]),
-  }));
-
-  return (
-    <View style={styles.waveContainer}>
-      <Animated.View style={[styles.wave, styles.wave3, style3]} />
-      <Animated.View style={[styles.wave, styles.wave2, style2]} />
-      <Animated.View style={[styles.wave, styles.wave1, style1]} />
-    </View>
-  );
-}
-
-function ParticleAnimation() {
-  const particles = Array.from({ length: 20 }, (_, i) => {
-    const progress = useSharedValue(0);
-    const startX = Math.random() * width;
-    const duration = 3000 + Math.random() * 4000;
-
-    useEffect(() => {
-      progress.value = withRepeat(
-        withTiming(1, { duration, easing: Easing.linear }),
-        -1
-      );
-    }, []);
-
-    const style = useAnimatedStyle(() => ({
-      transform: [
-        { translateY: interpolate(progress.value, [0, 1], [height, -50]) },
-        { translateX: interpolate(progress.value, [0, 0.5, 1], [0, 20, 0]) },
-      ],
-      opacity: interpolate(progress.value, [0, 0.1, 0.9, 1], [0, 1, 1, 0]),
-    }));
-
-    return (
-      <Animated.View
-        key={i}
-        style={[
-          styles.particle,
-          { left: startX, width: 4 + Math.random() * 4, height: 4 + Math.random() * 4 },
-          style,
-        ]}
-      />
-    );
-  });
-
-  return <View style={styles.particleContainer}>{particles}</View>;
-}
-
-function WaterAnimation() {
-  const ripple = useSharedValue(0);
+function ResonantOrb({ color }: { color: string }) {
+  const breathe = useSharedValue(0);
+  const pulse = useSharedValue(0);
+  const rotation = useSharedValue(0);
 
   useEffect(() => {
-    ripple.value = withRepeat(
-      withTiming(1, { duration: 3000, easing: Easing.out(Easing.ease) }),
+    breathe.value = withRepeat(
+      withSequence(
+        withTiming(0.33, { duration: 4000, easing: Easing.inOut(Easing.sin) }),
+        withTiming(0.33, { duration: 7000 }),
+        withTiming(0, { duration: 8000, easing: Easing.inOut(Easing.sin) })
+      ),
+      -1
+    );
+
+    pulse.value = withRepeat(
+      withTiming(1, { duration: 3000, easing: Easing.inOut(Easing.sin) }),
+      -1,
+      true
+    );
+
+    rotation.value = withRepeat(
+      withTiming(360, { duration: 60000, easing: Easing.linear }),
       -1
     );
   }, []);
 
-  const ripples = Array.from({ length: 4 }, (_, i) => {
-    const style = useAnimatedStyle(() => {
-      const delay = i * 0.25;
-      const progress = (ripple.value + delay) % 1;
-      return {
-        transform: [{ scale: interpolate(progress, [0, 1], [0.5, 2.5]) }],
-        opacity: interpolate(progress, [0, 0.5, 1], [0.5, 0.3, 0]),
-      };
-    });
-
-    return <Animated.View key={i} style={[styles.ripple, style]} />;
+  const outerGlowStyle = useAnimatedStyle(() => {
+    const scale = 1 + interpolate(breathe.value, [0, 0.33], [0, 0.12]);
+    const pulseScale = interpolate(pulse.value, [0, 1], [0.98, 1.02]);
+    return {
+      transform: [{ scale: scale * pulseScale }],
+      opacity: interpolate(pulse.value, [0, 1], [0.3, 0.5]),
+    };
   });
 
-  return <View style={styles.waterContainer}>{ripples}</View>;
+  const midGlowStyle = useAnimatedStyle(() => {
+    const scale = 1 + interpolate(breathe.value, [0, 0.33], [0, 0.08]);
+    const pulseScale = interpolate(pulse.value, [0, 1], [0.99, 1.01]);
+    return {
+      transform: [{ scale: scale * pulseScale }],
+      opacity: interpolate(pulse.value, [0, 1], [0.4, 0.6]),
+    };
+  });
+
+  const coreStyle = useAnimatedStyle(() => {
+    const scale = 1 + interpolate(breathe.value, [0, 0.33], [0, 0.05]);
+    return {
+      transform: [{ scale }],
+    };
+  });
+
+  const innerGlowStyle = useAnimatedStyle(() => {
+    return {
+      opacity: interpolate(pulse.value, [0, 1], [0.6, 0.9]),
+    };
+  });
+
+  const ringsStyle = useAnimatedStyle(() => {
+    return {
+      transform: [{ rotate: `${rotation.value}deg` }],
+    };
+  });
+
+  const ringsStyle2 = useAnimatedStyle(() => {
+    return {
+      transform: [{ rotate: `${-rotation.value * 0.7}deg` }],
+    };
+  });
+
+  return (
+    <View style={orbStyles.container}>
+      <Animated.View
+        style={[
+          orbStyles.outerGlow,
+          { backgroundColor: color + "15" },
+          outerGlowStyle,
+        ]}
+      />
+
+      <Animated.View
+        style={[
+          orbStyles.midGlow,
+          { backgroundColor: color + "25" },
+          midGlowStyle,
+        ]}
+      />
+
+      <Animated.View
+        style={[
+          orbStyles.core,
+          coreStyle,
+        ]}
+      >
+        <LinearGradient
+          colors={[color + "60", color + "30", color + "15"]}
+          style={orbStyles.coreGradient}
+          start={{ x: 0.3, y: 0 }}
+          end={{ x: 0.7, y: 1 }}
+        />
+
+        <Animated.View style={[orbStyles.innerHighlight, innerGlowStyle]}>
+          <LinearGradient
+            colors={["rgba(255,255,255,0.25)", "rgba(255,255,255,0.05)", "transparent"]}
+            style={orbStyles.highlightGradient}
+            start={{ x: 0.5, y: 0 }}
+            end={{ x: 0.5, y: 0.6 }}
+          />
+        </Animated.View>
+
+        <AnimatedSvg
+          width={ORB_SIZE}
+          height={ORB_SIZE}
+          viewBox={`0 0 ${ORB_SIZE} ${ORB_SIZE}`}
+          style={[orbStyles.rings, ringsStyle]}
+        >
+          <Circle
+            cx={ORB_SIZE / 2}
+            cy={ORB_SIZE / 2}
+            r={85}
+            stroke={color}
+            strokeWidth={0.8}
+            fill="none"
+            opacity={0.3}
+          />
+          <Circle
+            cx={ORB_SIZE / 2}
+            cy={ORB_SIZE / 2}
+            r={65}
+            stroke={color}
+            strokeWidth={0.6}
+            fill="none"
+            opacity={0.2}
+          />
+          <Circle
+            cx={ORB_SIZE / 2}
+            cy={ORB_SIZE / 2}
+            r={45}
+            stroke={color}
+            strokeWidth={0.5}
+            fill="none"
+            opacity={0.15}
+          />
+        </AnimatedSvg>
+
+        <AnimatedSvg
+          width={ORB_SIZE}
+          height={ORB_SIZE}
+          viewBox={`0 0 ${ORB_SIZE} ${ORB_SIZE}`}
+          style={[orbStyles.rings, ringsStyle2]}
+        >
+          <Circle
+            cx={ORB_SIZE / 2}
+            cy={ORB_SIZE / 2}
+            r={95}
+            stroke={color}
+            strokeWidth={0.5}
+            fill="none"
+            opacity={0.15}
+            strokeDasharray="4 8"
+          />
+          <Circle
+            cx={ORB_SIZE / 2}
+            cy={ORB_SIZE / 2}
+            r={75}
+            stroke={color}
+            strokeWidth={0.4}
+            fill="none"
+            opacity={0.12}
+            strokeDasharray="3 6"
+          />
+          <Circle
+            cx={ORB_SIZE / 2}
+            cy={ORB_SIZE / 2}
+            r={55}
+            stroke={color}
+            strokeWidth={0.4}
+            fill="none"
+            opacity={0.1}
+            strokeDasharray="2 5"
+          />
+        </AnimatedSvg>
+
+        <View
+          style={[
+            orbStyles.coreBorder,
+            { borderColor: color + "40" },
+          ]}
+        />
+      </Animated.View>
+    </View>
+  );
 }
+
+const orbStyles = StyleSheet.create({
+  container: {
+    width: ORB_SIZE + 60,
+    height: ORB_SIZE + 60,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  outerGlow: {
+    position: "absolute",
+    width: ORB_SIZE + 60,
+    height: ORB_SIZE + 60,
+    borderRadius: (ORB_SIZE + 60) / 2,
+  },
+  midGlow: {
+    position: "absolute",
+    width: ORB_SIZE + 30,
+    height: ORB_SIZE + 30,
+    borderRadius: (ORB_SIZE + 30) / 2,
+  },
+  core: {
+    width: ORB_SIZE,
+    height: ORB_SIZE,
+    borderRadius: ORB_SIZE / 2,
+    overflow: "hidden",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  coreGradient: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: ORB_SIZE / 2,
+  },
+  innerHighlight: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: ORB_SIZE / 2,
+    overflow: "hidden",
+  },
+  highlightGradient: {
+    width: "100%",
+    height: "60%",
+  },
+  rings: {
+    position: "absolute",
+  },
+  coreBorder: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: ORB_SIZE / 2,
+    borderWidth: 1,
+  },
+});
 
 export default function PlayerScreen() {
   const insets = useSafeAreaInsets();
@@ -162,18 +286,14 @@ export default function PlayerScreen() {
     isLoading,
     progress,
     duration,
-    visualType,
-    visualEnabled,
+    loopMode,
     pause,
     resume,
     stop,
     seek,
-    setVisualType,
-    setVisualEnabled,
+    setLoopMode,
     hidePlayer,
   } = usePlayer();
-
-  const [settingsVisible, setSettingsVisible] = useState(false);
 
   function handleClose() {
     hidePlayer();
@@ -202,24 +322,22 @@ export default function PlayerScreen() {
     return `${mins}:${secs.toString().padStart(2, "0")}`;
   }
 
+  function cycleLoopMode() {
+    if (Platform.OS !== "web") {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+    const modes: LoopMode[] = ["none", "one", "all"];
+    const currentIndex = modes.indexOf(loopMode);
+    const nextIndex = (currentIndex + 1) % modes.length;
+    setLoopMode(modes[nextIndex]);
+  }
+
   const categoryColor = currentTrack
     ? FrequencyColors[currentTrack.category.toLowerCase()] || Colors.dark.link
     : Colors.dark.link;
 
-  function renderVisual() {
-    if (!visualEnabled) return null;
-    
-    switch (visualType) {
-      case "waves":
-        return <WaveAnimation />;
-      case "particles":
-        return <ParticleAnimation />;
-      case "water":
-        return <WaterAnimation />;
-      default:
-        return null;
-    }
-  }
+  const loopIconColor =
+    loopMode === "none" ? "rgba(255,255,255,0.4)" : categoryColor;
 
   if (!currentTrack) {
     return (
@@ -232,49 +350,65 @@ export default function PlayerScreen() {
   return (
     <View style={styles.container}>
       <LinearGradient
-        colors={["#0A0E1A", categoryColor + "40", "#0A0E1A"]}
+        colors={["#0A0E1A", categoryColor + "30", "#0A0E1A", categoryColor + "15", "#0A0E1A"]}
         style={StyleSheet.absoluteFill}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
+        start={{ x: 0.2, y: 0 }}
+        end={{ x: 0.8, y: 1 }}
+        locations={[0, 0.3, 0.5, 0.7, 1]}
       />
-      
-      {renderVisual()}
 
-      <View style={[styles.header, { paddingTop: insets.top + Spacing.lg }]}>
-        <Pressable onPress={handleClose} style={styles.headerButton}>
+      <View style={[styles.topBar, { paddingTop: insets.top + Spacing.md }]}>
+        <Pressable onPress={handleClose} style={styles.topBarButton} testID="button-close">
           <Feather name="chevron-down" size={28} color={Colors.dark.text} />
         </Pressable>
-        <Pressable onPress={() => setSettingsVisible(true)} style={styles.headerButton}>
-          <Feather name="settings" size={24} color={Colors.dark.text} />
+        <View style={styles.topBarTitle}>
+          <ThemedText style={styles.topBarTitleText} numberOfLines={1}>
+            {currentTrack.title}
+          </ThemedText>
+        </View>
+        <Pressable style={styles.topBarButton} testID="button-settings">
+          <Feather name="more-vertical" size={24} color={Colors.dark.text} />
         </Pressable>
       </View>
 
-      <View style={styles.content}>
-        <View style={styles.trackInfo}>
-          <View style={[styles.categoryBadge, { backgroundColor: categoryColor + "30" }]}>
-            <View style={[styles.categoryDot, { backgroundColor: categoryColor }]} />
-            <ThemedText style={[styles.categoryText, { color: categoryColor }]}>
-              {currentTrack.category}
-            </ThemedText>
-          </View>
-          <ThemedText type="h2" style={styles.trackTitle}>
-            {currentTrack.title}
-          </ThemedText>
-          <ThemedText style={styles.frequency}>
-            {currentTrack.frequency}
-          </ThemedText>
+      <View style={styles.orbSection}>
+        <ResonantOrb color={categoryColor} />
+      </View>
+
+      <View style={styles.midSection}>
+        <ThemedText style={styles.categorySubtitle}>
+          {currentTrack.category} - {currentTrack.frequency}
+        </ThemedText>
+
+        <View style={styles.actionRow}>
+          <Pressable style={styles.actionButton} testID="button-heart">
+            <Feather name="heart" size={22} color="rgba(255,255,255,0.6)" />
+          </Pressable>
+          <Pressable style={styles.actionButton} testID="button-mixer">
+            <Feather name="sliders" size={22} color="rgba(255,255,255,0.6)" />
+          </Pressable>
+          <Pressable style={styles.actionButton} testID="button-timer">
+            <Feather name="clock" size={22} color="rgba(255,255,255,0.6)" />
+          </Pressable>
         </View>
       </View>
 
-      <View style={[styles.controls, { paddingBottom: insets.bottom + Spacing["2xl"] }]}>
+      <View
+        style={[
+          styles.controlPanel,
+          { paddingBottom: insets.bottom + Spacing.lg },
+        ]}
+      >
         <View style={styles.progressContainer}>
           <Pressable
             style={styles.progressBar}
             onPress={(e) => {
               const x = e.nativeEvent.locationX;
-              const ratio = x / (width - Spacing.lg * 2);
+              const barWidth = width - Spacing["2xl"] * 2 - Spacing.lg * 2;
+              const ratio = Math.max(0, Math.min(1, x / barWidth));
               handleSeek(ratio * duration);
             }}
+            testID="button-seek"
           >
             <View style={styles.progressBackground}>
               <View
@@ -286,22 +420,48 @@ export default function PlayerScreen() {
                   },
                 ]}
               />
+              {duration > 0 ? (
+                <View
+                  style={[
+                    styles.progressThumb,
+                    {
+                      left: `${(progress / duration) * 100}%`,
+                      backgroundColor: categoryColor,
+                    },
+                  ]}
+                />
+              ) : null}
             </View>
           </Pressable>
           <View style={styles.timeContainer}>
-            <ThemedText style={styles.time}>{formatTime(progress)}</ThemedText>
-            <ThemedText style={styles.time}>{formatTime(duration)}</ThemedText>
+            <ThemedText style={styles.timeText}>{formatTime(progress)}</ThemedText>
+            <ThemedText style={styles.timeText}>{formatTime(duration)}</ThemedText>
           </View>
         </View>
 
-        <View style={styles.playControls}>
-          <Pressable style={styles.secondaryControl}>
-            <Feather name="skip-back" size={28} color={Colors.dark.text} />
+        <View style={styles.controlsRow}>
+          <Pressable onPress={cycleLoopMode} style={styles.sideControl} testID="button-loop">
+            <Feather
+              name="repeat"
+              size={20}
+              color={loopIconColor}
+            />
+            {loopMode === "one" ? (
+              <View style={[styles.loopBadge, { backgroundColor: categoryColor }]}>
+                <ThemedText style={styles.loopBadgeText}>1</ThemedText>
+              </View>
+            ) : null}
           </Pressable>
+
+          <Pressable style={styles.transportControl} testID="button-skip-back">
+            <Feather name="skip-back" size={26} color={Colors.dark.text} />
+          </Pressable>
+
           <Pressable
             style={[styles.playButton, { backgroundColor: categoryColor }]}
             onPress={handlePlayPause}
             disabled={isLoading}
+            testID="button-play-pause"
           >
             {isLoading ? (
               <ActivityIndicator size="large" color="#FFFFFF" />
@@ -314,73 +474,22 @@ export default function PlayerScreen() {
               />
             )}
           </Pressable>
-          <Pressable style={styles.secondaryControl}>
-            <Feather name="skip-forward" size={28} color={Colors.dark.text} />
+
+          <Pressable style={styles.transportControl} testID="button-skip-forward">
+            <Feather name="skip-forward" size={26} color={Colors.dark.text} />
+          </Pressable>
+
+          <Pressable style={styles.sideControl} testID="button-shuffle">
+            <Feather name="shuffle" size={20} color="rgba(255,255,255,0.4)" />
           </Pressable>
         </View>
-        
+
         {isLoading ? (
           <View style={styles.loadingMessage}>
             <ThemedText style={styles.loadingText}>Loading audio...</ThemedText>
           </View>
         ) : null}
       </View>
-
-      <Modal
-        visible={settingsVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setSettingsVisible(false)}
-      >
-        <View style={styles.settingsOverlay}>
-          <View style={[styles.settingsContent, { paddingBottom: insets.bottom + Spacing.lg }]}>
-            <View style={styles.settingsHeader}>
-              <ThemedText type="h4">Visual Settings</ThemedText>
-              <Pressable onPress={() => setSettingsVisible(false)}>
-                <Feather name="x" size={24} color={Colors.dark.text} />
-              </Pressable>
-            </View>
-
-            <View style={styles.settingRow}>
-              <ThemedText>Enable Visuals</ThemedText>
-              <Pressable
-                style={[styles.toggle, visualEnabled && styles.toggleActive]}
-                onPress={() => setVisualEnabled(!visualEnabled)}
-              >
-                <View style={[styles.toggleThumb, visualEnabled && styles.toggleThumbActive]} />
-              </Pressable>
-            </View>
-
-            <ThemedText style={styles.settingLabel}>Visual Type</ThemedText>
-            <View style={styles.visualOptions}>
-              {(["waves", "particles", "water"] as const).map((type) => (
-                <Pressable
-                  key={type}
-                  style={[
-                    styles.visualOption,
-                    visualType === type && styles.visualOptionActive,
-                  ]}
-                  onPress={() => setVisualType(type)}
-                >
-                  <Feather
-                    name={type === "waves" ? "activity" : type === "particles" ? "star" : "droplet"}
-                    size={24}
-                    color={visualType === type ? Colors.dark.link : Colors.dark.textSecondary}
-                  />
-                  <ThemedText
-                    style={[
-                      styles.visualOptionText,
-                      visualType === type && { color: Colors.dark.link },
-                    ]}
-                  >
-                    {type.charAt(0).toUpperCase() + type.slice(1)}
-                  </ThemedText>
-                </Pressable>
-              ))}
-            </View>
-          </View>
-        </View>
-      </Modal>
     </View>
   );
 }
@@ -388,7 +497,7 @@ export default function PlayerScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.dark.backgroundRoot,
+    backgroundColor: "#0A0E1A",
   },
   noTrack: {
     flex: 1,
@@ -396,56 +505,72 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: Colors.dark.backgroundRoot,
   },
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingHorizontal: Spacing.lg,
-    zIndex: 10,
-  },
-  headerButton: {
-    padding: Spacing.sm,
-  },
-  content: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    paddingHorizontal: Spacing["2xl"],
-    zIndex: 10,
-  },
-  trackInfo: {
-    alignItems: "center",
-  },
-  categoryBadge: {
+  topBar: {
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.xs,
-    borderRadius: BorderRadius.full,
-    marginBottom: Spacing.lg,
+    zIndex: 10,
   },
-  categoryDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    marginRight: Spacing.sm,
+  topBarButton: {
+    padding: Spacing.sm,
+    width: 44,
+    height: 44,
+    alignItems: "center",
+    justifyContent: "center",
   },
-  categoryText: {
-    fontSize: 14,
-    fontWeight: "600",
+  topBarTitle: {
+    flex: 1,
+    alignItems: "center",
+    paddingHorizontal: Spacing.sm,
   },
-  trackTitle: {
-    textAlign: "center",
-    marginBottom: Spacing.sm,
-  },
-  frequency: {
-    color: Colors.dark.textSecondary,
+  topBarTitleText: {
     fontSize: 16,
+    fontWeight: "600",
+    color: Colors.dark.text,
+    textAlign: "center",
   },
-  controls: {
-    paddingHorizontal: Spacing.lg,
+  orbSection: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  midSection: {
+    alignItems: "center",
+    paddingHorizontal: Spacing["2xl"],
+    paddingBottom: Spacing["2xl"],
+  },
+  categorySubtitle: {
+    fontSize: 15,
+    color: "rgba(255,255,255,0.6)",
+    marginBottom: Spacing.xl,
+    letterSpacing: 0.5,
+  },
+  actionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing["4xl"],
+  },
+  actionButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(255,255,255,0.06)",
+  },
+  controlPanel: {
+    backgroundColor: "rgba(26, 31, 46, 0.85)",
+    borderTopLeftRadius: BorderRadius.xl,
+    borderTopRightRadius: BorderRadius.xl,
+    borderTopWidth: 1,
+    borderLeftWidth: 1,
+    borderRightWidth: 1,
+    borderColor: "rgba(255,255,255,0.1)",
+    paddingHorizontal: Spacing["2xl"],
+    paddingTop: Spacing["2xl"],
   },
   progressContainer: {
-    marginBottom: Spacing["2xl"],
+    marginBottom: Spacing.xl,
   },
   progressBar: {
     height: 44,
@@ -453,160 +578,79 @@ const styles = StyleSheet.create({
   },
   progressBackground: {
     height: 4,
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: "rgba(255,255,255,0.12)",
     borderRadius: 2,
-    overflow: "hidden",
+    overflow: "visible",
+    position: "relative",
   },
   progressFill: {
     height: "100%",
     borderRadius: 2,
   },
+  progressThumb: {
+    position: "absolute",
+    top: -4,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    marginLeft: -6,
+  },
   timeContainer: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginTop: Spacing.sm,
+    marginTop: Spacing.xs,
   },
-  time: {
-    color: Colors.dark.textSecondary,
-    fontSize: 13,
+  timeText: {
+    color: "rgba(255,255,255,0.5)",
+    fontSize: 12,
   },
-  playControls: {
+  controlsRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: Spacing["3xl"],
+    gap: Spacing.xl,
   },
-  secondaryControl: {
-    padding: Spacing.md,
+  sideControl: {
+    width: 40,
+    height: 40,
+    alignItems: "center",
+    justifyContent: "center",
+    position: "relative",
+  },
+  transportControl: {
+    width: 48,
+    height: 48,
+    alignItems: "center",
+    justifyContent: "center",
   },
   playButton: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
     alignItems: "center",
     justifyContent: "center",
   },
-  waveContainer: {
-    ...StyleSheet.absoluteFillObject,
-    justifyContent: "flex-end",
-    overflow: "hidden",
-  },
-  wave: {
+  loopBadge: {
     position: "absolute",
-    bottom: 0,
-    left: -50,
-    right: -50,
-    height: 200,
-    borderRadius: 1000,
-  },
-  wave1: {
-    backgroundColor: "#4A90E2",
-  },
-  wave2: {
-    backgroundColor: "#7B68EE",
-    height: 180,
-    bottom: 20,
-  },
-  wave3: {
-    backgroundColor: "#4A90E2",
-    height: 160,
-    bottom: 40,
-  },
-  particleContainer: {
-    ...StyleSheet.absoluteFillObject,
-    overflow: "hidden",
-  },
-  particle: {
-    position: "absolute",
-    backgroundColor: "#7B68EE",
-    borderRadius: 10,
-  },
-  waterContainer: {
-    ...StyleSheet.absoluteFillObject,
+    top: 2,
+    right: 2,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    alignItems: "center",
     justifyContent: "center",
-    alignItems: "center",
   },
-  ripple: {
-    position: "absolute",
-    width: 200,
-    height: 200,
-    borderRadius: 100,
-    borderWidth: 2,
-    borderColor: "#4A90E2",
-  },
-  settingsOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
-    justifyContent: "flex-end",
-  },
-  settingsContent: {
-    backgroundColor: Colors.dark.backgroundDefault,
-    borderTopLeftRadius: BorderRadius.xl,
-    borderTopRightRadius: BorderRadius.xl,
-    padding: Spacing["2xl"],
-  },
-  settingsHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: Spacing["2xl"],
-  },
-  settingRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: Spacing.xl,
-  },
-  toggle: {
-    width: 50,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: Colors.dark.backgroundSecondary,
-    justifyContent: "center",
-    padding: 2,
-  },
-  toggleActive: {
-    backgroundColor: Colors.dark.link,
-  },
-  toggleThumb: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    backgroundColor: Colors.dark.text,
-  },
-  toggleThumbActive: {
-    alignSelf: "flex-end",
-  },
-  settingLabel: {
-    color: Colors.dark.textSecondary,
-    marginBottom: Spacing.md,
-  },
-  visualOptions: {
-    flexDirection: "row",
-    gap: Spacing.md,
-  },
-  visualOption: {
-    flex: 1,
-    alignItems: "center",
-    padding: Spacing.lg,
-    borderRadius: BorderRadius.md,
-    backgroundColor: Colors.dark.backgroundSecondary,
-    gap: Spacing.sm,
-  },
-  visualOptionActive: {
-    borderWidth: 2,
-    borderColor: Colors.dark.link,
-  },
-  visualOptionText: {
-    color: Colors.dark.textSecondary,
-    fontSize: 13,
+  loopBadgeText: {
+    color: "#FFFFFF",
+    fontSize: 9,
+    fontWeight: "700",
   },
   loadingMessage: {
     alignItems: "center",
-    marginTop: Spacing.lg,
+    marginTop: Spacing.md,
   },
   loadingText: {
-    color: Colors.dark.textSecondary,
-    fontSize: 14,
+    color: "rgba(255,255,255,0.5)",
+    fontSize: 13,
   },
 });

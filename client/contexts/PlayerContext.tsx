@@ -12,7 +12,7 @@ export interface Track {
   thumbnailUrl?: string;
 }
 
-type VisualType = "waves" | "particles" | "water" | "none";
+export type LoopMode = "none" | "one" | "all";
 
 interface PlayerContextType {
   currentTrack: Track | null;
@@ -20,16 +20,14 @@ interface PlayerContextType {
   isLoading: boolean;
   progress: number;
   duration: number;
-  visualType: VisualType;
-  visualEnabled: boolean;
+  loopMode: LoopMode;
   isPlayerVisible: boolean;
   playTrack: (track: Track) => Promise<void>;
   pause: () => Promise<void>;
   resume: () => Promise<void>;
   stop: () => Promise<void>;
   seek: (position: number) => Promise<void>;
-  setVisualType: (type: VisualType) => void;
-  setVisualEnabled: (enabled: boolean) => void;
+  setLoopMode: (mode: LoopMode) => void;
   showPlayer: () => void;
   hidePlayer: () => void;
 }
@@ -42,8 +40,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [duration, setDuration] = useState(0);
-  const [visualType, setVisualType] = useState<VisualType>("waves");
-  const [visualEnabled, setVisualEnabled] = useState(true);
+  const [loopMode, setLoopMode] = useState<LoopMode>("none");
   const [isPlayerVisible, setIsPlayerVisible] = useState(false);
   const soundRef = useRef<Audio.Sound | null>(null);
 
@@ -62,8 +59,14 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       setIsPlaying(status.isPlaying);
 
       if (status.didJustFinish) {
-        setIsPlaying(false);
-        setProgress(0);
+        if (loopMode === "one") {
+          if (soundRef.current) {
+            soundRef.current.replayAsync();
+          }
+        } else {
+          setIsPlaying(false);
+          setProgress(0);
+        }
       }
     }
   }
@@ -148,16 +151,14 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         isLoading,
         progress,
         duration,
-        visualType,
-        visualEnabled,
+        loopMode,
         isPlayerVisible,
         playTrack,
         pause,
         resume,
         stop,
         seek,
-        setVisualType,
-        setVisualEnabled,
+        setLoopMode,
         showPlayer,
         hidePlayer,
       }}
