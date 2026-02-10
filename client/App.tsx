@@ -20,6 +20,7 @@ import RootStackNavigator from "@/navigation/RootStackNavigator";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { PlayerProvider } from "@/contexts/PlayerContext";
+import { OfflineIndicator } from "@/components/OfflineIndicator";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -51,6 +52,7 @@ export default function App() {
                   <NavigationContainer>
                     <RootStackNavigator />
                   </NavigationContainer>
+                  <OfflineIndicator />
                   <StatusBar style="light" />
                 </KeyboardProvider>
               </GestureHandlerRootView>
