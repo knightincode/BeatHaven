@@ -4,6 +4,7 @@ import {
   StyleSheet,
   Pressable,
   Modal,
+  ActivityIndicator,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
@@ -20,6 +21,7 @@ import { Card } from "@/components/Card";
 import { Button } from "@/components/Button";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { useAuth } from "@/contexts/AuthContext";
+import { apiRequest } from "@/lib/query-client";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
@@ -64,8 +66,31 @@ export default function AccountScreen() {
   const headerHeight = useHeaderHeight();
   const tabBarHeight = useBottomTabBarHeight();
   const navigation = useNavigation<NavigationProp>();
-  const { user, logout, hasActiveSubscription, isAdmin } = useAuth();
+  const { user, logout, hasActiveSubscription, isAdmin, refreshUser } = useAuth();
   const [logoutModalVisible, setLogoutModalVisible] = useState(false);
+  const [isRestoring, setIsRestoring] = useState(false);
+  const [restoreMessage, setRestoreMessage] = useState<string | null>(null);
+
+  async function handleRestorePurchases() {
+    if (Platform.OS !== "web") {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    }
+    setIsRestoring(true);
+    setRestoreMessage(null);
+    try {
+      await refreshUser();
+      if (hasActiveSubscription) {
+        setRestoreMessage("Your subscription is active");
+      } else {
+        setRestoreMessage("No active subscription found");
+      }
+    } catch (error) {
+      setRestoreMessage("Could not verify subscription. Please try again.");
+    } finally {
+      setIsRestoring(false);
+      setTimeout(() => setRestoreMessage(null), 4000);
+    }
+  }
 
   function handleLogout() {
     if (Platform.OS !== "web") {
@@ -165,22 +190,33 @@ export default function AccountScreen() {
         ) : null}
 
         <View style={styles.section}>
-          <ThemedText style={styles.sectionTitle}>Preferences</ThemedText>
+          <ThemedText style={styles.sectionTitle}>Purchases</ThemedText>
           <Card style={styles.menuCard}>
             <MenuItem
-              icon="bell"
-              title="Notifications"
-              subtitle="Manage notification settings"
-              onPress={() => {}}
-            />
-            <View style={styles.menuDivider} />
-            <MenuItem
-              icon="eye"
-              title="Visual Settings"
-              subtitle="Player animations and themes"
-              onPress={() => {}}
+              icon="refresh-cw"
+              title={isRestoring ? "Checking..." : "Restore Purchases"}
+              subtitle="Verify your subscription status"
+              onPress={handleRestorePurchases}
+              showChevron={!isRestoring}
             />
           </Card>
+          {restoreMessage ? (
+            <View style={styles.restoreMessage}>
+              <Feather
+                name={restoreMessage.includes("active") ? "check-circle" : "info"}
+                size={14}
+                color={restoreMessage.includes("active") ? Colors.dark.success : Colors.dark.textSecondary}
+              />
+              <ThemedText
+                style={[
+                  styles.restoreMessageText,
+                  restoreMessage.includes("active") ? { color: Colors.dark.success } : {},
+                ]}
+              >
+                {restoreMessage}
+              </ThemedText>
+            </View>
+          ) : null}
         </View>
 
         <View style={styles.section}>
@@ -351,5 +387,16 @@ const styles = StyleSheet.create({
   },
   modalLogoutButton: {
     flex: 1,
+  },
+  restoreMessage: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    marginTop: Spacing.sm,
+    marginLeft: Spacing.sm,
+  },
+  restoreMessageText: {
+    color: Colors.dark.textSecondary,
+    fontSize: 13,
   },
 });

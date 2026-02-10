@@ -28,6 +28,7 @@ import { ThemedText } from "@/components/ThemedText";
 import { usePlayer } from "@/contexts/PlayerContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useFavorites } from "@/hooks/useFavorites";
+import { AmbientMixer } from "@/components/AmbientMixer";
 import { Colors, Spacing, BorderRadius, FrequencyColors } from "@/constants/theme";
 import type { LoopMode, SleepTimerOption } from "@/contexts/PlayerContext";
 
@@ -312,6 +313,7 @@ export default function PlayerScreen() {
   const { isAuthenticated } = useAuth();
   const { isFavorite, toggleFavorite } = useFavorites();
   const [timerModalVisible, setTimerModalVisible] = useState(false);
+  const [mixerVisible, setMixerVisible] = useState(false);
 
   const trackIsFavorite = currentTrack ? isFavorite(currentTrack.id) : false;
 
@@ -430,7 +432,7 @@ export default function PlayerScreen() {
           <Pressable style={styles.actionButton} testID="button-heart" onPress={handleToggleFavorite}>
             <Feather name="heart" size={22} color={trackIsFavorite ? "#FF6B8A" : "rgba(255,255,255,0.6)"} />
           </Pressable>
-          <Pressable style={styles.actionButton} testID="button-mixer">
+          <Pressable style={styles.actionButton} testID="button-mixer" onPress={() => setMixerVisible(true)}>
             <Feather name="sliders" size={22} color="rgba(255,255,255,0.6)" />
           </Pressable>
           <Pressable style={styles.actionButton} testID="button-timer" onPress={() => setTimerModalVisible(true)}>
@@ -606,6 +608,12 @@ export default function PlayerScreen() {
           </View>
         </View>
       </Modal>
+
+      <AmbientMixer
+        visible={mixerVisible}
+        onClose={() => setMixerVisible(false)}
+        accentColor={categoryColor}
+      />
     </View>
   );
 }
