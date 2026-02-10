@@ -2,7 +2,7 @@
 
 ## Overview
 
-A premium React Native/Expo mobile application delivering therapeutic binaural beats for stress reduction, focus improvement, and sleep enhancement. Users access curated frequency-based audio content through a $2.99/month subscription model. The app features immersive full-screen animated visuals during playback (waves, particles, water ripples) that transform the device into a meditation experience.
+A premium React Native/Expo mobile application delivering therapeutic binaural beats for stress reduction, focus improvement, and sleep enhancement. Users access curated frequency-based audio content through a $2.99/month subscription model. The app features an immersive "Resonant Orb" animation during playback with 4-7-8 breathing rhythm, category-colored glow, and slow-rotating SVG concentric rings.
 
 ## User Preferences
 
@@ -71,9 +71,22 @@ Preferred communication style: Simple, everyday language.
 - `expo-av`: Audio playback engine
 - `@tanstack/react-query`: Data fetching and caching
 - `drizzle-orm` + `drizzle-kit`: Database ORM and migrations
-- `@supabase/supabase-js`: Listed but primary auth is custom (may be for future use)
 - `react-native-reanimated`: Advanced animations
 - `expo-secure-store`: Secure token storage on native platforms
+- `@react-native-community/slider`: Volume sliders in ambient mixer
+- `@react-native-community/netinfo`: Network status for offline indicator
+
+### Key Features
+
+- **Resonant Orb**: Animated playback visualization with 4-7-8 breathing rhythm, category-colored glow, slow-rotating SVG rings
+- **Sleep Timer**: 15/30/45/60 minute options with 30-second volume fade-out before pause
+- **Loop Controls**: Loop one / loop all toggle in player controls
+- **Favorites**: Heart icon on track cards and player, toggled via /api/favorites endpoints
+- **Mood/Goal Filters**: Horizontal chips on home screen (Deep Sleep, Anxiety Relief, Focus, Creativity, Lucid Dreaming) filtering categories
+- **Educational Tooltips**: Info icon on each category header showing frequency range, description, and benefits
+- **Ambient Mixer**: Bottom sheet with 6 generative ambient sound layers (Rain, Ocean, Forest, Fireplace, Night, Wind) with independent volume (web only via Web Audio API)
+- **Restore Purchases**: Button on account screen to re-verify subscription status
+- **Offline Indicator**: Animated banner when network connection is lost
 
 ### Environment Variables Required
 
