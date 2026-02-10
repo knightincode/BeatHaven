@@ -1,0 +1,104 @@
+
+
+
+
+## **I. Critical Functional Features (Priority 1)**
+
+**1. Sleep Timer (The "Fade Out")**
+
+* **Problem:** Users falling asleep to Delta waves need the audio to stop automatically to preserve battery and prevent dependency.
+* **Implementation:** Add a "Timer" icon (clock) to the Player Screen.
+* **Logic:** Options for 15, 30, 45, 60 minutes. When the timer ends, do not stop abruptly; implement a 30-second volume fade-out before pausing the player.
+
+**2. Ambient Mixer (Layering)**
+
+* **Problem:** Pure sine waves can be fatiguing.
+* **Implementation:** Add a "Mix" button (sliders icon) on the Player Screen.
+* **UI:** Opens a bottom sheet allowing the user to toggle and adjust the volume of background layers independently of the main beat.
+* **Assets Needed:** Rain, White Noise, Pink Noise, Forest Wind, Ocean Waves.
+
+**3. Loop & Repeat Controls**
+
+* **Problem:** Meditation sessions often require a single track to repeat indefinitely.
+* **Implementation:** Add a "Loop One" / "Loop All" toggle button next to the Play/Pause controls.
+
+## **II. Discovery & Library Improvements (Priority 2)**
+
+**1. "Mood" & "Goal" Chips**
+
+* **Problem:** Users may not know which frequency (Hz) matches their need.
+* **Implementation:** Add horizontal filter chips at the top of the Library/Discovery screen.
+* **Tags:** [Deep Sleep], [Anxiety Relief], [Focus], [Creativity], [Lucid Dreaming].
+* **Logic:** Tapping "Focus" filters the list to show only Beta/Gamma tracks.
+
+**2. Favorites System**
+
+* **Problem:** Users lose track of the specific beat that worked for them.
+* **Implementation:** Add a "Heart" (Outline/Filled) icon to every track card and the Player Screen.
+* **Logic:** Tapping the heart adds the track ID to a local SQLite/Isar database table `favorites` and populates a "Your Favorites" playlist automatically.
+
+**3. Educational Tooltips**
+
+* **Implementation:** Add a small `( i )` info icon next to category headers (e.g., "Delta Waves").
+* **Action:** Tapping opens a modal explaining what Delta waves are (0.5-4Hz) and what they are best used for (Deep sleep, healing).
+
+## **III. Monetization & Compliance (Priority 3)**
+
+**1. Restore Purchases Button**
+
+* **Requirement:** Apple App Store Guidelines (Guideline 3.1.1).
+* **Implementation:** Add a text button "Restore Purchases" on the Subscription screen, usually below the "Start Trial" button.
+
+**2. Offline Mode Indicator**
+
+* **Requirement:** Visual feedback for premium features.
+* **Implementation:** Add a "Download" icon to track cards. When downloaded, the icon turns green or filled.
+
+---
+
+## **IV. Player Screen Redesign: Solving the "Negative Space"**
+
+**Current Issue:** The center of the screen is empty, providing no visual anchor for the user.
+**The Solution:** Replace the empty space with a **Dynamic "Breathing" Focus Anchor.**
+
+### **A. The Graphic: "The Resonant Orb"**
+
+Instead of static text, place a large, abstract circular element in the center.
+
+1. **Visual Style:**
+* A soft, glowing gradient circle (or a geometric mandala) that matches the track's color theme (e.g., deep blue for Delta, bright orange for Gamma).
+* **Neumorphic or Glassmorphism:** Given your dark UI, a "glassy" orb with a soft inner light would look premium.
+
+
+2. **Animation Behavior (The "Hook"):**
+* **Pulse to the Beat:** The orb should gently expand and contract.
+* **Breathing Guide:** For "Relaxation" tracks, animate the circle to match a 4-7-8 breathing rhythm (Expand for 4s, Hold 7s, Contract 8s). This turns the visual into a functional tool.
+* **Rotation:** If using a mandala or geometric shape, a very slow (1RPM) rotation adds a hypnotic, high-quality feel.
+
+
+
+### **B. Player Screen Layout (Updated Wireframe)**
+
+* **Top Bar:** Chevron (Down/Back) | Title (e.g., "Deep Sleep") | Kebab Menu (Settings)
+* **Center (The Visual Anchor):**
+* [Large Animated Breathing Orb/Mandala]
+* *Animation scales slightly with audio amplitude or preset breathing rhythm.*
+
+
+* **Lower Mid:**
+* **Track Info:** "Delta • 2.5Hz" (Subtitle)
+* **Action Row:** [Heart Icon]  [Mixer Icon]  [Timer Icon]
+
+
+* **Bottom Control Area (Glassmorphic Panel):**
+* Seek Bar (Slider)
+* Time Labels (0:00 / 30:00)
+* Controls: [Loop] [Prev] [ **Play/Pause (Large)** ] [Next] [Shuffle]
+
+
+
+### **C. Technical Note for Animations in Flutter**
+
+* **Performance:** Do *not* use a heavy video file.
+* **Solution:** Use Flutter's `AnimationController` with `ScaleTransition` and `RotationTransition`.
+* **For "Audio Reactivity":** If you want the orb to pulse with the actual beat, use a package like `audio_waveforms` or simply map the volume level to the scale of the Container. For a meditation app, a pre-set, smooth "breathing" animation is often more relaxing than a jerky, real-time audio visualization.
