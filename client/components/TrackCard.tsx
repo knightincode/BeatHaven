@@ -20,11 +20,13 @@ interface TrackCardProps {
   track: Track;
   onPress: () => void;
   color: string;
+  isFavorite?: boolean;
+  onToggleFavorite?: () => void;
 }
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
-export function TrackCard({ track, onPress, color }: TrackCardProps) {
+export function TrackCard({ track, onPress, color, isFavorite, onToggleFavorite }: TrackCardProps) {
   const scale = useSharedValue(1);
   const glowOpacity = useSharedValue(0);
   const glowScale = useSharedValue(1);
@@ -88,8 +90,30 @@ export function TrackCard({ track, onPress, color }: TrackCardProps) {
         onPressOut={handlePressOut}
         style={[styles.container, animatedStyle]}
       >
-        <View style={[styles.iconContainer, { backgroundColor: color + "20" }]}>
-          <Feather name="headphones" size={28} color={color} />
+        <View style={styles.topRow}>
+          <View style={[styles.iconContainer, { backgroundColor: color + "20" }]}>
+            <Feather name="headphones" size={28} color={color} />
+          </View>
+          {onToggleFavorite ? (
+            <Pressable
+              onPress={(e) => {
+                e.stopPropagation();
+                if (Platform.OS !== "web") {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                }
+                onToggleFavorite();
+              }}
+              style={styles.heartButton}
+              hitSlop={8}
+              testID={`button-favorite-${track.id}`}
+            >
+              <Feather
+                name={isFavorite ? "heart" : "heart"}
+                size={18}
+                color={isFavorite ? "#FF6B8A" : "rgba(255,255,255,0.3)"}
+              />
+            </Pressable>
+          ) : null}
         </View>
         <ThemedText style={styles.title} numberOfLines={2} ellipsizeMode="tail">
           {track.title}
@@ -127,13 +151,21 @@ const styles = StyleSheet.create({
     padding: Spacing.lg,
     overflow: "hidden",
   },
+  topRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    marginBottom: Spacing.md,
+  },
   iconContainer: {
     width: 56,
     height: 56,
     borderRadius: BorderRadius.md,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: Spacing.md,
+  },
+  heartButton: {
+    padding: 4,
   },
   title: {
     fontSize: 15,

@@ -26,6 +26,8 @@ import { Platform } from "react-native";
 
 import { ThemedText } from "@/components/ThemedText";
 import { usePlayer } from "@/contexts/PlayerContext";
+import { useAuth } from "@/contexts/AuthContext";
+import { useFavorites } from "@/hooks/useFavorites";
 import { Colors, Spacing, BorderRadius, FrequencyColors } from "@/constants/theme";
 import type { LoopMode, SleepTimerOption } from "@/contexts/PlayerContext";
 
@@ -307,7 +309,19 @@ export default function PlayerScreen() {
     hidePlayer,
   } = usePlayer();
 
+  const { isAuthenticated } = useAuth();
+  const { isFavorite, toggleFavorite } = useFavorites();
   const [timerModalVisible, setTimerModalVisible] = useState(false);
+
+  const trackIsFavorite = currentTrack ? isFavorite(currentTrack.id) : false;
+
+  function handleToggleFavorite() {
+    if (!currentTrack || !isAuthenticated) return;
+    if (Platform.OS !== "web") {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+    toggleFavorite(currentTrack.id);
+  }
 
   function handleClose() {
     hidePlayer();
@@ -413,8 +427,8 @@ export default function PlayerScreen() {
         </ThemedText>
 
         <View style={styles.actionRow}>
-          <Pressable style={styles.actionButton} testID="button-heart">
-            <Feather name="heart" size={22} color="rgba(255,255,255,0.6)" />
+          <Pressable style={styles.actionButton} testID="button-heart" onPress={handleToggleFavorite}>
+            <Feather name="heart" size={22} color={trackIsFavorite ? "#FF6B8A" : "rgba(255,255,255,0.6)"} />
           </Pressable>
           <Pressable style={styles.actionButton} testID="button-mixer">
             <Feather name="sliders" size={22} color="rgba(255,255,255,0.6)" />
