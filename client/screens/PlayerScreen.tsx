@@ -1,10 +1,11 @@
-import React, { useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   StyleSheet,
   Pressable,
   Dimensions,
   ActivityIndicator,
+  Modal,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
@@ -26,7 +27,7 @@ import { Platform } from "react-native";
 import { ThemedText } from "@/components/ThemedText";
 import { usePlayer } from "@/contexts/PlayerContext";
 import { Colors, Spacing, BorderRadius, FrequencyColors } from "@/constants/theme";
-import type { LoopMode } from "@/contexts/PlayerContext";
+import type { LoopMode, SleepTimerOption } from "@/contexts/PlayerContext";
 
 const { width } = Dimensions.get("window");
 const ORB_SIZE = 220;
@@ -277,6 +278,13 @@ const orbStyles = StyleSheet.create({
   },
 });
 
+const SLEEP_TIMER_OPTIONS: { label: string; value: SleepTimerOption }[] = [
+  { label: "15 min", value: 15 },
+  { label: "30 min", value: 30 },
+  { label: "45 min", value: 45 },
+  { label: "60 min", value: 60 },
+];
+
 export default function PlayerScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
@@ -287,13 +295,19 @@ export default function PlayerScreen() {
     progress,
     duration,
     loopMode,
+    sleepTimer,
+    sleepTimerRemaining,
+    isFadingOut,
     pause,
     resume,
     stop,
     seek,
     setLoopMode,
+    setSleepTimer,
     hidePlayer,
   } = usePlayer();
+
+  const [timerModalVisible, setTimerModalVisible] = useState(false);
 
   function handleClose() {
     hidePlayer();
@@ -322,6 +336,13 @@ export default function PlayerScreen() {
     return `${mins}:${secs.toString().padStart(2, "0")}`;
   }
 
+  function formatTimerRemaining(ms: number) {
+    const totalSecs = Math.ceil(ms / 1000);
+    const mins = Math.floor(totalSecs / 60);
+    const secs = totalSecs % 60;
+    return `${mins}:${secs.toString().padStart(2, "0")}`;
+  }
+
   function cycleLoopMode() {
     if (Platform.OS !== "web") {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -332,12 +353,23 @@ export default function PlayerScreen() {
     setLoopMode(modes[nextIndex]);
   }
 
+  function handleTimerSelect(value: SleepTimerOption) {
+    if (Platform.OS !== "web") {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+    setSleepTimer(value);
+    setTimerModalVisible(false);
+  }
+
   const categoryColor = currentTrack
     ? FrequencyColors[currentTrack.category.toLowerCase()] || Colors.dark.link
     : Colors.dark.link;
 
   const loopIconColor =
     loopMode === "none" ? "rgba(255,255,255,0.4)" : categoryColor;
+
+  const timerIconColor =
+    sleepTimer !== null ? categoryColor : "rgba(255,255,255,0.6)";
 
   if (!currentTrack) {
     return (
@@ -387,10 +419,22 @@ export default function PlayerScreen() {
           <Pressable style={styles.actionButton} testID="button-mixer">
             <Feather name="sliders" size={22} color="rgba(255,255,255,0.6)" />
           </Pressable>
-          <Pressable style={styles.actionButton} testID="button-timer">
-            <Feather name="clock" size={22} color="rgba(255,255,255,0.6)" />
+          <Pressable style={styles.actionButton} testID="button-timer" onPress={() => setTimerModalVisible(true)}>
+            <Feather name="clock" size={22} color={timerIconColor} />
+            {sleepTimer !== null ? (
+              <View style={[styles.timerDot, { backgroundColor: categoryColor }]} />
+            ) : null}
           </Pressable>
         </View>
+
+        {sleepTimer !== null ? (
+          <View style={styles.timerIndicator}>
+            <Feather name="moon" size={14} color={categoryColor} />
+            <ThemedText style={[styles.timerText, { color: categoryColor }]}>
+              {isFadingOut ? "Fading out..." : formatTimerRemaining(sleepTimerRemaining)}
+            </ThemedText>
+          </View>
+        ) : null}
       </View>
 
       <View
@@ -490,6 +534,64 @@ export default function PlayerScreen() {
           </View>
         ) : null}
       </View>
+
+      <Modal
+        visible={timerModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setTimerModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { paddingBottom: insets.bottom + Spacing.lg }]}>
+            <View style={styles.modalHeader}>
+              <ThemedText type="h4">Sleep Timer</ThemedText>
+              <Pressable onPress={() => setTimerModalVisible(false)} testID="button-close-timer">
+                <Feather name="x" size={24} color={Colors.dark.text} />
+              </Pressable>
+            </View>
+            <ThemedText style={styles.modalDescription}>
+              Audio will gently fade out over 30 seconds before pausing
+            </ThemedText>
+            {SLEEP_TIMER_OPTIONS.map((option) => (
+              <Pressable
+                key={option.value}
+                style={[
+                  styles.timerOption,
+                  sleepTimer === option.value ? { backgroundColor: categoryColor + "20", borderColor: categoryColor } : {},
+                ]}
+                onPress={() => handleTimerSelect(option.value)}
+                testID={`button-timer-${option.value}`}
+              >
+                <Feather
+                  name="clock"
+                  size={20}
+                  color={sleepTimer === option.value ? categoryColor : Colors.dark.textSecondary}
+                />
+                <ThemedText
+                  style={[
+                    styles.timerOptionText,
+                    sleepTimer === option.value ? { color: categoryColor, fontWeight: "600" } : {},
+                  ]}
+                >
+                  {option.label}
+                </ThemedText>
+                {sleepTimer === option.value ? (
+                  <Feather name="check" size={20} color={categoryColor} />
+                ) : null}
+              </Pressable>
+            ))}
+            {sleepTimer !== null ? (
+              <Pressable
+                style={styles.timerCancelButton}
+                onPress={() => handleTimerSelect(null)}
+                testID="button-cancel-timer"
+              >
+                <ThemedText style={styles.timerCancelText}>Cancel Timer</ThemedText>
+              </Pressable>
+            ) : null}
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -652,5 +754,72 @@ const styles = StyleSheet.create({
   loadingText: {
     color: "rgba(255,255,255,0.5)",
     fontSize: 13,
+  },
+  timerDot: {
+    position: "absolute",
+    top: 6,
+    right: 6,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  timerIndicator: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.xs,
+    marginTop: Spacing.md,
+  },
+  timerText: {
+    fontSize: 13,
+    fontWeight: "500",
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.6)",
+    justifyContent: "flex-end",
+  },
+  modalContent: {
+    backgroundColor: Colors.dark.backgroundDefault,
+    borderTopLeftRadius: BorderRadius.xl,
+    borderTopRightRadius: BorderRadius.xl,
+    padding: Spacing["2xl"],
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: Spacing.sm,
+  },
+  modalDescription: {
+    color: Colors.dark.textSecondary,
+    fontSize: 14,
+    marginBottom: Spacing.xl,
+  },
+  timerOption: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: Spacing.lg,
+    borderRadius: BorderRadius.md,
+    marginBottom: Spacing.sm,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderWidth: 1,
+    borderColor: "transparent",
+    gap: Spacing.md,
+  },
+  timerOptionText: {
+    flex: 1,
+    fontSize: 16,
+    color: Colors.dark.text,
+  },
+  timerCancelButton: {
+    alignItems: "center",
+    padding: Spacing.lg,
+    marginTop: Spacing.sm,
+  },
+  timerCancelText: {
+    color: Colors.dark.error,
+    fontSize: 15,
+    fontWeight: "500",
   },
 });
