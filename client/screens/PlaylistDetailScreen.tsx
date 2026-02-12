@@ -32,6 +32,8 @@ interface PlaylistTrack extends Track {
   position: number;
 }
 
+const FAVORITES_ID = "__favorites__";
+
 export default function PlaylistDetailScreen() {
   const route = useRoute<RouteProps>();
   const navigation = useNavigation<NavigationProp>();
@@ -41,17 +43,30 @@ export default function PlaylistDetailScreen() {
   const queryClient = useQueryClient();
   const { playlistId, playlistName } = route.params;
 
+  const isFavorites = playlistId === FAVORITES_ID;
+
   const { data: tracks, isLoading, refetch, isRefetching } = useQuery<PlaylistTrack[]>({
-    queryKey: ["/api/playlists", playlistId, "tracks"],
+    queryKey: isFavorites ? ["/api/favorites"] : ["/api/playlists", playlistId, "tracks"],
+    select: isFavorites
+      ? (data: any) => data.map((t: any, i: number) => ({ ...t, position: i }))
+      : undefined,
   });
 
   const removeTrackMutation = useMutation({
     mutationFn: async (trackId: string) => {
-      await apiRequest("DELETE", `/api/playlists/${playlistId}/tracks/${trackId}`);
+      if (isFavorites) {
+        await apiRequest("DELETE", `/api/favorites/${trackId}`);
+      } else {
+        await apiRequest("DELETE", `/api/playlists/${playlistId}/tracks/${trackId}`);
+      }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/playlists", playlistId, "tracks"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/playlists"] });
+      if (isFavorites) {
+        queryClient.invalidateQueries({ queryKey: ["/api/favorites"] });
+      } else {
+        queryClient.invalidateQueries({ queryKey: ["/api/playlists", playlistId, "tracks"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/playlists"] });
+      }
       if (Platform.OS !== "web") {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
@@ -94,8 +109,13 @@ export default function PlaylistDetailScreen() {
           style={styles.removeButton}
           onPress={() => handleRemoveTrack(item.id)}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          testID={`button-remove-track-${item.id}`}
         >
-          <Feather name="x" size={20} color={Colors.dark.textSecondary} />
+          <Feather
+            name={isFavorites ? "heart" : "x"}
+            size={20}
+            color={isFavorites ? "#FF6B8A" : Colors.dark.textSecondary}
+          />
         </Pressable>
       </Card>
     );
@@ -110,10 +130,12 @@ export default function PlaylistDetailScreen() {
           resizeMode="contain"
         />
         <ThemedText type="h4" style={styles.emptyTitle}>
-          No Tracks Added
+          {isFavorites ? "No Favorites Yet" : "No Tracks Added"}
         </ThemedText>
         <ThemedText style={styles.emptyText}>
-          Browse the Discover tab and add your favorite tracks
+          {isFavorites
+            ? "Tap the heart icon on any track to add it here"
+            : "Browse the Discover tab and add your favorite tracks"}
         </ThemedText>
       </View>
     );

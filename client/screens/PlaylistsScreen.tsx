@@ -26,6 +26,7 @@ import { ThemedView } from "@/components/ThemedView";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 import { useAuth } from "@/contexts/AuthContext";
+import { useFavorites } from "@/hooks/useFavorites";
 import { apiRequest } from "@/lib/query-client";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
@@ -45,6 +46,7 @@ export default function PlaylistsScreen() {
   const navigation = useNavigation<NavigationProp>();
   const { token } = useAuth();
   const queryClient = useQueryClient();
+  const { favorites } = useFavorites();
 
   const [modalVisible, setModalVisible] = useState(false);
   const [newPlaylistName, setNewPlaylistName] = useState("");
@@ -155,15 +157,41 @@ export default function PlaylistsScreen() {
         }
         ListEmptyComponent={renderEmpty}
         ListHeaderComponent={
-          playlists && playlists.length > 0 ? (
-            <Pressable
-              style={styles.addButton}
-              onPress={() => setModalVisible(true)}
+          <View>
+            <Card
+              style={styles.playlistCard}
+              onPress={() => {
+                if (Platform.OS !== "web") {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                }
+                navigation.navigate("PlaylistDetail", {
+                  playlistId: "__favorites__",
+                  playlistName: "Favorites",
+                });
+              }}
+              testID="card-favorites"
             >
-              <Feather name="plus" size={20} color={Colors.dark.link} />
-              <ThemedText type="link">Create New Playlist</ThemedText>
-            </Pressable>
-          ) : null
+              <View style={[styles.playlistIcon, styles.favoritesIcon]}>
+                <Feather name="heart" size={24} color="#FF6B8A" />
+              </View>
+              <View style={styles.playlistInfo}>
+                <ThemedText type="h4">Favorites</ThemedText>
+                <ThemedText style={styles.trackCount}>
+                  {favorites.length} {favorites.length === 1 ? "track" : "tracks"}
+                </ThemedText>
+              </View>
+              <Feather name="chevron-right" size={24} color={Colors.dark.textSecondary} />
+            </Card>
+            {playlists && playlists.length > 0 ? (
+              <Pressable
+                style={styles.addButton}
+                onPress={() => setModalVisible(true)}
+              >
+                <Feather name="plus" size={20} color={Colors.dark.link} />
+                <ThemedText type="link">Create New Playlist</ThemedText>
+              </Pressable>
+            ) : null}
+          </View>
         }
       />
 
@@ -249,6 +277,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     marginRight: Spacing.md,
+  },
+  favoritesIcon: {
+    backgroundColor: "rgba(255, 107, 138, 0.15)",
   },
   playlistInfo: {
     flex: 1,
