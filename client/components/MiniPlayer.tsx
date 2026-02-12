@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { View, StyleSheet, Pressable, Platform } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
@@ -18,6 +18,9 @@ import Animated, {
 
 import { ThemedText } from "@/components/ThemedText";
 import { usePlayer } from "@/contexts/PlayerContext";
+import { useAuth } from "@/contexts/AuthContext";
+import { useFavorites } from "@/hooks/useFavorites";
+import { AddToPlaylistModal } from "@/components/AddToPlaylistModal";
 import { Colors, Spacing, BorderRadius, FrequencyColors } from "@/constants/theme";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
@@ -37,6 +40,10 @@ export function MiniPlayer() {
     isPlayerVisible,
     showPlayer,
   } = usePlayer();
+
+  const { isAuthenticated } = useAuth();
+  const { isFavorite, toggleFavorite } = useFavorites();
+  const [playlistModalVisible, setPlaylistModalVisible] = useState(false);
 
   const borderAnimation = useSharedValue(0);
 
@@ -72,6 +79,7 @@ export function MiniPlayer() {
 
   const categoryColor = FrequencyColors[currentTrack.category.toLowerCase()] || Colors.dark.link;
   const progressPercent = duration > 0 ? (progress / duration) * 100 : 0;
+  const trackIsFavorite = isAuthenticated ? isFavorite(currentTrack.id) : false;
 
   function handlePress() {
     showPlayer();
@@ -87,6 +95,21 @@ export function MiniPlayer() {
     } else {
       resume();
     }
+  }
+
+  function handleToggleFavorite() {
+    if (!isAuthenticated || !currentTrack) return;
+    if (Platform.OS !== "web") {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+    toggleFavorite(currentTrack.id);
+  }
+
+  function handleOpenPlaylistModal() {
+    if (Platform.OS !== "web") {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+    setPlaylistModalVisible(true);
   }
 
   return (
@@ -113,24 +136,53 @@ export function MiniPlayer() {
         />
       </View>
 
-      <Pressable style={styles.content} onPress={handlePress}>
-        <View style={styles.iconContainer}>
-          <Feather name="headphones" size={20} color="#FFFFFF" />
-        </View>
-        
-        <View style={styles.trackInfo}>
-          <ThemedText style={styles.title} numberOfLines={1}>
-            {currentTrack.title}
-          </ThemedText>
-          <ThemedText style={styles.category} numberOfLines={1}>
-            {currentTrack.category} • {currentTrack.frequency}
-          </ThemedText>
-        </View>
+      <View style={styles.content}>
+        <Pressable style={styles.trackPressable} onPress={handlePress} testID="button-mini-player-navigate">
+          <View style={styles.iconContainer}>
+            <Feather name="headphones" size={20} color="#FFFFFF" />
+          </View>
+          
+          <View style={styles.trackInfo}>
+            <ThemedText style={styles.title} numberOfLines={1}>
+              {currentTrack.title}
+            </ThemedText>
+            <ThemedText style={styles.category} numberOfLines={1}>
+              {currentTrack.category} • {currentTrack.frequency}
+            </ThemedText>
+          </View>
+        </Pressable>
+
+        {isAuthenticated ? (
+          <Pressable
+            style={styles.miniButton}
+            onPress={handleToggleFavorite}
+            hitSlop={8}
+            testID="button-mini-heart"
+          >
+            <Feather
+              name="heart"
+              size={18}
+              color={trackIsFavorite ? "#FF6B8A" : "rgba(255,255,255,0.7)"}
+            />
+          </Pressable>
+        ) : null}
+
+        {isAuthenticated ? (
+          <Pressable
+            style={styles.miniButton}
+            onPress={handleOpenPlaylistModal}
+            hitSlop={8}
+            testID="button-mini-add-playlist"
+          >
+            <Feather name="plus" size={18} color="rgba(255,255,255,0.7)" />
+          </Pressable>
+        ) : null}
 
         <Pressable
           style={styles.playButton}
           onPress={handlePlayPause}
           hitSlop={12}
+          testID="button-mini-play-pause"
         >
           {isLoading ? (
             <View style={styles.loadingDot} />
@@ -143,7 +195,14 @@ export function MiniPlayer() {
             />
           )}
         </Pressable>
-      </Pressable>
+      </View>
+
+      <AddToPlaylistModal
+        visible={playlistModalVisible}
+        onClose={() => setPlaylistModalVisible(false)}
+        trackId={currentTrack.id}
+        trackTitle={currentTrack.title}
+      />
     </Animated.View>
   );
 }
@@ -182,6 +241,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
     paddingTop: 3,
   },
+  trackPressable: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+  },
   iconContainer: {
     width: 40,
     height: 40,
@@ -204,6 +268,13 @@ const styles = StyleSheet.create({
     color: "rgba(255, 255, 255, 0.8)",
     fontSize: 12,
     marginTop: 2,
+  },
+  miniButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
   },
   playButton: {
     width: 44,

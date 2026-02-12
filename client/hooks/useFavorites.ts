@@ -2,20 +2,26 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/query-client";
 import { useAuth } from "@/contexts/AuthContext";
 
-interface FavoriteTrack {
+interface AudioTrack {
   id: string;
-  trackId: string;
+  title: string;
+  description?: string;
+  frequency: string;
+  category: string;
+  duration: number;
+  fileUrl: string;
+  thumbnailUrl?: string;
 }
 
 export function useFavorites() {
   const { isAuthenticated } = useAuth();
 
-  const { data: favorites = [], isLoading } = useQuery<FavoriteTrack[]>({
+  const { data: favorites = [], isLoading } = useQuery<AudioTrack[]>({
     queryKey: ["/api/favorites"],
     enabled: isAuthenticated,
   });
 
-  const favoriteTrackIds = new Set(favorites.map((f) => f.trackId));
+  const favoriteTrackIds = new Set(favorites.map((f) => f.id));
 
   const addFavorite = useMutation({
     mutationFn: async (trackId: string) => {
