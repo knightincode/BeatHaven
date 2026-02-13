@@ -50,10 +50,15 @@ export default function PlaylistsScreen() {
 
   const [modalVisible, setModalVisible] = useState(false);
   const [newPlaylistName, setNewPlaylistName] = useState("");
+  const [deleteTarget, setDeleteTarget] = useState<Playlist | null>(null);
 
-  const { data: playlists, isLoading, refetch, isRefetching } = useQuery<Playlist[]>({
+  const { data: rawPlaylists, isLoading, refetch, isRefetching } = useQuery<Playlist[]>({
     queryKey: ["/api/playlists"],
   });
+
+  const playlists = rawPlaylists?.filter(
+    (p) => p.name.toLowerCase() !== "favorites"
+  );
 
   const createPlaylistMutation = useMutation({
     mutationFn: async (name: string) => {
@@ -70,9 +75,28 @@ export default function PlaylistsScreen() {
     },
   });
 
+  const deletePlaylistMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await apiRequest("DELETE", `/api/playlists/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/playlists"] });
+      setDeleteTarget(null);
+      if (Platform.OS !== "web") {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
+    },
+  });
+
   function handleCreatePlaylist() {
     if (newPlaylistName.trim()) {
       createPlaylistMutation.mutate(newPlaylistName.trim());
+    }
+  }
+
+  function handleDeletePlaylist() {
+    if (deleteTarget) {
+      deletePlaylistMutation.mutate(deleteTarget.id);
     }
   }
 
@@ -102,6 +126,14 @@ export default function PlaylistsScreen() {
             {item.trackCount} {item.trackCount === 1 ? "track" : "tracks"}
           </ThemedText>
         </View>
+        <Pressable
+          style={styles.deleteButton}
+          onPress={() => setDeleteTarget(item)}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          testID={`button-delete-playlist-${item.id}`}
+        >
+          <Feather name="trash-2" size={18} color={Colors.dark.textSecondary} />
+        </Pressable>
         <Feather name="chevron-right" size={24} color={Colors.dark.textSecondary} />
       </Card>
     );
@@ -169,7 +201,6 @@ export default function PlaylistsScreen() {
                   playlistName: "Favorites",
                 });
               }}
-              testID="card-favorites"
             >
               <View style={[styles.playlistIcon, styles.favoritesIcon]}>
                 <Feather name="heart" size={24} color="#FF6B8A" />
@@ -233,6 +264,45 @@ export default function PlaylistsScreen() {
                   "Create"
                 )}
               </Button>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={deleteTarget !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setDeleteTarget(null)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <ThemedText type="h4" style={styles.modalTitle}>
+              Delete Playlist
+            </ThemedText>
+            <ThemedText style={styles.deleteDescription}>
+              Are you sure you want to delete "{deleteTarget?.name}"? This won't remove any tracks from your Favorites.
+            </ThemedText>
+            <View style={styles.modalButtons}>
+              <Pressable
+                style={styles.modalCancelButton}
+                onPress={() => setDeleteTarget(null)}
+                testID="button-cancel-delete"
+              >
+                <ThemedText style={styles.modalCancelText}>Cancel</ThemedText>
+              </Pressable>
+              <Pressable
+                style={styles.deleteConfirmButton}
+                onPress={handleDeletePlaylist}
+                disabled={deletePlaylistMutation.isPending}
+                testID="button-confirm-delete"
+              >
+                {deletePlaylistMutation.isPending ? (
+                  <ActivityIndicator color="#FFFFFF" size="small" />
+                ) : (
+                  <ThemedText style={styles.deleteConfirmText}>Delete</ThemedText>
+                )}
+              </Pressable>
             </View>
           </View>
         </View>
@@ -355,5 +425,27 @@ const styles = StyleSheet.create({
   },
   modalCreateButton: {
     flex: 1,
+  },
+  deleteButton: {
+    padding: Spacing.sm,
+    marginLeft: Spacing.sm,
+  },
+  deleteDescription: {
+    color: Colors.dark.textSecondary,
+    fontSize: 15,
+    lineHeight: 22,
+    marginBottom: Spacing.lg,
+  },
+  deleteConfirmButton: {
+    flex: 1,
+    height: Spacing.buttonHeight,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: BorderRadius.full,
+    backgroundColor: "#E53E3E",
+  },
+  deleteConfirmText: {
+    color: "#FFFFFF",
+    fontWeight: "600",
   },
 });
