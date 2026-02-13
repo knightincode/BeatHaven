@@ -29,6 +29,7 @@ import { usePlayer } from "@/contexts/PlayerContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useFavorites } from "@/hooks/useFavorites";
 import { AmbientMixer } from "@/components/AmbientMixer";
+import { AddToPlaylistModal } from "@/components/AddToPlaylistModal";
 import { Colors, Spacing, BorderRadius, FrequencyColors } from "@/constants/theme";
 import type { LoopMode, SleepTimerOption } from "@/contexts/PlayerContext";
 
@@ -314,6 +315,7 @@ export default function PlayerScreen() {
   const { isFavorite, toggleFavorite } = useFavorites();
   const [timerModalVisible, setTimerModalVisible] = useState(false);
   const [mixerVisible, setMixerVisible] = useState(false);
+  const [playlistModalVisible, setPlaylistModalVisible] = useState(false);
 
   const trackIsFavorite = currentTrack ? isFavorite(currentTrack.id) : false;
 
@@ -431,6 +433,14 @@ export default function PlayerScreen() {
         <View style={styles.actionRow}>
           <Pressable style={styles.actionButton} testID="button-heart" onPress={handleToggleFavorite}>
             <Feather name="heart" size={22} color={trackIsFavorite ? "#FF6B8A" : "rgba(255,255,255,0.6)"} />
+          </Pressable>
+          <Pressable style={styles.actionButton} testID="button-add-playlist" onPress={() => {
+            if (Platform.OS !== "web") {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            }
+            setPlaylistModalVisible(true);
+          }}>
+            <Feather name="plus" size={22} color="rgba(255,255,255,0.6)" />
           </Pressable>
           <Pressable style={styles.actionButton} testID="button-mixer" onPress={() => setMixerVisible(true)}>
             <Feather name="sliders" size={22} color="rgba(255,255,255,0.6)" />
@@ -557,8 +567,8 @@ export default function PlayerScreen() {
         animationType="slide"
         onRequestClose={() => setTimerModalVisible(false)}
       >
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { paddingBottom: insets.bottom + Spacing.lg }]}>
+        <Pressable style={styles.modalOverlay} onPress={() => setTimerModalVisible(false)}>
+          <Pressable onPress={(e) => e.stopPropagation()} style={[styles.modalContent, { paddingBottom: insets.bottom + Spacing.lg }]}>
             <View style={styles.modalHeader}>
               <ThemedText type="h4">Sleep Timer</ThemedText>
               <Pressable onPress={() => setTimerModalVisible(false)} testID="button-close-timer">
@@ -605,8 +615,8 @@ export default function PlayerScreen() {
                 <ThemedText style={styles.timerCancelText}>Cancel Timer</ThemedText>
               </Pressable>
             ) : null}
-          </View>
-        </View>
+          </Pressable>
+        </Pressable>
       </Modal>
 
       <AmbientMixer
@@ -614,6 +624,15 @@ export default function PlayerScreen() {
         onClose={() => setMixerVisible(false)}
         accentColor={categoryColor}
       />
+
+      {currentTrack ? (
+        <AddToPlaylistModal
+          visible={playlistModalVisible}
+          onClose={() => setPlaylistModalVisible(false)}
+          trackId={currentTrack.id}
+          trackTitle={currentTrack.title}
+        />
+      ) : null}
     </View>
   );
 }

@@ -232,8 +232,8 @@ export default function PlaylistsScreen() {
         animationType="fade"
         onRequestClose={() => setModalVisible(false)}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+        <Pressable style={styles.modalOverlay} onPress={() => setModalVisible(false)}>
+          <Pressable onPress={(e) => e.stopPropagation()} style={styles.modalContent}>
             <ThemedText type="h4" style={styles.modalTitle}>
               New Playlist
             </ThemedText>
@@ -265,8 +265,8 @@ export default function PlaylistsScreen() {
                 )}
               </Button>
             </View>
-          </View>
-        </View>
+          </Pressable>
+        </Pressable>
       </Modal>
 
       <Modal
@@ -275,8 +275,8 @@ export default function PlaylistsScreen() {
         animationType="fade"
         onRequestClose={() => setDeleteTarget(null)}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+        <Pressable style={styles.modalOverlay} onPress={() => setDeleteTarget(null)}>
+          <Pressable onPress={(e) => e.stopPropagation()} style={styles.modalContent}>
             <ThemedText type="h4" style={styles.modalTitle}>
               Delete Playlist
             </ThemedText>
@@ -304,8 +304,8 @@ export default function PlaylistsScreen() {
                 )}
               </Pressable>
             </View>
-          </View>
-        </View>
+          </Pressable>
+        </Pressable>
       </Modal>
     </ThemedView>
   );

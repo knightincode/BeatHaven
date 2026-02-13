@@ -7,6 +7,8 @@ import {
   TextInput,
   ScrollView,
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
@@ -101,8 +103,12 @@ export function AddToPlaylistModal({ visible, onClose, trackId, trackTitle }: Ad
       animationType="slide"
       onRequestClose={handleClose}
     >
-      <View style={styles.overlay}>
-        <View style={[styles.content, { paddingBottom: insets.bottom + Spacing.lg }]}>
+      <Pressable style={styles.overlay} onPress={handleClose}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          style={styles.keyboardAvoid}
+        >
+          <Pressable style={[styles.content, { paddingBottom: insets.bottom + Spacing.lg }]} onPress={(e) => e.stopPropagation()}>
           <View style={styles.header}>
             <ThemedText type="h4">Add to Playlist</ThemedText>
             <Pressable onPress={handleClose} testID="button-close-playlist-modal">
@@ -211,8 +217,9 @@ export function AddToPlaylistModal({ visible, onClose, trackId, trackTitle }: Ad
               })
             )}
           </ScrollView>
-        </View>
-      </View>
+          </Pressable>
+        </KeyboardAvoidingView>
+      </Pressable>
     </Modal>
   );
 }
@@ -221,6 +228,10 @@ const styles = StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: "rgba(0, 0, 0, 0.6)",
+    justifyContent: "flex-end",
+  },
+  keyboardAvoid: {
+    width: "100%",
     justifyContent: "flex-end",
   },
   content: {

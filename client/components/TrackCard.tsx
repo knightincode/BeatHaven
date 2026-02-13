@@ -22,11 +22,12 @@ interface TrackCardProps {
   color: string;
   isFavorite?: boolean;
   onToggleFavorite?: () => void;
+  onAddToPlaylist?: () => void;
 }
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
-export function TrackCard({ track, onPress, color, isFavorite, onToggleFavorite }: TrackCardProps) {
+export function TrackCard({ track, onPress, color, isFavorite, onToggleFavorite, onAddToPlaylist }: TrackCardProps) {
   const scale = useSharedValue(1);
   const glowOpacity = useSharedValue(0);
   const glowScale = useSharedValue(1);
@@ -94,26 +95,44 @@ export function TrackCard({ track, onPress, color, isFavorite, onToggleFavorite 
           <View style={[styles.iconContainer, { backgroundColor: color + "20" }]}>
             <Feather name="headphones" size={28} color={color} />
           </View>
-          {onToggleFavorite ? (
-            <Pressable
-              onPress={(e) => {
-                e.stopPropagation();
-                if (Platform.OS !== "web") {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                }
-                onToggleFavorite();
-              }}
-              style={styles.heartButton}
-              hitSlop={8}
-              testID={`button-favorite-${track.id}`}
-            >
-              <Feather
-                name={isFavorite ? "heart" : "heart"}
-                size={18}
-                color={isFavorite ? "#FF6B8A" : "rgba(255,255,255,0.3)"}
-              />
-            </Pressable>
-          ) : null}
+          <View style={styles.actionButtons}>
+            {onToggleFavorite ? (
+              <Pressable
+                onPress={(e) => {
+                  e.stopPropagation();
+                  if (Platform.OS !== "web") {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  }
+                  onToggleFavorite();
+                }}
+                style={styles.heartButton}
+                hitSlop={8}
+                testID={`button-favorite-${track.id}`}
+              >
+                <Feather
+                  name={isFavorite ? "heart" : "heart"}
+                  size={18}
+                  color={isFavorite ? "#FF6B8A" : "rgba(255,255,255,0.3)"}
+                />
+              </Pressable>
+            ) : null}
+            {onAddToPlaylist ? (
+              <Pressable
+                onPress={(e) => {
+                  e.stopPropagation();
+                  if (Platform.OS !== "web") {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  }
+                  onAddToPlaylist();
+                }}
+                style={styles.heartButton}
+                hitSlop={8}
+                testID={`button-add-playlist-${track.id}`}
+              >
+                <Feather name="plus" size={18} color="rgba(255,255,255,0.3)" />
+              </Pressable>
+            ) : null}
+          </View>
         </View>
         <ThemedText style={styles.title} numberOfLines={2} ellipsizeMode="tail">
           {track.title}
@@ -163,6 +182,11 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.md,
     alignItems: "center",
     justifyContent: "center",
+  },
+  actionButtons: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 2,
   },
   heartButton: {
     padding: 4,

@@ -22,6 +22,7 @@ import { Platform } from "react-native";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { TrackCard } from "@/components/TrackCard";
+import { AddToPlaylistModal } from "@/components/AddToPlaylistModal";
 import { usePlayer, Track } from "@/contexts/PlayerContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useFavorites } from "@/hooks/useFavorites";
@@ -90,6 +91,7 @@ export default function HomeScreen() {
   const { isFavorite, toggleFavorite } = useFavorites();
   const [activeFilter, setActiveFilter] = useState("all");
   const [infoModalCategory, setInfoModalCategory] = useState<string | null>(null);
+  const [playlistModalTrack, setPlaylistModalTrack] = useState<Track | null>(null);
 
   const { data: tracks, isLoading, refetch, isRefetching } = useQuery<Track[]>({
     queryKey: ["/api/tracks"],
@@ -225,6 +227,7 @@ export default function HomeScreen() {
                       color={category.color}
                       isFavorite={isAuthenticated ? isFavorite(item.id) : undefined}
                       onToggleFavorite={isAuthenticated ? () => toggleFavorite(item.id) : undefined}
+                      onAddToPlaylist={isAuthenticated ? () => setPlaylistModalTrack(item) : undefined}
                     />
                   )}
                 />
@@ -276,6 +279,15 @@ export default function HomeScreen() {
           </View>
         </View>
       </Modal>
+
+      {playlistModalTrack ? (
+        <AddToPlaylistModal
+          visible={playlistModalTrack !== null}
+          onClose={() => setPlaylistModalTrack(null)}
+          trackId={playlistModalTrack.id}
+          trackTitle={playlistModalTrack.title}
+        />
+      ) : null}
     </ThemedView>
   );
 }

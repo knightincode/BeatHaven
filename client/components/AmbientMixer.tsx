@@ -189,8 +189,8 @@ export function AmbientMixer({ visible, onClose, accentColor = Colors.dark.link 
       animationType="slide"
       onRequestClose={onClose}
     >
-      <View style={styles.overlay}>
-        <View style={[styles.content, { paddingBottom: insets.bottom + Spacing.lg }]}>
+      <Pressable style={styles.overlay} onPress={onClose}>
+        <Pressable onPress={(e) => e.stopPropagation()} style={[styles.content, { paddingBottom: insets.bottom + Spacing.lg }]}>
           <View style={styles.header}>
             <ThemedText type="h4">Ambient Mixer</ThemedText>
             <Pressable onPress={onClose} testID="button-close-mixer">
@@ -247,8 +247,8 @@ export function AmbientMixer({ visible, onClose, accentColor = Colors.dark.link 
               </View>
             </View>
           ))}
-        </View>
-      </View>
+        </Pressable>
+      </Pressable>
     </Modal>
   );
 }
