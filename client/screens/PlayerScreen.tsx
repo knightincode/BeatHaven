@@ -6,6 +6,7 @@ import {
   Dimensions,
   ActivityIndicator,
   Modal,
+  TextInput,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
@@ -316,6 +317,8 @@ export default function PlayerScreen() {
   const [timerModalVisible, setTimerModalVisible] = useState(false);
   const [mixerVisible, setMixerVisible] = useState(false);
   const [playlistModalVisible, setPlaylistModalVisible] = useState(false);
+  const [showCustomTimer, setShowCustomTimer] = useState(false);
+  const [customMinutes, setCustomMinutes] = useState("");
 
   const trackIsFavorite = currentTrack ? isFavorite(currentTrack.id) : false;
 
@@ -377,6 +380,15 @@ export default function PlayerScreen() {
     }
     setSleepTimer(value);
     setTimerModalVisible(false);
+    setShowCustomTimer(false);
+    setCustomMinutes("");
+  }
+
+  function handleCustomTimerSubmit() {
+    const mins = parseInt(customMinutes, 10);
+    if (mins > 0 && mins <= 480) {
+      handleTimerSelect(mins);
+    }
   }
 
   const categoryColor = currentTrack
@@ -606,6 +618,82 @@ export default function PlayerScreen() {
                 ) : null}
               </Pressable>
             ))}
+
+            {showCustomTimer ? (
+              <View style={styles.customTimerContainer}>
+                <View style={styles.customTimerInputRow}>
+                  <TextInput
+                    style={styles.customTimerInput}
+                    placeholder="Minutes"
+                    placeholderTextColor={Colors.dark.textSecondary}
+                    value={customMinutes}
+                    onChangeText={(text) => setCustomMinutes(text.replace(/[^0-9]/g, ""))}
+                    keyboardType="number-pad"
+                    autoFocus
+                    maxLength={3}
+                    testID="input-custom-timer"
+                  />
+                  <ThemedText style={styles.customTimerUnit}>min</ThemedText>
+                </View>
+                <View style={styles.customTimerActions}>
+                  <Pressable
+                    style={[
+                      styles.customTimerSetButton,
+                      { backgroundColor: categoryColor },
+                      parseInt(customMinutes, 10) > 0 ? {} : { opacity: 0.4 },
+                    ]}
+                    onPress={handleCustomTimerSubmit}
+                    disabled={!(parseInt(customMinutes, 10) > 0)}
+                    testID="button-set-custom-timer"
+                  >
+                    <ThemedText style={styles.customTimerSetText}>Set Timer</ThemedText>
+                  </Pressable>
+                  <Pressable
+                    style={styles.customTimerCancelButton}
+                    onPress={() => {
+                      setShowCustomTimer(false);
+                      setCustomMinutes("");
+                    }}
+                    testID="button-cancel-custom-timer"
+                  >
+                    <ThemedText style={styles.customTimerCancelText}>Cancel</ThemedText>
+                  </Pressable>
+                </View>
+              </View>
+            ) : (
+              <Pressable
+                style={[
+                  styles.timerOption,
+                  sleepTimer !== null && !SLEEP_TIMER_OPTIONS.some(o => o.value === sleepTimer)
+                    ? { backgroundColor: categoryColor + "20", borderColor: categoryColor }
+                    : {},
+                ]}
+                onPress={() => setShowCustomTimer(true)}
+                testID="button-custom-timer"
+              >
+                <Feather
+                  name="plus"
+                  size={20}
+                  color={sleepTimer !== null && !SLEEP_TIMER_OPTIONS.some(o => o.value === sleepTimer) ? categoryColor : Colors.dark.textSecondary}
+                />
+                <ThemedText
+                  style={[
+                    styles.timerOptionText,
+                    sleepTimer !== null && !SLEEP_TIMER_OPTIONS.some(o => o.value === sleepTimer)
+                      ? { color: categoryColor, fontWeight: "600" }
+                      : {},
+                  ]}
+                >
+                  {sleepTimer !== null && !SLEEP_TIMER_OPTIONS.some(o => o.value === sleepTimer)
+                    ? `Custom (${sleepTimer} min)`
+                    : "+ Custom"}
+                </ThemedText>
+                {sleepTimer !== null && !SLEEP_TIMER_OPTIONS.some(o => o.value === sleepTimer) ? (
+                  <Feather name="check" size={20} color={categoryColor} />
+                ) : null}
+              </Pressable>
+            )}
+
             {sleepTimer !== null ? (
               <Pressable
                 style={styles.timerCancelButton}
@@ -862,5 +950,61 @@ const styles = StyleSheet.create({
     color: Colors.dark.error,
     fontSize: 15,
     fontWeight: "500",
+  },
+  customTimerContainer: {
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.lg,
+    marginBottom: Spacing.sm,
+    gap: Spacing.md,
+  },
+  customTimerInputRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  customTimerInput: {
+    flex: 1,
+    height: 48,
+    backgroundColor: Colors.dark.backgroundDefault,
+    borderRadius: BorderRadius.sm,
+    paddingHorizontal: Spacing.lg,
+    color: Colors.dark.text,
+    fontSize: 18,
+    fontWeight: "600",
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+    textAlign: "center",
+  },
+  customTimerUnit: {
+    color: Colors.dark.textSecondary,
+    fontSize: 16,
+    fontWeight: "500",
+  },
+  customTimerActions: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+  },
+  customTimerSetButton: {
+    flex: 1,
+    height: 44,
+    borderRadius: BorderRadius.sm,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  customTimerSetText: {
+    color: "#FFFFFF",
+    fontSize: 15,
+    fontWeight: "600",
+  },
+  customTimerCancelButton: {
+    height: 44,
+    paddingHorizontal: Spacing.lg,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  customTimerCancelText: {
+    color: Colors.dark.textSecondary,
+    fontSize: 15,
   },
 });

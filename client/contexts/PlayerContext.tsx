@@ -13,7 +13,7 @@ export interface Track {
 }
 
 export type LoopMode = "none" | "one" | "all";
-export type SleepTimerOption = 15 | 30 | 45 | 60 | null;
+export type SleepTimerOption = number | null;
 
 interface PlayerContextType {
   currentTrack: Track | null;
