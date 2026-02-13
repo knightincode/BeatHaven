@@ -7,6 +7,9 @@ import {
   ActivityIndicator,
   Modal,
   TextInput,
+  KeyboardAvoidingView,
+  Keyboard,
+  ScrollView,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
@@ -577,134 +580,166 @@ export default function PlayerScreen() {
         visible={timerModalVisible}
         transparent
         animationType="slide"
-        onRequestClose={() => setTimerModalVisible(false)}
+        onRequestClose={() => {
+          Keyboard.dismiss();
+          setTimerModalVisible(false);
+        }}
       >
-        <Pressable style={styles.modalOverlay} onPress={() => setTimerModalVisible(false)}>
-          <Pressable onPress={(e) => e.stopPropagation()} style={[styles.modalContent, { paddingBottom: insets.bottom + Spacing.lg }]}>
-            <View style={styles.modalHeader}>
-              <ThemedText type="h4">Sleep Timer</ThemedText>
-              <Pressable onPress={() => setTimerModalVisible(false)} testID="button-close-timer">
-                <Feather name="x" size={24} color={Colors.dark.text} />
-              </Pressable>
-            </View>
-            <ThemedText style={styles.modalDescription}>
-              Audio will gently fade out over 30 seconds before pausing
-            </ThemedText>
-            {SLEEP_TIMER_OPTIONS.map((option) => (
-              <Pressable
-                key={option.value}
-                style={[
-                  styles.timerOption,
-                  sleepTimer === option.value ? { backgroundColor: categoryColor + "20", borderColor: categoryColor } : {},
-                ]}
-                onPress={() => handleTimerSelect(option.value)}
-                testID={`button-timer-${option.value}`}
-              >
-                <Feather
-                  name="clock"
-                  size={20}
-                  color={sleepTimer === option.value ? categoryColor : Colors.dark.textSecondary}
-                />
-                <ThemedText
-                  style={[
-                    styles.timerOptionText,
-                    sleepTimer === option.value ? { color: categoryColor, fontWeight: "600" } : {},
-                  ]}
+        <KeyboardAvoidingView
+          style={styles.keyboardAvoidingContainer}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+        >
+          <Pressable
+            style={styles.modalOverlay}
+            onPress={() => {
+              Keyboard.dismiss();
+              setTimerModalVisible(false);
+            }}
+          >
+            <Pressable
+              onPress={() => Keyboard.dismiss()}
+              style={[styles.modalContent, { paddingBottom: insets.bottom + Spacing.lg }]}
+            >
+              <View style={styles.modalHeader}>
+                <ThemedText type="h4">Sleep Timer</ThemedText>
+                <Pressable
+                  onPress={() => {
+                    Keyboard.dismiss();
+                    setTimerModalVisible(false);
+                  }}
+                  testID="button-close-timer"
                 >
-                  {option.label}
-                </ThemedText>
-                {sleepTimer === option.value ? (
-                  <Feather name="check" size={20} color={categoryColor} />
-                ) : null}
-              </Pressable>
-            ))}
+                  <Feather name="x" size={24} color={Colors.dark.text} />
+                </Pressable>
+              </View>
+              <ThemedText style={styles.modalDescription}>
+                Audio will gently fade out over 30 seconds before pausing
+              </ThemedText>
+              <ScrollView
+                bounces={false}
+                keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator={false}
+              >
+                {SLEEP_TIMER_OPTIONS.map((option) => (
+                  <Pressable
+                    key={option.value}
+                    style={[
+                      styles.timerOption,
+                      sleepTimer === option.value ? { backgroundColor: categoryColor + "20", borderColor: categoryColor } : {},
+                    ]}
+                    onPress={() => handleTimerSelect(option.value)}
+                    testID={`button-timer-${option.value}`}
+                  >
+                    <Feather
+                      name="clock"
+                      size={20}
+                      color={sleepTimer === option.value ? categoryColor : Colors.dark.textSecondary}
+                    />
+                    <ThemedText
+                      style={[
+                        styles.timerOptionText,
+                        sleepTimer === option.value ? { color: categoryColor, fontWeight: "600" } : {},
+                      ]}
+                    >
+                      {option.label}
+                    </ThemedText>
+                    {sleepTimer === option.value ? (
+                      <Feather name="check" size={20} color={categoryColor} />
+                    ) : null}
+                  </Pressable>
+                ))}
 
-            {showCustomTimer ? (
-              <View style={styles.customTimerContainer}>
-                <View style={styles.customTimerInputRow}>
-                  <TextInput
-                    style={styles.customTimerInput}
-                    placeholder="Minutes"
-                    placeholderTextColor={Colors.dark.textSecondary}
-                    value={customMinutes}
-                    onChangeText={(text) => setCustomMinutes(text.replace(/[^0-9]/g, ""))}
-                    keyboardType="number-pad"
-                    autoFocus
-                    maxLength={3}
-                    testID="input-custom-timer"
-                  />
-                  <ThemedText style={styles.customTimerUnit}>min</ThemedText>
-                </View>
-                <View style={styles.customTimerActions}>
+                {showCustomTimer ? (
+                  <View style={styles.customTimerContainer}>
+                    <View style={styles.customTimerInputRow}>
+                      <TextInput
+                        style={styles.customTimerInput}
+                        placeholder="Minutes"
+                        placeholderTextColor={Colors.dark.textSecondary}
+                        value={customMinutes}
+                        onChangeText={(text) => setCustomMinutes(text.replace(/[^0-9]/g, ""))}
+                        keyboardType="number-pad"
+                        autoFocus
+                        maxLength={3}
+                        returnKeyType="done"
+                        onSubmitEditing={handleCustomTimerSubmit}
+                        testID="input-custom-timer"
+                      />
+                      <ThemedText style={styles.customTimerUnit}>min</ThemedText>
+                    </View>
+                    <View style={styles.customTimerActions}>
+                      <Pressable
+                        style={[
+                          styles.customTimerSetButton,
+                          { backgroundColor: categoryColor },
+                          parseInt(customMinutes, 10) > 0 ? {} : { opacity: 0.4 },
+                        ]}
+                        onPress={handleCustomTimerSubmit}
+                        disabled={!(parseInt(customMinutes, 10) > 0)}
+                        testID="button-set-custom-timer"
+                      >
+                        <ThemedText style={styles.customTimerSetText}>Set Timer</ThemedText>
+                      </Pressable>
+                      <Pressable
+                        style={styles.customTimerCancelButton}
+                        onPress={() => {
+                          Keyboard.dismiss();
+                          setShowCustomTimer(false);
+                          setCustomMinutes("");
+                        }}
+                        testID="button-cancel-custom-timer"
+                      >
+                        <ThemedText style={styles.customTimerCancelText}>Cancel</ThemedText>
+                      </Pressable>
+                    </View>
+                  </View>
+                ) : (
                   <Pressable
                     style={[
-                      styles.customTimerSetButton,
-                      { backgroundColor: categoryColor },
-                      parseInt(customMinutes, 10) > 0 ? {} : { opacity: 0.4 },
+                      styles.timerOption,
+                      sleepTimer !== null && !SLEEP_TIMER_OPTIONS.some(o => o.value === sleepTimer)
+                        ? { backgroundColor: categoryColor + "20", borderColor: categoryColor }
+                        : {},
                     ]}
-                    onPress={handleCustomTimerSubmit}
-                    disabled={!(parseInt(customMinutes, 10) > 0)}
-                    testID="button-set-custom-timer"
+                    onPress={() => setShowCustomTimer(true)}
+                    testID="button-custom-timer"
                   >
-                    <ThemedText style={styles.customTimerSetText}>Set Timer</ThemedText>
+                    <Feather
+                      name="plus"
+                      size={20}
+                      color={sleepTimer !== null && !SLEEP_TIMER_OPTIONS.some(o => o.value === sleepTimer) ? categoryColor : Colors.dark.textSecondary}
+                    />
+                    <ThemedText
+                      style={[
+                        styles.timerOptionText,
+                        sleepTimer !== null && !SLEEP_TIMER_OPTIONS.some(o => o.value === sleepTimer)
+                          ? { color: categoryColor, fontWeight: "600" }
+                          : {},
+                      ]}
+                    >
+                      {sleepTimer !== null && !SLEEP_TIMER_OPTIONS.some(o => o.value === sleepTimer)
+                        ? `Custom (${sleepTimer} min)`
+                        : "+ Custom"}
+                    </ThemedText>
+                    {sleepTimer !== null && !SLEEP_TIMER_OPTIONS.some(o => o.value === sleepTimer) ? (
+                      <Feather name="check" size={20} color={categoryColor} />
+                    ) : null}
                   </Pressable>
-                  <Pressable
-                    style={styles.customTimerCancelButton}
-                    onPress={() => {
-                      setShowCustomTimer(false);
-                      setCustomMinutes("");
-                    }}
-                    testID="button-cancel-custom-timer"
-                  >
-                    <ThemedText style={styles.customTimerCancelText}>Cancel</ThemedText>
-                  </Pressable>
-                </View>
-              </View>
-            ) : (
-              <Pressable
-                style={[
-                  styles.timerOption,
-                  sleepTimer !== null && !SLEEP_TIMER_OPTIONS.some(o => o.value === sleepTimer)
-                    ? { backgroundColor: categoryColor + "20", borderColor: categoryColor }
-                    : {},
-                ]}
-                onPress={() => setShowCustomTimer(true)}
-                testID="button-custom-timer"
-              >
-                <Feather
-                  name="plus"
-                  size={20}
-                  color={sleepTimer !== null && !SLEEP_TIMER_OPTIONS.some(o => o.value === sleepTimer) ? categoryColor : Colors.dark.textSecondary}
-                />
-                <ThemedText
-                  style={[
-                    styles.timerOptionText,
-                    sleepTimer !== null && !SLEEP_TIMER_OPTIONS.some(o => o.value === sleepTimer)
-                      ? { color: categoryColor, fontWeight: "600" }
-                      : {},
-                  ]}
-                >
-                  {sleepTimer !== null && !SLEEP_TIMER_OPTIONS.some(o => o.value === sleepTimer)
-                    ? `Custom (${sleepTimer} min)`
-                    : "+ Custom"}
-                </ThemedText>
-                {sleepTimer !== null && !SLEEP_TIMER_OPTIONS.some(o => o.value === sleepTimer) ? (
-                  <Feather name="check" size={20} color={categoryColor} />
-                ) : null}
-              </Pressable>
-            )}
+                )}
 
-            {sleepTimer !== null ? (
-              <Pressable
-                style={styles.timerCancelButton}
-                onPress={() => handleTimerSelect(null)}
-                testID="button-cancel-timer"
-              >
-                <ThemedText style={styles.timerCancelText}>Cancel Timer</ThemedText>
-              </Pressable>
-            ) : null}
+                {sleepTimer !== null ? (
+                  <Pressable
+                    style={styles.timerCancelButton}
+                    onPress={() => handleTimerSelect(null)}
+                    testID="button-cancel-timer"
+                  >
+                    <ThemedText style={styles.timerCancelText}>Cancel Timer</ThemedText>
+                  </Pressable>
+                ) : null}
+              </ScrollView>
+            </Pressable>
           </Pressable>
-        </Pressable>
+        </KeyboardAvoidingView>
       </Modal>
 
       <AmbientMixer
@@ -903,6 +938,9 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "500",
   },
+  keyboardAvoidingContainer: {
+    flex: 1,
+  },
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0, 0, 0, 0.6)",
@@ -913,6 +951,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: BorderRadius.xl,
     borderTopRightRadius: BorderRadius.xl,
     padding: Spacing["2xl"],
+    maxHeight: "80%",
   },
   modalHeader: {
     flexDirection: "row",
