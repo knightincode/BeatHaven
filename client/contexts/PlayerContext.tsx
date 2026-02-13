@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useRef, ReactNode, useEffect, useCallback } from "react";
 import { Audio, AVPlaybackStatus } from "expo-av";
+import { useAuth } from "@/contexts/AuthContext";
 
 export interface Track {
   id: string;
@@ -15,6 +16,8 @@ export interface Track {
 export type LoopMode = "none" | "one" | "all";
 export type SleepTimerOption = number | null;
 
+const FREE_PREVIEW_MS = 5 * 60 * 1000;
+
 interface PlayerContextType {
   currentTrack: Track | null;
   isPlaying: boolean;
@@ -26,6 +29,8 @@ interface PlayerContextType {
   sleepTimer: SleepTimerOption;
   sleepTimerRemaining: number;
   isFadingOut: boolean;
+  hasActiveSubscription: boolean;
+  previewEnded: boolean;
   playTrack: (track: Track) => Promise<void>;
   pause: () => Promise<void>;
   resume: () => Promise<void>;
@@ -35,6 +40,7 @@ interface PlayerContextType {
   setSleepTimer: (minutes: SleepTimerOption) => void;
   showPlayer: () => void;
   hidePlayer: () => void;
+  dismissPreviewEnded: () => void;
 }
 
 const PlayerContext = createContext<PlayerContextType | undefined>(undefined);
@@ -43,6 +49,7 @@ const FADE_DURATION = 30000;
 const FADE_INTERVAL = 500;
 
 export function PlayerProvider({ children }: { children: ReactNode }) {
+  const { hasActiveSubscription } = useAuth();
   const [currentTrack, setCurrentTrack] = useState<Track | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -53,10 +60,21 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const [sleepTimer, setSleepTimerState] = useState<SleepTimerOption>(null);
   const [sleepTimerRemaining, setSleepTimerRemaining] = useState(0);
   const [isFadingOut, setIsFadingOut] = useState(false);
+  const [previewEnded, setPreviewEnded] = useState(false);
   const soundRef = useRef<Audio.Sound | null>(null);
   const sleepTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const fadeIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const sleepTimerEndRef = useRef<number>(0);
+  const subscriptionRef = useRef(hasActiveSubscription);
+  const loopModeRef = useRef(loopMode);
+
+  useEffect(() => {
+    subscriptionRef.current = hasActiveSubscription;
+  }, [hasActiveSubscription]);
+
+  useEffect(() => {
+    loopModeRef.current = loopMode;
+  }, [loopMode]);
 
   useEffect(() => {
     return () => {
@@ -152,8 +170,21 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       setDuration(status.durationMillis || 0);
       setIsPlaying(status.isPlaying);
 
+      if (!subscriptionRef.current && status.positionMillis >= FREE_PREVIEW_MS && status.isPlaying) {
+        if (soundRef.current) {
+          soundRef.current.pauseAsync();
+        }
+        setIsPlaying(false);
+        setPreviewEnded(true);
+        return;
+      }
+
       if (status.didJustFinish) {
-        if (loopMode === "one") {
+        if (subscriptionRef.current) {
+          if (soundRef.current) {
+            soundRef.current.replayAsync();
+          }
+        } else if (loopModeRef.current === "one") {
           if (soundRef.current) {
             soundRef.current.replayAsync();
           }
@@ -170,6 +201,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       setCurrentTrack(track);
       setIsPlayerVisible(true);
       setIsLoading(true);
+      setPreviewEnded(false);
       
       if (soundRef.current) {
         await soundRef.current.unloadAsync();
@@ -204,6 +236,9 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   }
 
   async function resume() {
+    if (previewEnded && !subscriptionRef.current) {
+      return;
+    }
     if (soundRef.current) {
       await soundRef.current.playAsync();
       setIsPlaying(true);
@@ -222,6 +257,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     setSleepTimerState(null);
     setSleepTimerRemaining(0);
     setIsFadingOut(false);
+    setPreviewEnded(false);
 
     if (soundRef.current) {
       await soundRef.current.stopAsync();
@@ -236,6 +272,9 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   }
 
   async function seek(position: number) {
+    if (!subscriptionRef.current && position >= FREE_PREVIEW_MS) {
+      return;
+    }
     if (soundRef.current) {
       await soundRef.current.setPositionAsync(position);
     }
@@ -247,6 +286,10 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
   function hidePlayer() {
     setIsPlayerVisible(false);
+  }
+
+  function dismissPreviewEnded() {
+    setPreviewEnded(false);
   }
 
   return (
@@ -262,6 +305,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         sleepTimer,
         sleepTimerRemaining,
         isFadingOut,
+        hasActiveSubscription,
+        previewEnded,
         playTrack,
         pause,
         resume,
@@ -271,6 +316,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         setSleepTimer,
         showPlayer,
         hidePlayer,
+        dismissPreviewEnded,
       }}
     >
       {children}

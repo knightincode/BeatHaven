@@ -35,6 +35,8 @@ export function MiniPlayer() {
     isLoading,
     progress,
     duration,
+    hasActiveSubscription,
+    previewEnded,
     pause,
     resume,
     isPlayerVisible,
@@ -77,8 +79,11 @@ export function MiniPlayer() {
     return null;
   }
 
+  const FREE_PREVIEW_MS = 5 * 60 * 1000;
   const categoryColor = FrequencyColors[currentTrack.category.toLowerCase()] || Colors.dark.link;
-  const progressPercent = duration > 0 ? (progress / duration) * 100 : 0;
+  const progressPercent = hasActiveSubscription
+    ? (duration > 0 ? ((progress % duration) / duration) * 100 : 0)
+    : Math.min(100, (progress / FREE_PREVIEW_MS) * 100);
   const trackIsFavorite = isAuthenticated ? isFavorite(currentTrack.id) : false;
 
   function handlePress() {

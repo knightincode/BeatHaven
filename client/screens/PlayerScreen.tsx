@@ -286,6 +286,8 @@ const orbStyles = StyleSheet.create({
   },
 });
 
+const FREE_PREVIEW_MS = 5 * 60 * 1000;
+
 const SLEEP_TIMER_OPTIONS: { label: string; value: SleepTimerOption }[] = [
   { label: "15 min", value: 15 },
   { label: "30 min", value: 30 },
@@ -306,6 +308,8 @@ export default function PlayerScreen() {
     sleepTimer,
     sleepTimerRemaining,
     isFadingOut,
+    hasActiveSubscription,
+    previewEnded,
     pause,
     resume,
     stop,
@@ -313,6 +317,7 @@ export default function PlayerScreen() {
     setLoopMode,
     setSleepTimer,
     hidePlayer,
+    dismissPreviewEnded,
   } = usePlayer();
 
   const { isAuthenticated } = useAuth();
@@ -500,17 +505,21 @@ export default function PlayerScreen() {
                 style={[
                   styles.progressFill,
                   {
-                    width: duration > 0 ? `${(progress / duration) * 100}%` : "0%",
+                    width: hasActiveSubscription
+                      ? (duration > 0 ? `${((progress % duration) / duration) * 100}%` : "0%")
+                      : `${Math.min(100, (progress / FREE_PREVIEW_MS) * 100)}%`,
                     backgroundColor: categoryColor,
                   },
                 ]}
               />
-              {duration > 0 ? (
+              {(hasActiveSubscription ? duration > 0 : true) ? (
                 <View
                   style={[
                     styles.progressThumb,
                     {
-                      left: `${(progress / duration) * 100}%`,
+                      left: hasActiveSubscription
+                        ? (duration > 0 ? `${((progress % duration) / duration) * 100}%` : "0%")
+                        : `${Math.min(100, (progress / FREE_PREVIEW_MS) * 100)}%`,
                       backgroundColor: categoryColor,
                     },
                   ]}
@@ -520,7 +529,11 @@ export default function PlayerScreen() {
           </Pressable>
           <View style={styles.timeContainer}>
             <ThemedText style={styles.timeText}>{formatTime(progress)}</ThemedText>
-            <ThemedText style={styles.timeText}>{formatTime(duration)}</ThemedText>
+            {hasActiveSubscription ? (
+              <ThemedText style={[styles.timeText, styles.infinityText]}>{"\u221E"}</ThemedText>
+            ) : (
+              <ThemedText style={styles.timeText}>{formatTime(FREE_PREVIEW_MS)}</ThemedText>
+            )}
           </View>
         </View>
 
@@ -756,6 +769,45 @@ export default function PlayerScreen() {
           trackTitle={currentTrack.title}
         />
       ) : null}
+
+      <Modal
+        visible={previewEnded}
+        transparent
+        animationType="fade"
+        onRequestClose={dismissPreviewEnded}
+      >
+        <Pressable style={styles.upgradeOverlay} onPress={dismissPreviewEnded}>
+          <Pressable onPress={(e) => e.stopPropagation()} style={styles.upgradeContent}>
+            <View style={[styles.upgradeIconCircle, { backgroundColor: categoryColor + "20" }]}>
+              <Feather name="lock" size={32} color={categoryColor} />
+            </View>
+            <ThemedText type="h3" style={styles.upgradeTitle}>
+              Preview Complete
+            </ThemedText>
+            <ThemedText style={styles.upgradeDescription}>
+              You've reached the 5-minute free preview limit. Subscribe to unlock unlimited listening with continuous looping.
+            </ThemedText>
+            <Pressable
+              style={[styles.upgradeButton, { backgroundColor: categoryColor }]}
+              onPress={() => {
+                dismissPreviewEnded();
+                (navigation as any).navigate("Subscription");
+              }}
+              testID="button-upgrade-subscribe"
+            >
+              <Feather name="star" size={18} color="#FFFFFF" />
+              <ThemedText style={styles.upgradeButtonText}>Subscribe - $2.99/mo</ThemedText>
+            </Pressable>
+            <Pressable
+              style={styles.upgradeDismissButton}
+              onPress={dismissPreviewEnded}
+              testID="button-upgrade-dismiss"
+            >
+              <ThemedText style={styles.upgradeDismissText}>Maybe Later</ThemedText>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -869,6 +921,11 @@ const styles = StyleSheet.create({
   timeText: {
     color: "rgba(255,255,255,0.5)",
     fontSize: 12,
+  },
+  infinityText: {
+    fontSize: 18,
+    fontWeight: "600",
+    lineHeight: 18,
   },
   controlsRow: {
     flexDirection: "row",
@@ -1045,5 +1102,61 @@ const styles = StyleSheet.create({
   customTimerCancelText: {
     color: Colors.dark.textSecondary,
     fontSize: 15,
+  },
+  upgradeOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.75)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: Spacing["2xl"],
+  },
+  upgradeContent: {
+    backgroundColor: Colors.dark.backgroundDefault,
+    borderRadius: BorderRadius.xl,
+    padding: Spacing["2xl"],
+    alignItems: "center",
+    width: "100%",
+    maxWidth: 340,
+  },
+  upgradeIconCircle: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: Spacing.lg,
+  },
+  upgradeTitle: {
+    textAlign: "center",
+    marginBottom: Spacing.sm,
+  },
+  upgradeDescription: {
+    textAlign: "center",
+    color: Colors.dark.textSecondary,
+    fontSize: 14,
+    lineHeight: 20,
+    marginBottom: Spacing["2xl"],
+  },
+  upgradeButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    width: "100%",
+    height: 52,
+    borderRadius: BorderRadius.md,
+    marginBottom: Spacing.md,
+  },
+  upgradeButtonText: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  upgradeDismissButton: {
+    padding: Spacing.md,
+  },
+  upgradeDismissText: {
+    color: Colors.dark.textSecondary,
+    fontSize: 14,
   },
 });
