@@ -110,6 +110,7 @@ export function AddToPlaylistModal({ visible, onClose, trackId, trackTitle }: Ad
         <KeyboardAvoidingView
           behavior={Platform.OS === "ios" ? "padding" : undefined}
           style={styles.keyboardAvoid}
+          pointerEvents="box-none"
         >
           <Pressable
             style={[styles.content, { maxHeight: modalMaxHeight }]}
