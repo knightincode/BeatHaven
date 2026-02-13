@@ -288,7 +288,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const tracks = await storage.getPlaylistTracks(id);
-      res.json(tracks);
+      const domain = process.env.REPLIT_DOMAINS?.split(",")[0] || process.env.REPLIT_DEV_DOMAIN;
+      const baseUrl = `https://${domain}:5000`;
+      const tracksWithUrls = tracks.map((track: any) => ({
+        ...track,
+        fileUrl: track.fileUrl && !track.fileUrl.startsWith("http") ? `${baseUrl}/api/audio/${track.fileUrl}` : track.fileUrl,
+      }));
+      res.json(tracksWithUrls);
     } catch (error: any) {
       console.error("Get playlist tracks error:", error);
       res.status(500).json({ message: "Failed to get playlist tracks" });
@@ -336,7 +342,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const user = req.user!;
       const favorites = await storage.getUserFavorites(user.id);
-      res.json(favorites);
+      const domain = process.env.REPLIT_DOMAINS?.split(",")[0] || process.env.REPLIT_DEV_DOMAIN;
+      const baseUrl = `https://${domain}:5000`;
+      const favoritesWithUrls = favorites.map((track: any) => ({
+        ...track,
+        fileUrl: track.fileUrl && !track.fileUrl.startsWith("http") ? `${baseUrl}/api/audio/${track.fileUrl}` : track.fileUrl,
+      }));
+      res.json(favoritesWithUrls);
     } catch (error: any) {
       console.error("Get favorites error:", error);
       res.status(500).json({ message: "Failed to get favorites" });
