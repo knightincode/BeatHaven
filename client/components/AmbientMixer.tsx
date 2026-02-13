@@ -10,9 +10,11 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import Slider from "@react-native-community/slider";
 import * as Haptics from "expo-haptics";
+import { Audio } from "expo-av";
 
 import { ThemedText } from "@/components/ThemedText";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
+import { getApiUrl } from "@/lib/query-client";
 
 interface AmbientLayer {
   id: string;
@@ -41,7 +43,8 @@ export function AmbientMixer({ visible, onClose, accentColor = Colors.dark.link 
   const insets = useSafeAreaInsets();
   const [layers, setLayers] = useState<AmbientLayer[]>(AMBIENT_LAYERS);
   const audioContextRef = useRef<any>(null);
-  const nodesRef = useRef<Record<string, { source: any; gain: any }>>({});
+  const webNodesRef = useRef<Record<string, { source: any; gain: any }>>({});
+  const nativeSoundsRef = useRef<Record<string, Audio.Sound>>({});
 
   const getAudioContext = useCallback(() => {
     if (Platform.OS !== "web") return null;
@@ -99,11 +102,11 @@ export function AmbientMixer({ visible, onClose, accentColor = Colors.dark.link 
     return buffer;
   }
 
-  function startLayer(layerId: string, volume: number) {
+  function startWebLayer(layerId: string, volume: number) {
     const ctx = getAudioContext();
     if (!ctx) return;
 
-    stopLayer(layerId);
+    stopWebLayer(layerId);
 
     const buffer = createNoiseBuffer(ctx, layerId);
     const source = ctx.createBufferSource();
@@ -123,18 +126,67 @@ export function AmbientMixer({ visible, onClose, accentColor = Colors.dark.link 
     gain.connect(ctx.destination);
     source.start();
 
-    nodesRef.current[layerId] = { source, gain };
+    webNodesRef.current[layerId] = { source, gain };
   }
 
-  function stopLayer(layerId: string) {
-    const node = nodesRef.current[layerId];
+  function stopWebLayer(layerId: string) {
+    const node = webNodesRef.current[layerId];
     if (node) {
       try {
         node.source.stop();
         node.source.disconnect();
         node.gain.disconnect();
       } catch (e) {}
-      delete nodesRef.current[layerId];
+      delete webNodesRef.current[layerId];
+    }
+  }
+
+  async function startNativeLayer(layerId: string, volume: number) {
+    await stopNativeLayer(layerId);
+
+    try {
+      const baseUrl = getApiUrl();
+      const uri = `${baseUrl}api/audio/ambient/${layerId}.wav`;
+
+      const { sound } = await Audio.Sound.createAsync(
+        { uri },
+        {
+          shouldPlay: true,
+          isLooping: true,
+          volume,
+        }
+      );
+
+      nativeSoundsRef.current[layerId] = sound;
+    } catch (error) {
+      console.error(`Failed to start native ambient layer ${layerId}:`, error);
+    }
+  }
+
+  async function stopNativeLayer(layerId: string) {
+    const sound = nativeSoundsRef.current[layerId];
+    if (sound) {
+      try {
+        await sound.stopAsync();
+        await sound.unloadAsync();
+      } catch (e) {}
+      delete nativeSoundsRef.current[layerId];
+    }
+  }
+
+  function startLayer(layerId: string, volume: number) {
+    if (Platform.OS === "web") {
+      startWebLayer(layerId, volume);
+    } else {
+      startNativeLayer(layerId, volume);
+    }
+  }
+
+  function stopLayer(layerId: string) {
+    if (Platform.OS === "web") {
+      stopWebLayer(layerId);
+    } else {
+      stopNativeLayer(layerId);
     }
   }
 
@@ -163,9 +215,16 @@ export function AmbientMixer({ visible, onClose, accentColor = Colors.dark.link 
     setLayers((prev) =>
       prev.map((l) => {
         if (l.id === layerId) {
-          const node = nodesRef.current[layerId];
-          if (node) {
-            node.gain.gain.value = volume;
+          if (Platform.OS === "web") {
+            const node = webNodesRef.current[layerId];
+            if (node) {
+              node.gain.gain.value = volume;
+            }
+          } else {
+            const sound = nativeSoundsRef.current[layerId];
+            if (sound) {
+              sound.setVolumeAsync(volume).catch(() => {});
+            }
           }
           return { ...l, volume };
         }
@@ -176,7 +235,8 @@ export function AmbientMixer({ visible, onClose, accentColor = Colors.dark.link 
 
   useEffect(() => {
     return () => {
-      Object.keys(nodesRef.current).forEach((id) => stopLayer(id));
+      Object.keys(webNodesRef.current).forEach((id) => stopWebLayer(id));
+      Object.keys(nativeSoundsRef.current).forEach((id) => stopNativeLayer(id));
     };
   }, []);
 
@@ -198,9 +258,7 @@ export function AmbientMixer({ visible, onClose, accentColor = Colors.dark.link 
             </Pressable>
           </View>
           <ThemedText style={styles.description}>
-            {Platform.OS === "web"
-              ? "Layer ambient sounds over your binaural beats"
-              : "Ambient sounds are available on the web version"}
+            Layer ambient sounds over your binaural beats
           </ThemedText>
           {activeLayers > 0 ? (
             <View style={[styles.activeBadge, { backgroundColor: accentColor + "20" }]}>
