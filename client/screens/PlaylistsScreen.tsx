@@ -147,15 +147,19 @@ export default function PlaylistsScreen() {
           style={styles.emptyImage}
           resizeMode="contain"
         />
-        <ThemedText type="h4" style={styles.emptyTitle}>
+        <ThemedText type="h3" style={styles.emptyTitle}>
           No Playlists Yet
         </ThemedText>
         <ThemedText style={styles.emptyText}>
-          Create your first playlist to organize your favorite beats
+          Create your first playlist to organize{"\n"}your favorite beats.
         </ThemedText>
-        <Button onPress={() => setModalVisible(true)} style={styles.createButton}>
-          Create Playlist
-        </Button>
+        <Pressable
+          style={styles.createOutlineButton}
+          onPress={() => setModalVisible(true)}
+          testID="button-create-first-playlist"
+        >
+          <ThemedText style={styles.createOutlineButtonText}>Create Playlist</ThemedText>
+        </Pressable>
       </View>
     );
   }
@@ -325,8 +329,7 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
   },
   emptyContentContainer: {
-    flex: 1,
-    justifyContent: "center",
+    flexGrow: 1,
   },
   addButton: {
     flexDirection: "row",
@@ -361,10 +364,11 @@ const styles = StyleSheet.create({
   emptyContainer: {
     alignItems: "center",
     paddingHorizontal: Spacing["2xl"],
+    paddingTop: Spacing["2xl"],
   },
   emptyImage: {
-    width: 150,
-    height: 150,
+    width: 200,
+    height: 200,
     marginBottom: Spacing["2xl"],
   },
   emptyTitle: {
@@ -374,10 +378,21 @@ const styles = StyleSheet.create({
   emptyText: {
     color: Colors.dark.textSecondary,
     textAlign: "center",
+    fontSize: 15,
+    lineHeight: 22,
     marginBottom: Spacing["2xl"],
   },
-  createButton: {
+  createOutlineButton: {
     paddingHorizontal: Spacing["3xl"],
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.full,
+    borderWidth: 1.5,
+    borderColor: Colors.dark.link,
+  },
+  createOutlineButtonText: {
+    color: Colors.dark.link,
+    fontSize: 16,
+    fontWeight: "600",
   },
   modalOverlay: {
     flex: 1,
