@@ -2,7 +2,7 @@
 
 ## Overview
 
-A premium React Native/Expo mobile application delivering therapeutic binaural beats for stress reduction, focus improvement, and sleep enhancement. Users access curated frequency-based audio content through a $2.99/month subscription model. The app features an immersive "Resonant Orb" animation during playback with 4-7-8 breathing rhythm, category-colored glow, and slow-rotating SVG concentric rings.
+A premium React Native/Expo mobile application delivering therapeutic binaural beats for stress reduction, focus improvement, and sleep enhancement. Users access curated frequency-based audio content through a $0.99/month subscription model. The app features an immersive "Resonant Orb" animation during playback with 4-7-8 breathing rhythm, category-colored glow, and slow-rotating SVG concentric rings.
 
 ## User Preferences
 
