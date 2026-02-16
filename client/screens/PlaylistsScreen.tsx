@@ -8,7 +8,6 @@ import {
   RefreshControl,
   Modal,
   TextInput,
-  Dimensions,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
@@ -21,38 +20,25 @@ import { HeaderButton } from "@react-navigation/elements";
 import * as Haptics from "expo-haptics";
 import { Platform } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withSpring,
-  withRepeat,
-  withTiming,
-  withSequence,
-  Easing,
-  FadeIn,
-} from "react-native-reanimated";
 
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { Button } from "@/components/Button";
-import { Card } from "@/components/Card";
 import { useAuth } from "@/contexts/AuthContext";
 import { useFavorites } from "@/hooks/useFavorites";
 import { apiRequest } from "@/lib/query-client";
-import { Colors, Spacing, BorderRadius, FrequencyColors } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
-
-const PLAYLIST_ACCENT_COLORS = [
-  "#6366F1",
-  "#8B5CF6",
-  "#4A90E2",
-  "#10B981",
-  "#F59E0B",
-  "#EC4899",
-  "#06B6D4",
-  "#F97316",
+const THUMB_COLORS: [string, string][] = [
+  ["#6366F1", "#4F46E5"],
+  ["#8B5CF6", "#7C3AED"],
+  ["#3B82F6", "#2563EB"],
+  ["#10B981", "#059669"],
+  ["#F59E0B", "#D97706"],
+  ["#EC4899", "#DB2777"],
+  ["#06B6D4", "#0891B2"],
+  ["#F97316", "#EA580C"],
 ];
 
 interface Playlist {
@@ -62,78 +48,6 @@ interface Playlist {
 }
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
-
-function WaveIllustration() {
-  return (
-    <View style={waveStyles.container}>
-      <View style={waveStyles.wavesContainer}>
-        {[0, 1, 2, 3, 4].map((i) => (
-          <LinearGradient
-            key={i}
-            colors={[
-              `rgba(99, 102, 241, ${0.12 - i * 0.015})`,
-              `rgba(139, 92, 246, ${0.18 - i * 0.02})`,
-              `rgba(74, 144, 226, ${0.12 - i * 0.015})`,
-            ]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={[
-              waveStyles.waveLine,
-              {
-                top: 20 + i * 22,
-                width: SCREEN_WIDTH * (0.55 - i * 0.04),
-                height: 3,
-                borderRadius: 2,
-                opacity: 1 - i * 0.15,
-              },
-            ]}
-          />
-        ))}
-      </View>
-
-      <View style={waveStyles.iconCircle}>
-        <LinearGradient
-          colors={["#4A5568", "#2D3748"]}
-          style={waveStyles.iconCircleBg}
-        >
-          <Feather name="plus" size={28} color="rgba(255,255,255,0.6)" />
-        </LinearGradient>
-      </View>
-    </View>
-  );
-}
-
-const waveStyles = StyleSheet.create({
-  container: {
-    width: SCREEN_WIDTH * 0.6,
-    height: 160,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: Spacing.xl,
-  },
-  wavesContainer: {
-    position: "absolute",
-    width: "100%",
-    height: "100%",
-    alignItems: "center",
-  },
-  waveLine: {
-    position: "absolute",
-  },
-  iconCircle: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    overflow: "hidden",
-  },
-  iconCircleBg: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-});
 
 export default function PlaylistsScreen() {
   const insets = useSafeAreaInsets();
@@ -210,68 +124,70 @@ export default function PlaylistsScreen() {
     navigation.getParent()?.setOptions({});
   }, [navigation]);
 
-  function getAccentColor(index: number) {
-    return PLAYLIST_ACCENT_COLORS[index % PLAYLIST_ACCENT_COLORS.length];
+  function getThumbColors(index: number): [string, string] {
+    return THUMB_COLORS[index % THUMB_COLORS.length];
   }
 
   function renderPlaylist({ item, index }: { item: Playlist; index: number }) {
-    const accentColor = getAccentColor(index);
+    const [c1, c2] = getThumbColors(index);
     return (
       <Pressable
         style={styles.playlistRow}
         onPress={() => handleOpenPlaylist(item)}
         testID={`playlist-item-${item.id}`}
       >
-        <View style={[styles.playlistAccentDot, { backgroundColor: accentColor }]} />
-        <View style={styles.playlistRowContent}>
-          <View style={styles.playlistRowInfo}>
-            <ThemedText style={styles.playlistName}>{item.name}</ThemedText>
-            <ThemedText style={styles.playlistTrackCount}>
-              {item.trackCount} {item.trackCount === 1 ? "track" : "tracks"}
-            </ThemedText>
-          </View>
-          <View style={styles.playlistRowActions}>
-            <Pressable
-              style={styles.deleteButton}
-              onPress={() => setDeleteTarget(item)}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              testID={`button-delete-playlist-${item.id}`}
-            >
-              <Feather name="trash-2" size={16} color={Colors.dark.textSecondary} />
-            </Pressable>
-            <Feather name="chevron-right" size={20} color={Colors.dark.textSecondary} />
-          </View>
+        <LinearGradient
+          colors={[c1, c2]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.playlistThumb}
+        >
+          <Feather name="music" size={18} color="rgba(255,255,255,0.85)" />
+        </LinearGradient>
+        <View style={styles.playlistInfo}>
+          <ThemedText style={styles.playlistName} numberOfLines={1}>{item.name}</ThemedText>
+          <ThemedText style={styles.playlistMeta}>
+            Playlist  {item.trackCount} {item.trackCount === 1 ? "track" : "tracks"}
+          </ThemedText>
         </View>
+        <Pressable
+          style={styles.deleteBtn}
+          onPress={() => setDeleteTarget(item)}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          testID={`button-delete-playlist-${item.id}`}
+        >
+          <Feather name="more-vertical" size={20} color={Colors.dark.textSecondary} />
+        </Pressable>
       </Pressable>
     );
   }
 
   function renderEmpty() {
     return (
-      <Pressable
-        style={styles.emptyContainer}
-        onPress={() => setModalVisible(true)}
-        testID="button-create-first-playlist"
-      >
-        <WaveIllustration />
-        <ThemedText style={styles.emptyTitle}>Create Your First Collection</ThemedText>
-        <ThemedText style={styles.emptySubtext}>
-          Organize your favorite binaural beats{"\n"}into personalized playlists
-        </ThemedText>
-        <View style={styles.emptyTapHint}>
-          <Feather name="plus-circle" size={16} color={Colors.dark.link} />
-          <ThemedText style={styles.emptyTapHintText}>Tap to get started</ThemedText>
+      <View style={styles.emptyContainer}>
+        <View style={styles.emptyIconWrap}>
+          <Feather name="headphones" size={40} color={Colors.dark.textSecondary} />
         </View>
-      </Pressable>
+        <ThemedText style={styles.emptyTitle}>Create your first playlist</ThemedText>
+        <ThemedText style={styles.emptySubtext}>
+          It's easy — we'll help you
+        </ThemedText>
+        <Pressable
+          style={styles.createBtn}
+          onPress={() => setModalVisible(true)}
+          testID="button-create-first-playlist"
+        >
+          <ThemedText style={styles.createBtnText}>Create playlist</ThemedText>
+        </Pressable>
+      </View>
     );
   }
 
-  function renderSectionHeader() {
-    const hasPlaylists = playlists && playlists.length > 0;
+  function renderHeader() {
     return (
       <View>
         <Pressable
-          style={styles.favoritesCard}
+          style={styles.likedCard}
           onPress={() => {
             if (Platform.OS !== "web") {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -284,36 +200,26 @@ export default function PlaylistsScreen() {
           testID="button-favorites"
         >
           <LinearGradient
-            colors={["#FF6B8A", "#FF8E9E"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 0, y: 1 }}
-            style={styles.favoritesAccent}
-          />
-          <View style={styles.favoritesIconContainer}>
-            <Feather name="heart" size={22} color="#FF6B8A" />
-          </View>
-          <View style={styles.favoritesInfo}>
-            <ThemedText style={styles.favoritesTitle}>Favorites</ThemedText>
-            <ThemedText style={styles.favoritesCount}>
+            colors={["#4338CA", "#6D28D9", "#7C3AED"]}
+            start={{ x: 0, y: 1 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.likedThumb}
+          >
+            <Feather name="heart" size={22} color="#FFFFFF" />
+          </LinearGradient>
+          <View style={styles.likedInfo}>
+            <ThemedText style={styles.likedTitle}>Liked Tracks</ThemedText>
+            <ThemedText style={styles.likedMeta}>
               {favorites.length} {favorites.length === 1 ? "track" : "tracks"}
             </ThemedText>
           </View>
-          <Feather name="chevron-right" size={20} color={Colors.dark.textSecondary} />
         </Pressable>
 
-        <View style={styles.sectionHeader}>
-          <ThemedText style={styles.sectionTitle}>Your Collections</ThemedText>
-          {hasPlaylists ? (
-            <Pressable
-              style={styles.newButton}
-              onPress={() => setModalVisible(true)}
-              testID="button-new-playlist"
-            >
-              <Feather name="plus" size={16} color={Colors.dark.link} />
-              <ThemedText style={styles.newButtonText}>New</ThemedText>
-            </Pressable>
-          ) : null}
-        </View>
+        {playlists && playlists.length > 0 ? (
+          <View style={styles.sectionRow}>
+            <ThemedText style={styles.sectionLabel}>Playlists</ThemedText>
+          </View>
+        ) : null}
       </View>
     );
   }
@@ -326,6 +232,8 @@ export default function PlaylistsScreen() {
     );
   }
 
+  const hasPlaylists = playlists && playlists.length > 0;
+
   return (
     <ThemedView style={styles.container}>
       <FlatList
@@ -334,8 +242,8 @@ export default function PlaylistsScreen() {
         renderItem={renderPlaylist}
         contentContainerStyle={[
           styles.content,
-          { paddingTop: headerHeight + Spacing.xl, paddingBottom: tabBarHeight + Spacing.xl },
-          (playlists?.length || 0) === 0 && styles.emptyContentContainer,
+          { paddingTop: headerHeight + Spacing.lg, paddingBottom: tabBarHeight + 80 },
+          !hasPlaylists && styles.emptyContentContainer,
         ]}
         scrollIndicatorInsets={{ bottom: insets.bottom }}
         refreshControl={
@@ -346,8 +254,23 @@ export default function PlaylistsScreen() {
           />
         }
         ListEmptyComponent={renderEmpty}
-        ListHeaderComponent={renderSectionHeader}
+        ListHeaderComponent={renderHeader}
       />
+
+      {hasPlaylists ? (
+        <Pressable
+          style={[styles.fab, { bottom: tabBarHeight + Spacing.lg }]}
+          onPress={() => setModalVisible(true)}
+          testID="button-new-playlist"
+        >
+          <LinearGradient
+            colors={["#1DB954", "#1ED760"]}
+            style={styles.fabGradient}
+          >
+            <Feather name="plus" size={28} color="#000000" />
+          </LinearGradient>
+        </Pressable>
+      ) : null}
 
       <Modal
         visible={modalVisible}
@@ -357,12 +280,10 @@ export default function PlaylistsScreen() {
       >
         <Pressable style={styles.modalOverlay} onPress={() => setModalVisible(false)}>
           <Pressable onPress={(e) => e.stopPropagation()} style={styles.modalContent}>
-            <ThemedText type="h4" style={styles.modalTitle}>
-              New Playlist
-            </ThemedText>
+            <ThemedText style={styles.modalTitle}>Give your playlist a name</ThemedText>
             <TextInput
               style={styles.modalInput}
-              placeholder="Playlist name"
+              placeholder="My playlist"
               placeholderTextColor={Colors.dark.textSecondary}
               value={newPlaylistName}
               onChangeText={setNewPlaylistName}
@@ -371,22 +292,28 @@ export default function PlaylistsScreen() {
             />
             <View style={styles.modalButtons}>
               <Pressable
-                style={styles.modalCancelButton}
-                onPress={() => setModalVisible(false)}
+                style={styles.modalCancelBtn}
+                onPress={() => {
+                  setModalVisible(false);
+                  setNewPlaylistName("");
+                }}
               >
                 <ThemedText style={styles.modalCancelText}>Cancel</ThemedText>
               </Pressable>
-              <Button
+              <Pressable
+                style={[
+                  styles.modalCreateBtn,
+                  (!newPlaylistName.trim() || createPlaylistMutation.isPending) && styles.modalCreateBtnDisabled,
+                ]}
                 onPress={handleCreatePlaylist}
                 disabled={!newPlaylistName.trim() || createPlaylistMutation.isPending}
-                style={styles.modalCreateButton}
               >
                 {createPlaylistMutation.isPending ? (
-                  <ActivityIndicator color="#FFFFFF" size="small" />
+                  <ActivityIndicator color="#000000" size="small" />
                 ) : (
-                  "Create"
+                  <ThemedText style={styles.modalCreateText}>Create</ThemedText>
                 )}
-              </Button>
+              </Pressable>
             </View>
           </Pressable>
         </Pressable>
@@ -400,22 +327,20 @@ export default function PlaylistsScreen() {
       >
         <Pressable style={styles.modalOverlay} onPress={() => setDeleteTarget(null)}>
           <Pressable onPress={(e) => e.stopPropagation()} style={styles.modalContent}>
-            <ThemedText type="h4" style={styles.modalTitle}>
-              Delete Playlist
-            </ThemedText>
-            <ThemedText style={styles.deleteDescription}>
-              Are you sure you want to delete "{deleteTarget?.name}"? This won't remove any tracks from your Favorites.
+            <ThemedText style={styles.modalTitle}>Delete playlist</ThemedText>
+            <ThemedText style={styles.deleteDesc}>
+              Delete "{deleteTarget?.name}" from your library?
             </ThemedText>
             <View style={styles.modalButtons}>
               <Pressable
-                style={styles.modalCancelButton}
+                style={styles.modalCancelBtn}
                 onPress={() => setDeleteTarget(null)}
                 testID="button-cancel-delete"
               >
                 <ThemedText style={styles.modalCancelText}>Cancel</ThemedText>
               </Pressable>
               <Pressable
-                style={styles.deleteConfirmButton}
+                style={styles.deleteConfirmBtn}
                 onPress={handleDeletePlaylist}
                 disabled={deletePlaylistMutation.isPending}
                 testID="button-confirm-delete"
@@ -450,215 +375,209 @@ const styles = StyleSheet.create({
     flexGrow: 1,
   },
 
-  favoritesCard: {
+  likedCard: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: Colors.dark.backgroundDefault,
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.lg,
-    overflow: "hidden",
-    marginBottom: Spacing.md,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.xs,
+    padding: Spacing.sm,
+    marginBottom: Spacing.xl,
   },
-  favoritesAccent: {
-    position: "absolute",
-    left: 0,
-    top: 0,
-    bottom: 0,
-    width: 4,
-    borderTopLeftRadius: BorderRadius.lg,
-    borderBottomLeftRadius: BorderRadius.lg,
-  },
-  favoritesIconContainer: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: "rgba(255, 107, 138, 0.12)",
+  likedThumb: {
+    width: 56,
+    height: 56,
+    borderRadius: 6,
     alignItems: "center",
     justifyContent: "center",
-    marginLeft: Spacing.xs,
   },
-  favoritesInfo: {
+  likedInfo: {
     flex: 1,
     marginLeft: Spacing.md,
   },
-  favoritesTitle: {
+  likedTitle: {
     color: Colors.dark.text,
-    fontSize: 17,
-    fontWeight: "600",
+    fontSize: 16,
+    fontWeight: "700",
   },
-  favoritesCount: {
+  likedMeta: {
     color: Colors.dark.textSecondary,
     fontSize: 13,
     marginTop: 2,
   },
 
-  sectionHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginTop: Spacing.lg,
-    marginBottom: Spacing.md,
-    paddingHorizontal: Spacing.xs,
+  sectionRow: {
+    marginBottom: Spacing.sm,
   },
-  sectionTitle: {
-    color: Colors.dark.textSecondary,
-    fontSize: 13,
-    fontWeight: "600",
-    textTransform: "uppercase",
-    letterSpacing: 1,
-  },
-  newButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    paddingVertical: Spacing.xs,
-    paddingHorizontal: Spacing.sm,
-  },
-  newButtonText: {
-    color: Colors.dark.link,
-    fontSize: 14,
-    fontWeight: "600",
+  sectionLabel: {
+    color: Colors.dark.text,
+    fontSize: 18,
+    fontWeight: "700",
   },
 
   playlistRow: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: Spacing.md,
-    paddingHorizontal: Spacing.xs,
+    paddingVertical: Spacing.sm,
   },
-  playlistAccentDot: {
-    width: 8,
-    height: 8,
+  playlistThumb: {
+    width: 48,
+    height: 48,
     borderRadius: 4,
-    marginRight: Spacing.md,
-  },
-  playlistRowContent: {
-    flex: 1,
-    flexDirection: "row",
     alignItems: "center",
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: Colors.dark.border,
-    paddingBottom: Spacing.md,
+    justifyContent: "center",
   },
-  playlistRowInfo: {
+  playlistInfo: {
     flex: 1,
+    marginLeft: Spacing.md,
   },
   playlistName: {
     color: Colors.dark.text,
-    fontSize: 16,
-    fontWeight: "500",
+    fontSize: 15,
+    fontWeight: "600",
   },
-  playlistTrackCount: {
+  playlistMeta: {
     color: Colors.dark.textSecondary,
     fontSize: 13,
     marginTop: 2,
   },
-  playlistRowActions: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.md,
-  },
-  deleteButton: {
-    padding: Spacing.xs,
+  deleteBtn: {
+    padding: Spacing.sm,
   },
 
   emptyContainer: {
     alignItems: "center",
+    paddingTop: Spacing["4xl"],
     paddingHorizontal: Spacing["2xl"],
-    paddingTop: Spacing["3xl"],
+  },
+  emptyIconWrap: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: Spacing.xl,
   },
   emptyTitle: {
     color: Colors.dark.text,
-    fontSize: 18,
-    fontWeight: "600",
+    fontSize: 20,
+    fontWeight: "700",
     textAlign: "center",
     marginBottom: Spacing.sm,
   },
   emptySubtext: {
     color: Colors.dark.textSecondary,
-    textAlign: "center",
     fontSize: 14,
-    lineHeight: 21,
-    marginBottom: Spacing.xl,
+    textAlign: "center",
+    marginBottom: Spacing["2xl"],
   },
-  emptyTapHint: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.xs,
-    paddingVertical: Spacing.sm,
-    paddingHorizontal: Spacing.lg,
+  createBtn: {
+    backgroundColor: "#1DB954",
+    paddingHorizontal: Spacing["3xl"],
+    paddingVertical: Spacing.md,
     borderRadius: BorderRadius.full,
-    backgroundColor: "rgba(74, 144, 226, 0.08)",
   },
-  emptyTapHintText: {
-    color: Colors.dark.link,
-    fontSize: 13,
-    fontWeight: "500",
+  createBtnText: {
+    color: "#000000",
+    fontSize: 15,
+    fontWeight: "700",
+    letterSpacing: 0.3,
+  },
+
+  fab: {
+    position: "absolute",
+    right: Spacing.lg,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    overflow: "hidden",
+  },
+  fabGradient: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: "center",
+    justifyContent: "center",
   },
 
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.7)",
+    backgroundColor: "rgba(0, 0, 0, 0.75)",
     justifyContent: "center",
     alignItems: "center",
     padding: Spacing["2xl"],
   },
   modalContent: {
-    backgroundColor: Colors.dark.backgroundDefault,
-    borderRadius: BorderRadius.lg,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.xs,
     padding: Spacing["2xl"],
     width: "100%",
-    maxWidth: 400,
+    maxWidth: 360,
   },
   modalTitle: {
-    marginBottom: Spacing.lg,
+    color: Colors.dark.text,
+    fontSize: 20,
+    fontWeight: "700",
+    textAlign: "center",
+    marginBottom: Spacing.xl,
   },
   modalInput: {
-    height: Spacing.inputHeight,
-    backgroundColor: Colors.dark.backgroundSecondary,
-    borderRadius: BorderRadius.sm,
+    height: 48,
+    backgroundColor: Colors.dark.backgroundTertiary,
+    borderRadius: 6,
     paddingHorizontal: Spacing.lg,
     color: Colors.dark.text,
     fontSize: 16,
     borderWidth: 1,
     borderColor: Colors.dark.border,
-    marginBottom: Spacing.lg,
+    marginBottom: Spacing.xl,
+    textAlign: "center",
   },
   modalButtons: {
     flexDirection: "row",
-    gap: Spacing.md,
-  },
-  modalCancelButton: {
-    flex: 1,
-    height: Spacing.buttonHeight,
-    alignItems: "center",
     justifyContent: "center",
+    gap: Spacing.lg,
+  },
+  modalCancelBtn: {
+    paddingHorizontal: Spacing["2xl"],
+    paddingVertical: Spacing.md,
     borderRadius: BorderRadius.full,
-    borderWidth: 1,
-    borderColor: Colors.dark.border,
   },
   modalCancelText: {
-    color: Colors.dark.textSecondary,
+    color: Colors.dark.text,
+    fontSize: 15,
+    fontWeight: "700",
   },
-  modalCreateButton: {
-    flex: 1,
+  modalCreateBtn: {
+    backgroundColor: "#1DB954",
+    paddingHorizontal: Spacing["2xl"],
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.full,
   },
-  deleteDescription: {
+  modalCreateBtnDisabled: {
+    opacity: 0.4,
+  },
+  modalCreateText: {
+    color: "#000000",
+    fontSize: 15,
+    fontWeight: "700",
+  },
+  deleteDesc: {
     color: Colors.dark.textSecondary,
     fontSize: 15,
     lineHeight: 22,
-    marginBottom: Spacing.lg,
+    textAlign: "center",
+    marginBottom: Spacing.xl,
   },
-  deleteConfirmButton: {
-    flex: 1,
-    height: Spacing.buttonHeight,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: BorderRadius.full,
+  deleteConfirmBtn: {
     backgroundColor: "#E53E3E",
+    paddingHorizontal: Spacing["2xl"],
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.full,
   },
   deleteConfirmText: {
     color: "#FFFFFF",
-    fontWeight: "600",
+    fontSize: 15,
+    fontWeight: "700",
   },
 });
