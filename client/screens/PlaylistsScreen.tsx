@@ -8,6 +8,7 @@ import {
   RefreshControl,
   Modal,
   TextInput,
+  Dimensions,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
@@ -20,6 +21,16 @@ import { HeaderButton } from "@react-navigation/elements";
 import * as Haptics from "expo-haptics";
 import { Platform } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  withRepeat,
+  withTiming,
+  withSequence,
+  Easing,
+  FadeIn,
+} from "react-native-reanimated";
 
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
@@ -28,8 +39,21 @@ import { Card } from "@/components/Card";
 import { useAuth } from "@/contexts/AuthContext";
 import { useFavorites } from "@/hooks/useFavorites";
 import { apiRequest } from "@/lib/query-client";
-import { Colors, Spacing, BorderRadius } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, FrequencyColors } from "@/constants/theme";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
+
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
+
+const PLAYLIST_ACCENT_COLORS = [
+  "#6366F1",
+  "#8B5CF6",
+  "#4A90E2",
+  "#10B981",
+  "#F59E0B",
+  "#EC4899",
+  "#06B6D4",
+  "#F97316",
+];
 
 interface Playlist {
   id: string;
@@ -38,6 +62,78 @@ interface Playlist {
 }
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
+
+function WaveIllustration() {
+  return (
+    <View style={waveStyles.container}>
+      <View style={waveStyles.wavesContainer}>
+        {[0, 1, 2, 3, 4].map((i) => (
+          <LinearGradient
+            key={i}
+            colors={[
+              `rgba(99, 102, 241, ${0.12 - i * 0.015})`,
+              `rgba(139, 92, 246, ${0.18 - i * 0.02})`,
+              `rgba(74, 144, 226, ${0.12 - i * 0.015})`,
+            ]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={[
+              waveStyles.waveLine,
+              {
+                top: 20 + i * 22,
+                width: SCREEN_WIDTH * (0.55 - i * 0.04),
+                height: 3,
+                borderRadius: 2,
+                opacity: 1 - i * 0.15,
+              },
+            ]}
+          />
+        ))}
+      </View>
+
+      <View style={waveStyles.iconCircle}>
+        <LinearGradient
+          colors={["#4A5568", "#2D3748"]}
+          style={waveStyles.iconCircleBg}
+        >
+          <Feather name="plus" size={28} color="rgba(255,255,255,0.6)" />
+        </LinearGradient>
+      </View>
+    </View>
+  );
+}
+
+const waveStyles = StyleSheet.create({
+  container: {
+    width: SCREEN_WIDTH * 0.6,
+    height: 160,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: Spacing.xl,
+  },
+  wavesContainer: {
+    position: "absolute",
+    width: "100%",
+    height: "100%",
+    alignItems: "center",
+  },
+  waveLine: {
+    position: "absolute",
+  },
+  iconCircle: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    overflow: "hidden",
+  },
+  iconCircleBg: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+});
 
 export default function PlaylistsScreen() {
   const insets = useSafeAreaInsets();
@@ -114,61 +210,110 @@ export default function PlaylistsScreen() {
     navigation.getParent()?.setOptions({});
   }, [navigation]);
 
-  function renderPlaylist({ item }: { item: Playlist }) {
+  function getAccentColor(index: number) {
+    return PLAYLIST_ACCENT_COLORS[index % PLAYLIST_ACCENT_COLORS.length];
+  }
+
+  function renderPlaylist({ item, index }: { item: Playlist; index: number }) {
+    const accentColor = getAccentColor(index);
     return (
-      <Card style={styles.playlistCard} onPress={() => handleOpenPlaylist(item)}>
-        <View style={styles.playlistIcon}>
-          <Feather name="list" size={24} color={Colors.dark.link} />
+      <Pressable
+        style={styles.playlistRow}
+        onPress={() => handleOpenPlaylist(item)}
+        testID={`playlist-item-${item.id}`}
+      >
+        <View style={[styles.playlistAccentDot, { backgroundColor: accentColor }]} />
+        <View style={styles.playlistRowContent}>
+          <View style={styles.playlistRowInfo}>
+            <ThemedText style={styles.playlistName}>{item.name}</ThemedText>
+            <ThemedText style={styles.playlistTrackCount}>
+              {item.trackCount} {item.trackCount === 1 ? "track" : "tracks"}
+            </ThemedText>
+          </View>
+          <View style={styles.playlistRowActions}>
+            <Pressable
+              style={styles.deleteButton}
+              onPress={() => setDeleteTarget(item)}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              testID={`button-delete-playlist-${item.id}`}
+            >
+              <Feather name="trash-2" size={16} color={Colors.dark.textSecondary} />
+            </Pressable>
+            <Feather name="chevron-right" size={20} color={Colors.dark.textSecondary} />
+          </View>
         </View>
-        <View style={styles.playlistInfo}>
-          <ThemedText type="h4">{item.name}</ThemedText>
-          <ThemedText style={styles.trackCount}>
-            {item.trackCount} {item.trackCount === 1 ? "track" : "tracks"}
-          </ThemedText>
-        </View>
-        <Pressable
-          style={styles.deleteButton}
-          onPress={() => setDeleteTarget(item)}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          testID={`button-delete-playlist-${item.id}`}
-        >
-          <Feather name="trash-2" size={18} color={Colors.dark.textSecondary} />
-        </Pressable>
-        <Feather name="chevron-right" size={24} color={Colors.dark.textSecondary} />
-      </Card>
+      </Pressable>
     );
   }
 
   function renderEmpty() {
     return (
-      <View style={styles.emptyContainer}>
+      <Pressable
+        style={styles.emptyContainer}
+        onPress={() => setModalVisible(true)}
+        testID="button-create-first-playlist"
+      >
+        <WaveIllustration />
+        <ThemedText style={styles.emptyTitle}>Create Your First Collection</ThemedText>
+        <ThemedText style={styles.emptySubtext}>
+          Organize your favorite binaural beats{"\n"}into personalized playlists
+        </ThemedText>
+        <View style={styles.emptyTapHint}>
+          <Feather name="plus-circle" size={16} color={Colors.dark.link} />
+          <ThemedText style={styles.emptyTapHintText}>Tap to get started</ThemedText>
+        </View>
+      </Pressable>
+    );
+  }
+
+  function renderSectionHeader() {
+    const hasPlaylists = playlists && playlists.length > 0;
+    return (
+      <View>
         <Pressable
-          style={styles.orbWrapper}
-          onPress={() => setModalVisible(true)}
-          testID="button-create-first-playlist"
+          style={styles.favoritesCard}
+          onPress={() => {
+            if (Platform.OS !== "web") {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            }
+            navigation.navigate("PlaylistDetail", {
+              playlistId: "__favorites__",
+              playlistName: "Favorites",
+            });
+          }}
+          testID="button-favorites"
         >
           <LinearGradient
-            colors={["#6D5BA3", "#5A64A8", "#4A7A9E", "#7B6DB5", "#9A6BA5"]}
-            start={{ x: 0.1, y: 0.1 }}
-            end={{ x: 0.9, y: 0.9 }}
-            style={styles.orbGradient}
+            colors={["#FF6B8A", "#FF8E9E"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 0, y: 1 }}
+            style={styles.favoritesAccent}
           />
-          <LinearGradient
-            colors={["rgba(255,255,255,0.2)", "rgba(255,255,255,0.03)", "transparent"]}
-            start={{ x: 0.3, y: 0 }}
-            end={{ x: 0.7, y: 0.6 }}
-            style={styles.orbHighlight}
-          />
-          <View style={styles.orbPlusIcon}>
-            <Feather name="plus" size={36} color="rgba(255,255,255,0.7)" />
+          <View style={styles.favoritesIconContainer}>
+            <Feather name="heart" size={22} color="#FF6B8A" />
           </View>
+          <View style={styles.favoritesInfo}>
+            <ThemedText style={styles.favoritesTitle}>Favorites</ThemedText>
+            <ThemedText style={styles.favoritesCount}>
+              {favorites.length} {favorites.length === 1 ? "track" : "tracks"}
+            </ThemedText>
+          </View>
+          <Feather name="chevron-right" size={20} color={Colors.dark.textSecondary} />
         </Pressable>
-        <ThemedText type="h3" style={styles.emptyTitle}>
-          No Playlists Yet
-        </ThemedText>
-        <ThemedText style={styles.emptyText}>
-          Tap the orb to create your first playlist{"\n"}and organize your favorite beats.
-        </ThemedText>
+
+        <View style={styles.sectionHeader}>
+          <ThemedText style={styles.sectionTitle}>Your Collections</ThemedText>
+          {hasPlaylists ? (
+            <Pressable
+              style={styles.newButton}
+              onPress={() => setModalVisible(true)}
+              testID="button-new-playlist"
+            >
+              <Feather name="plus" size={16} color={Colors.dark.link} />
+              <ThemedText style={styles.newButtonText}>New</ThemedText>
+            </Pressable>
+          ) : null}
+        </View>
       </View>
     );
   }
@@ -201,42 +346,7 @@ export default function PlaylistsScreen() {
           />
         }
         ListEmptyComponent={renderEmpty}
-        ListHeaderComponent={
-          <View>
-            <Card
-              style={styles.playlistCard}
-              onPress={() => {
-                if (Platform.OS !== "web") {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                }
-                navigation.navigate("PlaylistDetail", {
-                  playlistId: "__favorites__",
-                  playlistName: "Favorites",
-                });
-              }}
-            >
-              <View style={[styles.playlistIcon, styles.favoritesIcon]}>
-                <Feather name="heart" size={24} color="#FF6B8A" />
-              </View>
-              <View style={styles.playlistInfo}>
-                <ThemedText type="h4">Favorites</ThemedText>
-                <ThemedText style={styles.trackCount}>
-                  {favorites.length} {favorites.length === 1 ? "track" : "tracks"}
-                </ThemedText>
-              </View>
-              <Feather name="chevron-right" size={24} color={Colors.dark.textSecondary} />
-            </Card>
-            {playlists && playlists.length > 0 ? (
-              <Pressable
-                style={styles.addButton}
-                onPress={() => setModalVisible(true)}
-              >
-                <Feather name="plus" size={20} color={Colors.dark.link} />
-                <ThemedText type="link">Create New Playlist</ThemedText>
-              </Pressable>
-            ) : null}
-          </View>
-        }
+        ListHeaderComponent={renderSectionHeader}
       />
 
       <Modal
@@ -335,81 +445,157 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: Spacing.lg,
-    gap: Spacing.md,
   },
   emptyContentContainer: {
     flexGrow: 1,
   },
-  addButton: {
+
+  favoritesCard: {
     flexDirection: "row",
     alignItems: "center",
-    gap: Spacing.sm,
-    paddingVertical: Spacing.md,
-  },
-  playlistCard: {
-    flexDirection: "row",
-    alignItems: "center",
+    backgroundColor: Colors.dark.backgroundDefault,
+    borderRadius: BorderRadius.lg,
     padding: Spacing.lg,
+    overflow: "hidden",
+    marginBottom: Spacing.md,
   },
-  playlistIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: BorderRadius.sm,
-    backgroundColor: Colors.dark.backgroundSecondary,
+  favoritesAccent: {
+    position: "absolute",
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: 4,
+    borderTopLeftRadius: BorderRadius.lg,
+    borderBottomLeftRadius: BorderRadius.lg,
+  },
+  favoritesIconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "rgba(255, 107, 138, 0.12)",
     alignItems: "center",
     justifyContent: "center",
+    marginLeft: Spacing.xs,
+  },
+  favoritesInfo: {
+    flex: 1,
+    marginLeft: Spacing.md,
+  },
+  favoritesTitle: {
+    color: Colors.dark.text,
+    fontSize: 17,
+    fontWeight: "600",
+  },
+  favoritesCount: {
+    color: Colors.dark.textSecondary,
+    fontSize: 13,
+    marginTop: 2,
+  },
+
+  sectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: Spacing.lg,
+    marginBottom: Spacing.md,
+    paddingHorizontal: Spacing.xs,
+  },
+  sectionTitle: {
+    color: Colors.dark.textSecondary,
+    fontSize: 13,
+    fontWeight: "600",
+    textTransform: "uppercase",
+    letterSpacing: 1,
+  },
+  newButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingVertical: Spacing.xs,
+    paddingHorizontal: Spacing.sm,
+  },
+  newButtonText: {
+    color: Colors.dark.link,
+    fontSize: 14,
+    fontWeight: "600",
+  },
+
+  playlistRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.xs,
+  },
+  playlistAccentDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
     marginRight: Spacing.md,
   },
-  favoritesIcon: {
-    backgroundColor: "rgba(255, 107, 138, 0.15)",
+  playlistRowContent: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: Colors.dark.border,
+    paddingBottom: Spacing.md,
   },
-  playlistInfo: {
+  playlistRowInfo: {
     flex: 1,
   },
-  trackCount: {
-    color: Colors.dark.textSecondary,
-    fontSize: 14,
+  playlistName: {
+    color: Colors.dark.text,
+    fontSize: 16,
+    fontWeight: "500",
   },
+  playlistTrackCount: {
+    color: Colors.dark.textSecondary,
+    fontSize: 13,
+    marginTop: 2,
+  },
+  playlistRowActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+  },
+  deleteButton: {
+    padding: Spacing.xs,
+  },
+
   emptyContainer: {
     alignItems: "center",
     paddingHorizontal: Spacing["2xl"],
-    paddingTop: Spacing.xl,
-  },
-  orbWrapper: {
-    width: 180,
-    height: 180,
-    marginBottom: Spacing["2xl"],
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  orbGradient: {
-    width: 180,
-    height: 180,
-    borderRadius: 90,
-  },
-  orbHighlight: {
-    position: "absolute",
-    width: 140,
-    height: 100,
-    borderRadius: 70,
-    top: 15,
-  },
-  orbPlusIcon: {
-    position: "absolute",
-    alignItems: "center",
-    justifyContent: "center",
+    paddingTop: Spacing["3xl"],
   },
   emptyTitle: {
-    marginBottom: Spacing.sm,
+    color: Colors.dark.text,
+    fontSize: 18,
+    fontWeight: "600",
     textAlign: "center",
+    marginBottom: Spacing.sm,
   },
-  emptyText: {
+  emptySubtext: {
     color: Colors.dark.textSecondary,
     textAlign: "center",
-    fontSize: 15,
-    lineHeight: 22,
-    marginBottom: Spacing["2xl"],
+    fontSize: 14,
+    lineHeight: 21,
+    marginBottom: Spacing.xl,
   },
+  emptyTapHint: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.lg,
+    borderRadius: BorderRadius.full,
+    backgroundColor: "rgba(74, 144, 226, 0.08)",
+  },
+  emptyTapHintText: {
+    color: Colors.dark.link,
+    fontSize: 13,
+    fontWeight: "500",
+  },
+
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0, 0, 0, 0.7)",
@@ -456,10 +642,6 @@ const styles = StyleSheet.create({
   },
   modalCreateButton: {
     flex: 1,
-  },
-  deleteButton: {
-    padding: Spacing.sm,
-    marginLeft: Spacing.sm,
   },
   deleteDescription: {
     color: Colors.dark.textSecondary,
