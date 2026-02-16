@@ -142,34 +142,33 @@ export default function PlaylistsScreen() {
   function renderEmpty() {
     return (
       <View style={styles.emptyContainer}>
-        <View style={styles.orbWrapper}>
-          <View style={styles.orbGlow} />
+        <Pressable
+          style={styles.orbWrapper}
+          onPress={() => setModalVisible(true)}
+          testID="button-create-first-playlist"
+        >
           <LinearGradient
-            colors={["#A78BFA", "#818CF8", "#7DD3FC", "#C4B5FD", "#F0ABFC"]}
+            colors={["#6D5BA3", "#5A64A8", "#4A7A9E", "#7B6DB5", "#9A6BA5"]}
             start={{ x: 0.1, y: 0.1 }}
             end={{ x: 0.9, y: 0.9 }}
             style={styles.orbGradient}
           />
           <LinearGradient
-            colors={["rgba(255,255,255,0.35)", "rgba(255,255,255,0.05)", "transparent"]}
+            colors={["rgba(255,255,255,0.2)", "rgba(255,255,255,0.03)", "transparent"]}
             start={{ x: 0.3, y: 0 }}
             end={{ x: 0.7, y: 0.6 }}
             style={styles.orbHighlight}
           />
-        </View>
+          <View style={styles.orbPlusIcon}>
+            <Feather name="plus" size={36} color="rgba(255,255,255,0.7)" />
+          </View>
+        </Pressable>
         <ThemedText type="h3" style={styles.emptyTitle}>
           No Playlists Yet
         </ThemedText>
         <ThemedText style={styles.emptyText}>
-          Create your first playlist to organize{"\n"}your favorite beats.
+          Tap the orb to create your first playlist{"\n"}and organize your favorite beats.
         </ThemedText>
-        <Pressable
-          style={styles.createOutlineButton}
-          onPress={() => setModalVisible(true)}
-          testID="button-create-first-playlist"
-        >
-          <ThemedText style={styles.createOutlineButtonText}>Create Playlist</ThemedText>
-        </Pressable>
       </View>
     );
   }
@@ -377,23 +376,11 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.xl,
   },
   orbWrapper: {
-    width: 200,
-    height: 200,
+    width: 180,
+    height: 180,
     marginBottom: Spacing["2xl"],
     alignItems: "center",
     justifyContent: "center",
-  },
-  orbGlow: {
-    position: "absolute",
-    width: 220,
-    height: 220,
-    borderRadius: 110,
-    backgroundColor: "rgba(129, 140, 248, 0.2)",
-    shadowColor: "#818CF8",
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.6,
-    shadowRadius: 40,
-    elevation: 20,
   },
   orbGradient: {
     width: 180,
@@ -407,6 +394,11 @@ const styles = StyleSheet.create({
     borderRadius: 70,
     top: 15,
   },
+  orbPlusIcon: {
+    position: "absolute",
+    alignItems: "center",
+    justifyContent: "center",
+  },
   emptyTitle: {
     marginBottom: Spacing.sm,
     textAlign: "center",
@@ -417,18 +409,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 22,
     marginBottom: Spacing["2xl"],
-  },
-  createOutlineButton: {
-    paddingHorizontal: Spacing["3xl"],
-    paddingVertical: Spacing.md,
-    borderRadius: BorderRadius.full,
-    borderWidth: 1.5,
-    borderColor: Colors.dark.link,
-  },
-  createOutlineButtonText: {
-    color: Colors.dark.link,
-    fontSize: 16,
-    fontWeight: "600",
   },
   modalOverlay: {
     flex: 1,
