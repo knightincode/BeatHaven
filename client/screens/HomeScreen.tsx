@@ -250,8 +250,8 @@ export default function HomeScreen() {
         animationType="fade"
         onRequestClose={() => setInfoModalCategory(null)}
       >
-        <View style={styles.infoModalOverlay}>
-          <View style={styles.infoModalContent}>
+        <Pressable style={styles.infoModalOverlay} onPress={() => setInfoModalCategory(null)}>
+          <Pressable onPress={(e) => e.stopPropagation()} style={styles.infoModalContent}>
             {infoData && infoCategoryObj ? (
               <>
                 <View style={styles.infoModalHeader}>
@@ -276,8 +276,8 @@ export default function HomeScreen() {
                 ))}
               </>
             ) : null}
-          </View>
-        </View>
+          </Pressable>
+        </Pressable>
       </Modal>
 
       {playlistModalTrack ? (
