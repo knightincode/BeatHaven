@@ -8,7 +8,6 @@ import {
   RefreshControl,
   Modal,
   TextInput,
-  Image,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
@@ -20,6 +19,7 @@ import { Feather } from "@expo/vector-icons";
 import { HeaderButton } from "@react-navigation/elements";
 import * as Haptics from "expo-haptics";
 import { Platform } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
 
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
@@ -142,11 +142,21 @@ export default function PlaylistsScreen() {
   function renderEmpty() {
     return (
       <View style={styles.emptyContainer}>
-        <Image
-          source={require("../../assets/images/empty-playlists.png")}
-          style={styles.emptyImage}
-          resizeMode="contain"
-        />
+        <View style={styles.orbWrapper}>
+          <View style={styles.orbGlow} />
+          <LinearGradient
+            colors={["#A78BFA", "#818CF8", "#7DD3FC", "#C4B5FD", "#F0ABFC"]}
+            start={{ x: 0.1, y: 0.1 }}
+            end={{ x: 0.9, y: 0.9 }}
+            style={styles.orbGradient}
+          />
+          <LinearGradient
+            colors={["rgba(255,255,255,0.35)", "rgba(255,255,255,0.05)", "transparent"]}
+            start={{ x: 0.3, y: 0 }}
+            end={{ x: 0.7, y: 0.6 }}
+            style={styles.orbHighlight}
+          />
+        </View>
         <ThemedText type="h3" style={styles.emptyTitle}>
           No Playlists Yet
         </ThemedText>
@@ -364,12 +374,38 @@ const styles = StyleSheet.create({
   emptyContainer: {
     alignItems: "center",
     paddingHorizontal: Spacing["2xl"],
-    paddingTop: Spacing["2xl"],
+    paddingTop: Spacing.xl,
   },
-  emptyImage: {
+  orbWrapper: {
     width: 200,
     height: 200,
     marginBottom: Spacing["2xl"],
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  orbGlow: {
+    position: "absolute",
+    width: 220,
+    height: 220,
+    borderRadius: 110,
+    backgroundColor: "rgba(129, 140, 248, 0.2)",
+    shadowColor: "#818CF8",
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.6,
+    shadowRadius: 40,
+    elevation: 20,
+  },
+  orbGradient: {
+    width: 180,
+    height: 180,
+    borderRadius: 90,
+  },
+  orbHighlight: {
+    position: "absolute",
+    width: 140,
+    height: 100,
+    borderRadius: 70,
+    top: 15,
   },
   emptyTitle: {
     marginBottom: Spacing.sm,
