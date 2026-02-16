@@ -144,7 +144,7 @@ export default function SubscriptionScreen() {
         ) : (
           <>
             <View style={styles.priceSection}>
-              <ThemedText type="h1" style={styles.price}>
+              <ThemedText style={styles.price}>
                 $0.99
               </ThemedText>
               <ThemedText style={styles.priceInterval}>per month</ThemedText>
@@ -217,10 +217,13 @@ const styles = StyleSheet.create({
   priceSection: {
     alignItems: "center",
     marginBottom: Spacing["2xl"],
+    paddingTop: Spacing.lg,
   },
   price: {
-    fontSize: 44,
+    fontSize: 36,
+    fontWeight: "700",
     color: Colors.dark.link,
+    lineHeight: 44,
   },
   priceInterval: {
     color: Colors.dark.textSecondary,
