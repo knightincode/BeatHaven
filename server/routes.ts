@@ -11,6 +11,8 @@ import {
 import { getUncachableStripeClient, getStripePublishableKey } from "./stripeClient";
 import { uploadAudioFile, streamAudioFile, getAudioFileAsBuffer } from "./objectStorage";
 import { User } from "../shared/schema";
+import { db } from "./db";
+import { sql } from "drizzle-orm";
 
 const upload = multer({ storage: multer.memoryStorage() });
 
@@ -510,6 +512,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Admin delete track error:", error);
       res.status(500).json({ message: "Failed to delete track" });
+    }
+  });
+
+  app.get("/api/quotes/random", async (_req: Request, res: Response) => {
+    try {
+      const result = await db.execute(sql`SELECT * FROM quotes ORDER BY RANDOM() LIMIT 1`);
+      if (result.rows.length === 0) {
+        return res.json({ text: "Find your inner peace.", author: null });
+      }
+      res.json(result.rows[0]);
+    } catch (error: any) {
+      console.error("Random quote error:", error);
+      res.json({ text: "Find your inner peace.", author: null });
     }
   });
 

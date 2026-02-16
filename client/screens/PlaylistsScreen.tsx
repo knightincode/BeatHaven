@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   StyleSheet,
@@ -64,6 +64,12 @@ export default function PlaylistsScreen() {
 
   const { data: rawPlaylists, isLoading, refetch, isRefetching } = useQuery<Playlist[]>({
     queryKey: ["/api/playlists"],
+  });
+
+  const { data: quoteData } = useQuery<{ text: string; author: string | null }>({
+    queryKey: ["/api/quotes/random"],
+    staleTime: 60000,
+    refetchOnWindowFocus: false,
   });
 
   const playlists = rawPlaylists?.filter(
@@ -179,6 +185,22 @@ export default function PlaylistsScreen() {
         >
           <ThemedText style={styles.createBtnText}>Create playlist</ThemedText>
         </Pressable>
+
+        {quoteData ? (
+          <View style={styles.quoteCard}>
+            <ThemedText style={styles.quoteText}>"{quoteData.text}"</ThemedText>
+            {quoteData.author ? (
+              <ThemedText style={styles.quoteAuthor}>— {quoteData.author}</ThemedText>
+            ) : null}
+          </View>
+        ) : null}
+
+        <View style={styles.tipCard}>
+          <Feather name="headphones" size={18} color={Colors.dark.link} style={{ marginRight: Spacing.sm }} />
+          <ThemedText style={styles.tipText}>
+            Use headphones for the best binaural beats experience
+          </ThemedText>
+        </View>
       </View>
     );
   }
@@ -482,6 +504,45 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "700",
     letterSpacing: 0.3,
+  },
+
+  quoteCard: {
+    marginTop: Spacing["3xl"],
+    paddingHorizontal: Spacing.xl,
+    paddingVertical: Spacing.lg,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.xs,
+    borderLeftWidth: 3,
+    borderLeftColor: Colors.dark.link,
+    width: "100%",
+  },
+  quoteText: {
+    color: Colors.dark.textSecondary,
+    fontSize: 14,
+    fontStyle: "italic",
+    lineHeight: 22,
+  },
+  quoteAuthor: {
+    color: Colors.dark.textSecondary,
+    fontSize: 12,
+    marginTop: Spacing.xs,
+    textAlign: "right",
+    opacity: 0.7,
+  },
+  tipCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: Spacing.lg,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    backgroundColor: "rgba(74, 144, 226, 0.08)",
+    borderRadius: BorderRadius.xs,
+    width: "100%",
+  },
+  tipText: {
+    color: Colors.dark.textSecondary,
+    fontSize: 13,
+    flex: 1,
   },
 
   fab: {
