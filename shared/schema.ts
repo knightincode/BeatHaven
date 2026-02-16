@@ -78,6 +78,15 @@ export const insertPlaylistTrackSchema = createInsertSchema(playlistTracks).omit
   createdAt: true,
 });
 
+export const quotes = pgTable("quotes", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  text: text("text").notNull(),
+  author: text("author"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 export const insertFavoriteSchema = createInsertSchema(favorites).omit({
   id: true,
   createdAt: true,

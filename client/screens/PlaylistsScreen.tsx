@@ -264,10 +264,10 @@ export default function PlaylistsScreen() {
           testID="button-new-playlist"
         >
           <LinearGradient
-            colors={["#1DB954", "#1ED760"]}
+            colors={[Colors.dark.link, "#5BA3E2"]}
             style={styles.fabGradient}
           >
-            <Feather name="plus" size={28} color="#000000" />
+            <Feather name="plus" size={28} color="#FFFFFF" />
           </LinearGradient>
         </Pressable>
       ) : null}
@@ -472,13 +472,13 @@ const styles = StyleSheet.create({
     marginBottom: Spacing["2xl"],
   },
   createBtn: {
-    backgroundColor: "#1DB954",
+    backgroundColor: Colors.dark.link,
     paddingHorizontal: Spacing["3xl"],
     paddingVertical: Spacing.md,
     borderRadius: BorderRadius.full,
   },
   createBtnText: {
-    color: "#000000",
+    color: "#FFFFFF",
     fontSize: 15,
     fontWeight: "700",
     letterSpacing: 0.3,
@@ -549,7 +549,7 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   modalCreateBtn: {
-    backgroundColor: "#1DB954",
+    backgroundColor: Colors.dark.link,
     paddingHorizontal: Spacing["2xl"],
     paddingVertical: Spacing.md,
     borderRadius: BorderRadius.full,
@@ -558,7 +558,7 @@ const styles = StyleSheet.create({
     opacity: 0.4,
   },
   modalCreateText: {
-    color: "#000000",
+    color: "#FFFFFF",
     fontSize: 15,
     fontWeight: "700",
   },
