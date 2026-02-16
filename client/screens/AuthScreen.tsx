@@ -11,12 +11,50 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
 import { Platform } from "react-native";
+import { Feather } from "@expo/vector-icons";
 
 import { ThemedText } from "@/components/ThemedText";
 import { Button } from "@/components/Button";
 import { useAuth } from "@/contexts/AuthContext";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
+
+const PASSWORD_RULES = [
+  { label: "At least 8 characters", test: (p: string) => p.length >= 8 },
+  { label: "Maximum 15 characters", test: (p: string) => p.length > 0 && p.length <= 15 },
+  { label: "At least one number", test: (p: string) => /\d/.test(p) },
+  { label: "At least one special character (!, @, #, $, &, *)", test: (p: string) => /[!@#$&*]/.test(p) },
+];
+
+function validatePassword(password: string): string | null {
+  if (password.length < 8) return "Password must be at least 8 characters";
+  if (password.length > 15) return "Password must be 15 characters or fewer";
+  if (!/\d/.test(password)) return "Password must include at least one number";
+  if (!/[!@#$&*]/.test(password)) return "Password must include a special character (!, @, #, $, &, *)";
+  return null;
+}
+
+function PasswordRulesChecklist({ password }: { password: string }) {
+  return (
+    <View style={styles.rulesContainer}>
+      {PASSWORD_RULES.map((rule, index) => {
+        const passed = password.length > 0 && rule.test(password);
+        return (
+          <View key={index} style={styles.ruleRow}>
+            <Feather
+              name={passed ? "check-circle" : "circle"}
+              size={14}
+              color={passed ? Colors.dark.success : Colors.dark.textSecondary}
+            />
+            <ThemedText style={[styles.ruleText, passed ? styles.ruleTextPassed : null]}>
+              {rule.label}
+            </ThemedText>
+          </View>
+        );
+      })}
+    </View>
+  );
+}
 
 export default function AuthScreen() {
   const insets = useSafeAreaInsets();
@@ -36,9 +74,16 @@ export default function AuthScreen() {
       return;
     }
 
-    if (!isLogin && password !== confirmPassword) {
-      setError("Passwords do not match");
-      return;
+    if (!isLogin) {
+      const pwError = validatePassword(password);
+      if (pwError) {
+        setError(pwError);
+        return;
+      }
+      if (password !== confirmPassword) {
+        setError("Passwords do not match");
+        return;
+      }
     }
 
     setIsLoading(true);
@@ -52,8 +97,12 @@ export default function AuthScreen() {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
     } catch (err: any) {
-      const message = err.message || "An error occurred";
-      setError(message);
+      if (isLogin) {
+        setError("Invalid email or password");
+      } else {
+        const message = err.message || "An error occurred";
+        setError(message);
+      }
       if (Platform.OS !== "web") {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       }
@@ -112,21 +161,26 @@ export default function AuthScreen() {
             placeholder="Password"
             placeholderTextColor={Colors.dark.textSecondary}
             value={password}
-            onChangeText={setPassword}
+            onChangeText={(text) => setPassword(text.slice(0, 15))}
             secureTextEntry
+            maxLength={15}
             testID="input-password"
           />
 
           {!isLogin ? (
-            <TextInput
-              style={styles.input}
-              placeholder="Confirm Password"
-              placeholderTextColor={Colors.dark.textSecondary}
-              value={confirmPassword}
-              onChangeText={setConfirmPassword}
-              secureTextEntry
-              testID="input-confirm-password"
-            />
+            <>
+              <PasswordRulesChecklist password={password} />
+              <TextInput
+                style={styles.input}
+                placeholder="Confirm Password"
+                placeholderTextColor={Colors.dark.textSecondary}
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+                secureTextEntry
+                maxLength={15}
+                testID="input-confirm-password"
+              />
+            </>
           ) : null}
 
           {error ? (
@@ -158,7 +212,7 @@ export default function AuthScreen() {
         </View>
 
         <ThemedText style={styles.priceInfo}>
-          Start your 7-day free trial, then $2.99/month
+          Start your 7-day free trial, then $0.99/month
         </ThemedText>
       </KeyboardAwareScrollViewCompat>
     </LinearGradient>
@@ -207,6 +261,24 @@ const styles = StyleSheet.create({
     fontSize: 16,
     borderWidth: 1,
     borderColor: Colors.dark.border,
+  },
+  rulesContainer: {
+    backgroundColor: Colors.dark.backgroundDefault,
+    borderRadius: BorderRadius.sm,
+    padding: Spacing.md,
+    gap: 6,
+  },
+  ruleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  ruleText: {
+    fontSize: 13,
+    color: Colors.dark.textSecondary,
+  },
+  ruleTextPassed: {
+    color: Colors.dark.success,
   },
   error: {
     color: Colors.dark.error,

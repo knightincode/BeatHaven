@@ -419,7 +419,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 name: "BinauralBeats Premium",
                 description: "Unlimited access to all binaural beats",
               },
-              unit_amount: 299,
+              unit_amount: 99,
               recurring: {
                 interval: "month",
               },

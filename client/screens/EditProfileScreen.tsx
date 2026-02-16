@@ -11,6 +11,7 @@ import { useHeaderHeight } from "@react-navigation/elements";
 import { useNavigation } from "@react-navigation/native";
 import { useMutation } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
+import { Feather } from "@expo/vector-icons";
 
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
@@ -20,6 +21,21 @@ import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollV
 import { useAuth } from "@/contexts/AuthContext";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
+
+const PASSWORD_RULES = [
+  { label: "At least 8 characters", test: (p: string) => p.length >= 8 },
+  { label: "Maximum 15 characters", test: (p: string) => p.length > 0 && p.length <= 15 },
+  { label: "At least one number", test: (p: string) => /\d/.test(p) },
+  { label: "At least one special character (!, @, #, $, &, *)", test: (p: string) => /[!@#$&*]/.test(p) },
+];
+
+function validatePassword(password: string): string | null {
+  if (password.length < 8) return "Password must be at least 8 characters";
+  if (password.length > 15) return "Password must be 15 characters or fewer";
+  if (!/\d/.test(password)) return "Password must include at least one number";
+  if (!/[!@#$&*]/.test(password)) return "Password must include a special character (!, @, #, $, &, *)";
+  return null;
+}
 
 export default function EditProfileScreen() {
   const insets = useSafeAreaInsets();
@@ -72,6 +88,14 @@ export default function EditProfileScreen() {
   function handleSave() {
     setError("");
     setSuccess("");
+
+    if (newPassword) {
+      const pwError = validatePassword(newPassword);
+      if (pwError) {
+        setError(pwError);
+        return;
+      }
+    }
 
     if (newPassword && newPassword !== confirmPassword) {
       setError("New passwords do not match");
@@ -142,10 +166,30 @@ export default function EditProfileScreen() {
             placeholder="New Password"
             placeholderTextColor={Colors.dark.textSecondary}
             value={newPassword}
-            onChangeText={setNewPassword}
+            onChangeText={(text) => setNewPassword(text.slice(0, 15))}
             secureTextEntry
+            maxLength={15}
             testID="input-new-password"
           />
+          {newPassword.length > 0 ? (
+            <View style={styles.rulesContainer}>
+              {PASSWORD_RULES.map((rule, index) => {
+                const passed = rule.test(newPassword);
+                return (
+                  <View key={index} style={styles.ruleRow}>
+                    <Feather
+                      name={passed ? "check-circle" : "circle"}
+                      size={14}
+                      color={passed ? Colors.dark.success : Colors.dark.textSecondary}
+                    />
+                    <ThemedText style={[styles.ruleText, passed ? styles.ruleTextPassed : null]}>
+                      {rule.label}
+                    </ThemedText>
+                  </View>
+                );
+              })}
+            </View>
+          ) : null}
           <TextInput
             style={styles.input}
             placeholder="Confirm New Password"
@@ -153,6 +197,7 @@ export default function EditProfileScreen() {
             value={confirmPassword}
             onChangeText={setConfirmPassword}
             secureTextEntry
+            maxLength={15}
             testID="input-confirm-password"
           />
         </Card>
@@ -225,5 +270,24 @@ const styles = StyleSheet.create({
   },
   saveButton: {
     marginTop: Spacing.md,
+  },
+  rulesContainer: {
+    backgroundColor: Colors.dark.backgroundDefault,
+    borderRadius: BorderRadius.sm,
+    padding: Spacing.md,
+    marginBottom: Spacing.md,
+    gap: 6,
+  },
+  ruleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  ruleText: {
+    fontSize: 13,
+    color: Colors.dark.textSecondary,
+  },
+  ruleTextPassed: {
+    color: Colors.dark.success,
   },
 });

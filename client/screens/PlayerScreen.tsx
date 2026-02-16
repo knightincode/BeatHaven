@@ -796,7 +796,7 @@ export default function PlayerScreen() {
               testID="button-upgrade-subscribe"
             >
               <Feather name="star" size={18} color="#FFFFFF" />
-              <ThemedText style={styles.upgradeButtonText}>Subscribe - $2.99/mo</ThemedText>
+              <ThemedText style={styles.upgradeButtonText}>Subscribe - $0.99/mo</ThemedText>
             </Pressable>
             <Pressable
               style={styles.upgradeDismissButton}

@@ -145,7 +145,7 @@ export default function SubscriptionScreen() {
           <>
             <View style={styles.priceSection}>
               <ThemedText type="h1" style={styles.price}>
-                $2.99
+                $0.99
               </ThemedText>
               <ThemedText style={styles.priceInterval}>per month</ThemedText>
             </View>
@@ -176,7 +176,7 @@ export default function SubscriptionScreen() {
             </Button>
 
             <ThemedText style={styles.disclaimer}>
-              After your free trial, you'll be charged $2.99/month. Cancel anytime.
+              After your free trial, you'll be charged $0.99/month. Cancel anytime.
             </ThemedText>
           </>
         )}
@@ -219,7 +219,7 @@ const styles = StyleSheet.create({
     marginBottom: Spacing["2xl"],
   },
   price: {
-    fontSize: 56,
+    fontSize: 44,
     color: Colors.dark.link,
   },
   priceInterval: {
