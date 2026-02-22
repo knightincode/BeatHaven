@@ -15,6 +15,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { LinearGradient } from "expo-linear-gradient";
+import { BlurView } from "expo-blur";
 import { Feather } from "@expo/vector-icons";
 import Animated, {
   useSharedValue,
@@ -39,20 +40,28 @@ import { AddToPlaylistModal } from "@/components/AddToPlaylistModal";
 import { Colors, Spacing, BorderRadius, FrequencyColors } from "@/constants/theme";
 import type { LoopMode, SleepTimerOption } from "@/contexts/PlayerContext";
 
-const { width } = Dimensions.get("window");
-const ORB_SIZE = 240;
-const GLOW_SIZE = ORB_SIZE + 80;
-const IMG_SCALE = 1.6;
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
+const BG_SCALE = 1.3;
 
-function GlitterOrb({ color, isPlaying }: { color: string; isPlaying: boolean }) {
-  const breathe = useSharedValue(0);
-  const rippleX = useSharedValue(0);
-  const rippleY = useSharedValue(0);
-  const slowDrift = useSharedValue(0);
-  const glowPulse = useSharedValue(0);
+function GlitterBackground({ color, isPlaying }: { color: string; isPlaying: boolean }) {
+  const drift = useSharedValue(0);
+  const sway = useSharedValue(0);
+  const pulse = useSharedValue(0);
 
   useEffect(() => {
-    breathe.value = withRepeat(
+    drift.value = withRepeat(
+      withTiming(1, { duration: 20000, easing: Easing.inOut(Easing.sin) }),
+      -1,
+      true
+    );
+
+    sway.value = withRepeat(
+      withTiming(1, { duration: 14000, easing: Easing.inOut(Easing.sin) }),
+      -1,
+      true
+    );
+
+    pulse.value = withRepeat(
       withSequence(
         withTiming(1, { duration: 4000, easing: Easing.inOut(Easing.sin) }),
         withTiming(1, { duration: 7000 }),
@@ -60,181 +69,70 @@ function GlitterOrb({ color, isPlaying }: { color: string; isPlaying: boolean })
       ),
       -1
     );
-
-    rippleX.value = withRepeat(
-      withTiming(1, { duration: 6000, easing: Easing.inOut(Easing.sin) }),
-      -1,
-      true
-    );
-
-    rippleY.value = withRepeat(
-      withTiming(1, { duration: 8000, easing: Easing.inOut(Easing.sin) }),
-      -1,
-      true
-    );
-
-    slowDrift.value = withRepeat(
-      withTiming(1, { duration: 12000, easing: Easing.inOut(Easing.sin) }),
-      -1,
-      true
-    );
-
-    glowPulse.value = withRepeat(
-      withTiming(1, { duration: 3000, easing: Easing.inOut(Easing.sin) }),
-      -1,
-      true
-    );
   }, []);
 
   const imageStyle = useAnimatedStyle(() => {
     const breatheScale = isPlaying
-      ? 1 + interpolate(breathe.value, [0, 1], [0, 0.06])
-      : 1;
-    const tx = isPlaying ? interpolate(rippleX.value, [0, 1], [-8, 8]) : 0;
-    const ty = isPlaying ? interpolate(rippleY.value, [0, 1], [-6, 6]) : 0;
-    const drift = isPlaying ? interpolate(slowDrift.value, [0, 1], [-3, 3]) : 0;
+      ? BG_SCALE + interpolate(pulse.value, [0, 1], [0, 0.04])
+      : BG_SCALE;
+    const tx = isPlaying ? interpolate(drift.value, [0, 1], [-15, 15]) : 0;
+    const ty = isPlaying ? interpolate(sway.value, [0, 1], [-10, 10]) : 0;
 
     return {
       transform: [
-        { scale: IMG_SCALE * breatheScale },
-        { translateX: tx + drift },
-        { translateY: ty - drift * 0.5 },
+        { scale: breatheScale },
+        { translateX: tx },
+        { translateY: ty },
       ],
     };
   });
 
-  const outerGlowStyle = useAnimatedStyle(() => {
-    const scale = isPlaying
-      ? 1 + interpolate(breathe.value, [0, 1], [0, 0.1])
-      : 1;
-    const pulseScale = interpolate(glowPulse.value, [0, 1], [0.96, 1.04]);
-    return {
-      transform: [{ scale: scale * pulseScale }],
-      opacity: isPlaying
-        ? interpolate(glowPulse.value, [0, 1], [0.25, 0.5])
-        : 0.15,
-    };
-  });
-
-  const midGlowStyle = useAnimatedStyle(() => {
-    const scale = isPlaying
-      ? 1 + interpolate(breathe.value, [0, 1], [0, 0.06])
-      : 1;
-    return {
-      transform: [{ scale }],
-      opacity: isPlaying
-        ? interpolate(glowPulse.value, [0, 1], [0.3, 0.55])
-        : 0.2,
-    };
-  });
-
-  const coreStyle = useAnimatedStyle(() => {
-    const scale = isPlaying
-      ? 1 + interpolate(breathe.value, [0, 1], [0, 0.03])
-      : 1;
-    return {
-      transform: [{ scale }],
-    };
-  });
-
-  const tintOpacity = useAnimatedStyle(() => {
+  const tintStyle = useAnimatedStyle(() => {
     return {
       opacity: isPlaying
-        ? interpolate(glowPulse.value, [0, 1], [0.35, 0.5])
-        : 0.45,
+        ? interpolate(pulse.value, [0, 1], [0.3, 0.45])
+        : 0.35,
     };
   });
 
   return (
-    <View style={orbStyles.container}>
-      <Animated.View
-        style={[
-          orbStyles.outerGlow,
-          { backgroundColor: color + "18" },
-          outerGlowStyle,
-        ]}
+    <View style={bgStyles.container} pointerEvents="none">
+      <Animated.Image
+        source={glitterTexture}
+        style={[bgStyles.image, imageStyle]}
+        resizeMode="cover"
       />
-
       <Animated.View
-        style={[
-          orbStyles.midGlow,
-          { backgroundColor: color + "28" },
-          midGlowStyle,
-        ]}
+        style={[bgStyles.tint, { backgroundColor: color }, tintStyle]}
       />
-
-      <Animated.View style={[orbStyles.core, coreStyle]}>
-        <Animated.Image
-          source={glitterTexture}
-          style={[orbStyles.glitterImage, imageStyle]}
-          resizeMode="cover"
-        />
-
-        <Animated.View
-          style={[
-            orbStyles.colorTint,
-            { backgroundColor: color },
-            tintOpacity,
-          ]}
-        />
-
-        <LinearGradient
-          colors={["rgba(255,255,255,0.18)", "transparent", "rgba(0,0,0,0.2)"]}
-          style={orbStyles.highlightOverlay}
-          start={{ x: 0.3, y: 0 }}
-          end={{ x: 0.7, y: 1 }}
-        />
-
-        <View style={[orbStyles.coreBorder, { borderColor: color + "50" }]} />
-      </Animated.View>
+      <LinearGradient
+        colors={["transparent", "rgba(0,0,0,0.15)", "transparent"]}
+        style={bgStyles.vignette}
+        start={{ x: 0.5, y: 0 }}
+        end={{ x: 0.5, y: 1 }}
+        locations={[0, 0.5, 1]}
+      />
     </View>
   );
 }
 
-const orbStyles = StyleSheet.create({
+const bgStyles = StyleSheet.create({
   container: {
-    width: GLOW_SIZE,
-    height: GLOW_SIZE,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  outerGlow: {
-    position: "absolute",
-    width: GLOW_SIZE,
-    height: GLOW_SIZE,
-    borderRadius: GLOW_SIZE / 2,
-  },
-  midGlow: {
-    position: "absolute",
-    width: ORB_SIZE + 40,
-    height: ORB_SIZE + 40,
-    borderRadius: (ORB_SIZE + 40) / 2,
-  },
-  core: {
-    width: ORB_SIZE,
-    height: ORB_SIZE,
-    borderRadius: ORB_SIZE / 2,
+    ...StyleSheet.absoluteFillObject,
     overflow: "hidden",
-    alignItems: "center",
-    justifyContent: "center",
   },
-  glitterImage: {
-    width: ORB_SIZE * IMG_SCALE,
-    height: ORB_SIZE * IMG_SCALE,
+  image: {
+    width: SCREEN_WIDTH * BG_SCALE,
+    height: SCREEN_HEIGHT * BG_SCALE,
     position: "absolute",
+    top: -(SCREEN_HEIGHT * (BG_SCALE - 1)) / 2,
+    left: -(SCREEN_WIDTH * (BG_SCALE - 1)) / 2,
   },
-  colorTint: {
+  tint: {
     ...StyleSheet.absoluteFillObject,
-    borderRadius: ORB_SIZE / 2,
   },
-  highlightOverlay: {
+  vignette: {
     ...StyleSheet.absoluteFillObject,
-    borderRadius: ORB_SIZE / 2,
-  },
-  coreBorder: {
-    ...StyleSheet.absoluteFillObject,
-    borderRadius: ORB_SIZE / 2,
-    borderWidth: 1.5,
   },
 });
 
@@ -371,13 +269,7 @@ export default function PlayerScreen() {
 
   return (
     <View style={styles.container}>
-      <LinearGradient
-        colors={["#0A0E1A", categoryColor + "30", "#0A0E1A", categoryColor + "15", "#0A0E1A"]}
-        style={StyleSheet.absoluteFill}
-        start={{ x: 0.2, y: 0 }}
-        end={{ x: 0.8, y: 1 }}
-        locations={[0, 0.3, 0.5, 0.7, 1]}
-      />
+      <GlitterBackground color={categoryColor} isPlaying={isPlaying} />
 
       <View style={[styles.topBar, { paddingTop: insets.top + Spacing.md }]}>
         <Pressable onPress={handleClose} style={styles.topBarButton} testID="button-close">
@@ -393,8 +285,10 @@ export default function PlayerScreen() {
         </Pressable>
       </View>
 
-      <View style={styles.orbSection}>
-        <GlitterOrb color={categoryColor} isPlaying={isPlaying} />
+      <View style={styles.trackInfoSection}>
+        <ThemedText type="h2" style={styles.trackTitle} numberOfLines={2}>
+          {currentTrack.title}
+        </ThemedText>
       </View>
 
       <View style={styles.midSection}>
@@ -435,110 +329,117 @@ export default function PlayerScreen() {
         ) : null}
       </View>
 
-      <View
-        style={[
-          styles.controlPanel,
-          { paddingBottom: insets.bottom + Spacing.lg },
-        ]}
-      >
-        <View style={styles.progressContainer}>
-          <Pressable
-            style={styles.progressBar}
-            onPress={(e) => {
-              const x = e.nativeEvent.locationX;
-              const barWidth = width - Spacing["2xl"] * 2 - Spacing.lg * 2;
-              const ratio = Math.max(0, Math.min(1, x / barWidth));
-              handleSeek(ratio * duration);
-            }}
-            testID="button-seek"
-          >
-            <View style={styles.progressBackground}>
-              <View
-                style={[
-                  styles.progressFill,
-                  {
-                    width: hasActiveSubscription
-                      ? (duration > 0 ? `${((progress % duration) / duration) * 100}%` : "0%")
-                      : `${Math.min(100, (progress / FREE_PREVIEW_MS) * 100)}%`,
-                    backgroundColor: categoryColor,
-                  },
-                ]}
-              />
-              {(hasActiveSubscription ? duration > 0 : true) ? (
+      <View style={styles.controlPanelWrapper}>
+        {Platform.OS === "ios" ? (
+          <BlurView intensity={60} tint="dark" style={styles.blurFill} />
+        ) : (
+          <View style={styles.androidBlurFallback} />
+        )}
+        <View
+          style={[
+            styles.controlPanel,
+            { paddingBottom: insets.bottom + Spacing.lg },
+          ]}
+        >
+          <View style={styles.progressContainer}>
+            <Pressable
+              style={styles.progressBar}
+              onPress={(e) => {
+                const x = e.nativeEvent.locationX;
+                const barWidth = SCREEN_WIDTH - Spacing["2xl"] * 2 - Spacing.lg * 2;
+                const ratio = Math.max(0, Math.min(1, x / barWidth));
+                handleSeek(ratio * duration);
+              }}
+              testID="button-seek"
+            >
+              <View style={styles.progressBackground}>
                 <View
                   style={[
-                    styles.progressThumb,
+                    styles.progressFill,
                     {
-                      left: hasActiveSubscription
+                      width: hasActiveSubscription
                         ? (duration > 0 ? `${((progress % duration) / duration) * 100}%` : "0%")
                         : `${Math.min(100, (progress / FREE_PREVIEW_MS) * 100)}%`,
                       backgroundColor: categoryColor,
                     },
                   ]}
                 />
-              ) : null}
-            </View>
-          </Pressable>
-          <View style={styles.timeContainer}>
-            <ThemedText style={styles.timeText}>{formatTime(progress)}</ThemedText>
-            {hasActiveSubscription ? (
-              <ThemedText style={[styles.timeText, styles.infinityText]}>{"\u221E"}</ThemedText>
-            ) : (
-              <ThemedText style={styles.timeText}>{formatTime(FREE_PREVIEW_MS)}</ThemedText>
-            )}
-          </View>
-        </View>
-
-        <View style={styles.controlsRow}>
-          <Pressable onPress={cycleLoopMode} style={styles.sideControl} testID="button-loop">
-            <Feather
-              name="repeat"
-              size={20}
-              color={loopIconColor}
-            />
-            {loopMode === "one" ? (
-              <View style={[styles.loopBadge, { backgroundColor: categoryColor }]}>
-                <ThemedText style={styles.loopBadgeText}>1</ThemedText>
+                {(hasActiveSubscription ? duration > 0 : true) ? (
+                  <View
+                    style={[
+                      styles.progressThumb,
+                      {
+                        left: hasActiveSubscription
+                          ? (duration > 0 ? `${((progress % duration) / duration) * 100}%` : "0%")
+                          : `${Math.min(100, (progress / FREE_PREVIEW_MS) * 100)}%`,
+                        backgroundColor: categoryColor,
+                      },
+                    ]}
+                  />
+                ) : null}
               </View>
-            ) : null}
-          </Pressable>
-
-          <Pressable style={styles.transportControl} testID="button-skip-back">
-            <Feather name="skip-back" size={26} color={Colors.dark.text} />
-          </Pressable>
-
-          <Pressable
-            style={[styles.playButton, { backgroundColor: categoryColor }]}
-            onPress={handlePlayPause}
-            disabled={isLoading}
-            testID="button-play-pause"
-          >
-            {isLoading ? (
-              <ActivityIndicator size="large" color="#FFFFFF" />
-            ) : (
-              <Feather
-                name={isPlaying ? "pause" : "play"}
-                size={32}
-                color="#FFFFFF"
-                style={isPlaying ? {} : { marginLeft: 4 }}
-              />
-            )}
-          </Pressable>
-
-          <Pressable style={styles.transportControl} testID="button-skip-forward">
-            <Feather name="skip-forward" size={26} color={Colors.dark.text} />
-          </Pressable>
-
-          <Pressable style={styles.sideControl} testID="button-shuffle">
-            <Feather name="shuffle" size={20} color="rgba(255,255,255,0.4)" />
-          </Pressable>
-        </View>
-
-        {isLoading ? (
-          <View style={styles.loadingMessage}>
-            <ThemedText style={styles.loadingText}>Loading audio...</ThemedText>
+            </Pressable>
+            <View style={styles.timeContainer}>
+              <ThemedText style={styles.timeText}>{formatTime(progress)}</ThemedText>
+              {hasActiveSubscription ? (
+                <ThemedText style={[styles.timeText, styles.infinityText]}>{"\u221E"}</ThemedText>
+              ) : (
+                <ThemedText style={styles.timeText}>{formatTime(FREE_PREVIEW_MS)}</ThemedText>
+              )}
+            </View>
           </View>
-        ) : null}
+
+          <View style={styles.controlsRow}>
+            <Pressable onPress={cycleLoopMode} style={styles.sideControl} testID="button-loop">
+              <Feather
+                name="repeat"
+                size={20}
+                color={loopIconColor}
+              />
+              {loopMode === "one" ? (
+                <View style={[styles.loopBadge, { backgroundColor: categoryColor }]}>
+                  <ThemedText style={styles.loopBadgeText}>1</ThemedText>
+                </View>
+              ) : null}
+            </Pressable>
+
+            <Pressable style={styles.transportControl} testID="button-skip-back">
+              <Feather name="skip-back" size={26} color={Colors.dark.text} />
+            </Pressable>
+
+            <Pressable
+              style={[styles.playButton, { backgroundColor: categoryColor }]}
+              onPress={handlePlayPause}
+              disabled={isLoading}
+              testID="button-play-pause"
+            >
+              {isLoading ? (
+                <ActivityIndicator size="large" color="#FFFFFF" />
+              ) : (
+                <Feather
+                  name={isPlaying ? "pause" : "play"}
+                  size={32}
+                  color="#FFFFFF"
+                  style={isPlaying ? {} : { marginLeft: 4 }}
+                />
+              )}
+            </Pressable>
+
+            <Pressable style={styles.transportControl} testID="button-skip-forward">
+              <Feather name="skip-forward" size={26} color={Colors.dark.text} />
+            </Pressable>
+
+            <Pressable style={styles.sideControl} testID="button-shuffle">
+              <Feather name="shuffle" size={20} color="rgba(255,255,255,0.4)" />
+            </Pressable>
+          </View>
+
+          {isLoading ? (
+            <View style={styles.loadingMessage}>
+              <ThemedText style={styles.loadingText}>Loading audio...</ThemedText>
+            </View>
+          ) : null}
+        </View>
       </View>
 
       <Modal
@@ -799,21 +700,32 @@ const styles = StyleSheet.create({
     color: Colors.dark.text,
     textAlign: "center",
   },
-  orbSection: {
+  trackInfoSection: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
+    paddingHorizontal: Spacing["2xl"],
+  },
+  trackTitle: {
+    color: Colors.dark.text,
+    textAlign: "center",
+    textShadowColor: "rgba(0,0,0,0.5)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
   },
   midSection: {
     alignItems: "center",
     paddingHorizontal: Spacing["2xl"],
-    paddingBottom: Spacing["2xl"],
+    paddingBottom: Spacing.lg,
   },
   categorySubtitle: {
     fontSize: 15,
-    color: "rgba(255,255,255,0.6)",
+    color: "rgba(255,255,255,0.7)",
     marginBottom: Spacing.xl,
     letterSpacing: 0.5,
+    textShadowColor: "rgba(0,0,0,0.4)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
   },
   actionRow: {
     flexDirection: "row",
@@ -828,14 +740,23 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: "rgba(255,255,255,0.06)",
   },
-  controlPanel: {
-    backgroundColor: "rgba(26, 31, 46, 0.85)",
+  controlPanelWrapper: {
     borderTopLeftRadius: BorderRadius.xl,
     borderTopRightRadius: BorderRadius.xl,
+    overflow: "hidden",
+  },
+  blurFill: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  androidBlurFallback: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(10, 14, 26, 0.82)",
+  },
+  controlPanel: {
     borderTopWidth: 1,
     borderLeftWidth: 1,
     borderRightWidth: 1,
-    borderColor: "rgba(255,255,255,0.1)",
+    borderColor: "rgba(255,255,255,0.08)",
     paddingHorizontal: Spacing["2xl"],
     paddingTop: Spacing["2xl"],
   },
