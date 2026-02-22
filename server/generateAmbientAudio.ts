@@ -57,6 +57,7 @@ function lowPassFilter(data: number[], alpha: number): number[] {
 }
 
 const generators: Record<string, (i: number, sr: number) => number> = {
+  
   rain: (() => {
     const buffer: number[] = [];
     let prev = 0;

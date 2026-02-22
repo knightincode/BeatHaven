@@ -98,10 +98,8 @@ export default function SubscriptionScreen() {
 
   const features = [
     { icon: "headphones" as const, text: "Unlimited access to all binaural beats" },
-    { icon: "zap" as const, text: "New frequencies added regularly" },
     { icon: "list" as const, text: "Create unlimited playlists" },
     { icon: "heart" as const, text: "Save your favorite tracks" },
-    { icon: "eye" as const, text: "Immersive visual experiences" },
     { icon: "x" as const, text: "Cancel anytime" },
   ];
 
