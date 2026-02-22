@@ -41,7 +41,7 @@ import { Colors, Spacing, BorderRadius, FrequencyColors } from "@/constants/them
 import type { LoopMode, SleepTimerOption } from "@/contexts/PlayerContext";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
-const BG_SCALE = 1.3;
+const BG_SCALE = 1.08;
 
 function GlitterBackground({ color, isPlaying }: { color: string; isPlaying: boolean }) {
   const drift = useSharedValue(0);
@@ -73,10 +73,10 @@ function GlitterBackground({ color, isPlaying }: { color: string; isPlaying: boo
 
   const imageStyle = useAnimatedStyle(() => {
     const breatheScale = isPlaying
-      ? BG_SCALE + interpolate(pulse.value, [0, 1], [0, 0.04])
+      ? BG_SCALE + interpolate(pulse.value, [0, 1], [0, 0.02])
       : BG_SCALE;
-    const tx = isPlaying ? interpolate(drift.value, [0, 1], [-15, 15]) : 0;
-    const ty = isPlaying ? interpolate(sway.value, [0, 1], [-10, 10]) : 0;
+    const tx = isPlaying ? interpolate(drift.value, [0, 1], [-6, 6]) : 0;
+    const ty = isPlaying ? interpolate(sway.value, [0, 1], [-4, 4]) : 0;
 
     return {
       transform: [
