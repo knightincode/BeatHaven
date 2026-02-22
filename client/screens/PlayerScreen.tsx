@@ -41,27 +41,37 @@ import { Colors, Spacing, BorderRadius, FrequencyColors } from "@/constants/them
 import type { LoopMode, SleepTimerOption } from "@/contexts/PlayerContext";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
-const BG_SCALE = 1.08;
+const OVERFLOW = 40;
 
 function GlitterBackground({ color, isPlaying }: { color: string; isPlaying: boolean }) {
-  const drift = useSharedValue(0);
-  const sway = useSharedValue(0);
-  const pulse = useSharedValue(0);
+  const wave1 = useSharedValue(0);
+  const wave2 = useSharedValue(0);
+  const wave3 = useSharedValue(0);
+  const wave4 = useSharedValue(0);
+  const tintPulse = useSharedValue(0);
 
   useEffect(() => {
-    drift.value = withRepeat(
-      withTiming(1, { duration: 20000, easing: Easing.inOut(Easing.sin) }),
+    wave1.value = withRepeat(
+      withTiming(1, { duration: 3000, easing: Easing.inOut(Easing.sin) }),
       -1,
       true
     );
-
-    sway.value = withRepeat(
-      withTiming(1, { duration: 14000, easing: Easing.inOut(Easing.sin) }),
+    wave2.value = withRepeat(
+      withTiming(1, { duration: 4200, easing: Easing.inOut(Easing.sin) }),
       -1,
       true
     );
-
-    pulse.value = withRepeat(
+    wave3.value = withRepeat(
+      withTiming(1, { duration: 5500, easing: Easing.inOut(Easing.sin) }),
+      -1,
+      true
+    );
+    wave4.value = withRepeat(
+      withTiming(1, { duration: 7000, easing: Easing.inOut(Easing.sin) }),
+      -1,
+      true
+    );
+    tintPulse.value = withRepeat(
       withSequence(
         withTiming(1, { duration: 4000, easing: Easing.inOut(Easing.sin) }),
         withTiming(1, { duration: 7000 }),
@@ -72,15 +82,18 @@ function GlitterBackground({ color, isPlaying }: { color: string; isPlaying: boo
   }, []);
 
   const imageStyle = useAnimatedStyle(() => {
-    const breatheScale = isPlaying
-      ? BG_SCALE + interpolate(pulse.value, [0, 1], [0, 0.02])
-      : BG_SCALE;
-    const tx = isPlaying ? interpolate(drift.value, [0, 1], [-6, 6]) : 0;
-    const ty = isPlaying ? interpolate(sway.value, [0, 1], [-4, 4]) : 0;
+    if (!isPlaying) {
+      return { transform: [{ translateX: 0 }, { translateY: 0 }] };
+    }
+    const tx =
+      interpolate(wave1.value, [0, 1], [-18, 18]) +
+      interpolate(wave3.value, [0, 1], [8, -8]);
+    const ty =
+      interpolate(wave2.value, [0, 1], [-12, 12]) +
+      interpolate(wave4.value, [0, 1], [6, -6]);
 
     return {
       transform: [
-        { scale: breatheScale },
         { translateX: tx },
         { translateY: ty },
       ],
@@ -90,7 +103,7 @@ function GlitterBackground({ color, isPlaying }: { color: string; isPlaying: boo
   const tintStyle = useAnimatedStyle(() => {
     return {
       opacity: isPlaying
-        ? interpolate(pulse.value, [0, 1], [0.3, 0.45])
+        ? interpolate(tintPulse.value, [0, 1], [0.3, 0.45])
         : 0.35,
     };
   });
@@ -106,7 +119,7 @@ function GlitterBackground({ color, isPlaying }: { color: string; isPlaying: boo
         style={[bgStyles.tint, { backgroundColor: color }, tintStyle]}
       />
       <LinearGradient
-        colors={["transparent", "rgba(0,0,0,0.15)", "transparent"]}
+        colors={["transparent", "rgba(0,0,0,0.12)", "transparent"]}
         style={bgStyles.vignette}
         start={{ x: 0.5, y: 0 }}
         end={{ x: 0.5, y: 1 }}
@@ -122,11 +135,11 @@ const bgStyles = StyleSheet.create({
     overflow: "hidden",
   },
   image: {
-    width: SCREEN_WIDTH * BG_SCALE,
-    height: SCREEN_HEIGHT * BG_SCALE,
+    width: SCREEN_WIDTH + OVERFLOW * 2,
+    height: SCREEN_HEIGHT + OVERFLOW * 2,
     position: "absolute",
-    top: -(SCREEN_HEIGHT * (BG_SCALE - 1)) / 2,
-    left: -(SCREEN_WIDTH * (BG_SCALE - 1)) / 2,
+    top: -OVERFLOW,
+    left: -OVERFLOW,
   },
   tint: {
     ...StyleSheet.absoluteFillObject,
