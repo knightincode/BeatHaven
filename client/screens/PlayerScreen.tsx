@@ -10,6 +10,7 @@ import {
   KeyboardAvoidingView,
   Keyboard,
   ScrollView,
+  Image,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
@@ -24,9 +25,10 @@ import Animated, {
   Easing,
   interpolate,
 } from "react-native-reanimated";
-import Svg, { Circle } from "react-native-svg";
 import * as Haptics from "expo-haptics";
 import { Platform } from "react-native";
+
+const glitterTexture = require("../assets/images/glitter-texture.png");
 
 import { ThemedText } from "@/components/ThemedText";
 import { usePlayer } from "@/contexts/PlayerContext";
@@ -38,77 +40,108 @@ import { Colors, Spacing, BorderRadius, FrequencyColors } from "@/constants/them
 import type { LoopMode, SleepTimerOption } from "@/contexts/PlayerContext";
 
 const { width } = Dimensions.get("window");
-const ORB_SIZE = 220;
+const ORB_SIZE = 240;
+const GLOW_SIZE = ORB_SIZE + 80;
+const IMG_SCALE = 1.6;
 
-const AnimatedSvg = Animated.createAnimatedComponent(Svg);
-
-function ResonantOrb({ color }: { color: string }) {
+function GlitterOrb({ color, isPlaying }: { color: string; isPlaying: boolean }) {
   const breathe = useSharedValue(0);
-  const pulse = useSharedValue(0);
-  const rotation = useSharedValue(0);
+  const rippleX = useSharedValue(0);
+  const rippleY = useSharedValue(0);
+  const slowDrift = useSharedValue(0);
+  const glowPulse = useSharedValue(0);
 
   useEffect(() => {
     breathe.value = withRepeat(
       withSequence(
-        withTiming(0.33, { duration: 4000, easing: Easing.inOut(Easing.sin) }),
-        withTiming(0.33, { duration: 7000 }),
+        withTiming(1, { duration: 4000, easing: Easing.inOut(Easing.sin) }),
+        withTiming(1, { duration: 7000 }),
         withTiming(0, { duration: 8000, easing: Easing.inOut(Easing.sin) })
       ),
       -1
     );
 
-    pulse.value = withRepeat(
-      withTiming(1, { duration: 3000, easing: Easing.inOut(Easing.sin) }),
+    rippleX.value = withRepeat(
+      withTiming(1, { duration: 6000, easing: Easing.inOut(Easing.sin) }),
       -1,
       true
     );
 
-    rotation.value = withRepeat(
-      withTiming(360, { duration: 60000, easing: Easing.linear }),
-      -1
+    rippleY.value = withRepeat(
+      withTiming(1, { duration: 8000, easing: Easing.inOut(Easing.sin) }),
+      -1,
+      true
+    );
+
+    slowDrift.value = withRepeat(
+      withTiming(1, { duration: 12000, easing: Easing.inOut(Easing.sin) }),
+      -1,
+      true
+    );
+
+    glowPulse.value = withRepeat(
+      withTiming(1, { duration: 3000, easing: Easing.inOut(Easing.sin) }),
+      -1,
+      true
     );
   }, []);
 
+  const imageStyle = useAnimatedStyle(() => {
+    const breatheScale = isPlaying
+      ? 1 + interpolate(breathe.value, [0, 1], [0, 0.06])
+      : 1;
+    const tx = isPlaying ? interpolate(rippleX.value, [0, 1], [-8, 8]) : 0;
+    const ty = isPlaying ? interpolate(rippleY.value, [0, 1], [-6, 6]) : 0;
+    const drift = isPlaying ? interpolate(slowDrift.value, [0, 1], [-3, 3]) : 0;
+
+    return {
+      transform: [
+        { scale: IMG_SCALE * breatheScale },
+        { translateX: tx + drift },
+        { translateY: ty - drift * 0.5 },
+      ],
+    };
+  });
+
   const outerGlowStyle = useAnimatedStyle(() => {
-    const scale = 1 + interpolate(breathe.value, [0, 0.33], [0, 0.12]);
-    const pulseScale = interpolate(pulse.value, [0, 1], [0.98, 1.02]);
+    const scale = isPlaying
+      ? 1 + interpolate(breathe.value, [0, 1], [0, 0.1])
+      : 1;
+    const pulseScale = interpolate(glowPulse.value, [0, 1], [0.96, 1.04]);
     return {
       transform: [{ scale: scale * pulseScale }],
-      opacity: interpolate(pulse.value, [0, 1], [0.3, 0.5]),
+      opacity: isPlaying
+        ? interpolate(glowPulse.value, [0, 1], [0.25, 0.5])
+        : 0.15,
     };
   });
 
   const midGlowStyle = useAnimatedStyle(() => {
-    const scale = 1 + interpolate(breathe.value, [0, 0.33], [0, 0.08]);
-    const pulseScale = interpolate(pulse.value, [0, 1], [0.99, 1.01]);
+    const scale = isPlaying
+      ? 1 + interpolate(breathe.value, [0, 1], [0, 0.06])
+      : 1;
     return {
-      transform: [{ scale: scale * pulseScale }],
-      opacity: interpolate(pulse.value, [0, 1], [0.4, 0.6]),
+      transform: [{ scale }],
+      opacity: isPlaying
+        ? interpolate(glowPulse.value, [0, 1], [0.3, 0.55])
+        : 0.2,
     };
   });
 
   const coreStyle = useAnimatedStyle(() => {
-    const scale = 1 + interpolate(breathe.value, [0, 0.33], [0, 0.05]);
+    const scale = isPlaying
+      ? 1 + interpolate(breathe.value, [0, 1], [0, 0.03])
+      : 1;
     return {
       transform: [{ scale }],
     };
   });
 
-  const innerGlowStyle = useAnimatedStyle(() => {
+  const tintOpacity = useAnimatedStyle(() => {
     return {
-      opacity: interpolate(pulse.value, [0, 1], [0.6, 0.9]),
-    };
-  });
-
-  const ringsStyle = useAnimatedStyle(() => {
-    return {
-      transform: [{ rotate: `${rotation.value}deg` }],
-    };
-  });
-
-  const ringsStyle2 = useAnimatedStyle(() => {
-    return {
-      transform: [{ rotate: `${-rotation.value * 0.7}deg` }],
+      opacity: isPlaying
+        ? interpolate(glowPulse.value, [0, 1], [0.35, 0.5])
+        : 0.45,
     };
   });
 
@@ -117,7 +150,7 @@ function ResonantOrb({ color }: { color: string }) {
       <Animated.View
         style={[
           orbStyles.outerGlow,
-          { backgroundColor: color + "15" },
+          { backgroundColor: color + "18" },
           outerGlowStyle,
         ]}
       />
@@ -125,112 +158,34 @@ function ResonantOrb({ color }: { color: string }) {
       <Animated.View
         style={[
           orbStyles.midGlow,
-          { backgroundColor: color + "25" },
+          { backgroundColor: color + "28" },
           midGlowStyle,
         ]}
       />
 
-      <Animated.View
-        style={[
-          orbStyles.core,
-          coreStyle,
-        ]}
-      >
+      <Animated.View style={[orbStyles.core, coreStyle]}>
+        <Animated.Image
+          source={glitterTexture}
+          style={[orbStyles.glitterImage, imageStyle]}
+          resizeMode="cover"
+        />
+
+        <Animated.View
+          style={[
+            orbStyles.colorTint,
+            { backgroundColor: color },
+            tintOpacity,
+          ]}
+        />
+
         <LinearGradient
-          colors={[color + "60", color + "30", color + "15"]}
-          style={orbStyles.coreGradient}
+          colors={["rgba(255,255,255,0.18)", "transparent", "rgba(0,0,0,0.2)"]}
+          style={orbStyles.highlightOverlay}
           start={{ x: 0.3, y: 0 }}
           end={{ x: 0.7, y: 1 }}
         />
 
-        <Animated.View style={[orbStyles.innerHighlight, innerGlowStyle]}>
-          <LinearGradient
-            colors={["rgba(255,255,255,0.25)", "rgba(255,255,255,0.05)", "transparent"]}
-            style={orbStyles.highlightGradient}
-            start={{ x: 0.5, y: 0 }}
-            end={{ x: 0.5, y: 0.6 }}
-          />
-        </Animated.View>
-
-        <AnimatedSvg
-          width={ORB_SIZE}
-          height={ORB_SIZE}
-          viewBox={`0 0 ${ORB_SIZE} ${ORB_SIZE}`}
-          style={[orbStyles.rings, ringsStyle]}
-        >
-          <Circle
-            cx={ORB_SIZE / 2}
-            cy={ORB_SIZE / 2}
-            r={85}
-            stroke={color}
-            strokeWidth={0.8}
-            fill="none"
-            opacity={0.3}
-          />
-          <Circle
-            cx={ORB_SIZE / 2}
-            cy={ORB_SIZE / 2}
-            r={65}
-            stroke={color}
-            strokeWidth={0.6}
-            fill="none"
-            opacity={0.2}
-          />
-          <Circle
-            cx={ORB_SIZE / 2}
-            cy={ORB_SIZE / 2}
-            r={45}
-            stroke={color}
-            strokeWidth={0.5}
-            fill="none"
-            opacity={0.15}
-          />
-        </AnimatedSvg>
-
-        <AnimatedSvg
-          width={ORB_SIZE}
-          height={ORB_SIZE}
-          viewBox={`0 0 ${ORB_SIZE} ${ORB_SIZE}`}
-          style={[orbStyles.rings, ringsStyle2]}
-        >
-          <Circle
-            cx={ORB_SIZE / 2}
-            cy={ORB_SIZE / 2}
-            r={95}
-            stroke={color}
-            strokeWidth={0.5}
-            fill="none"
-            opacity={0.15}
-            strokeDasharray="4 8"
-          />
-          <Circle
-            cx={ORB_SIZE / 2}
-            cy={ORB_SIZE / 2}
-            r={75}
-            stroke={color}
-            strokeWidth={0.4}
-            fill="none"
-            opacity={0.12}
-            strokeDasharray="3 6"
-          />
-          <Circle
-            cx={ORB_SIZE / 2}
-            cy={ORB_SIZE / 2}
-            r={55}
-            stroke={color}
-            strokeWidth={0.4}
-            fill="none"
-            opacity={0.1}
-            strokeDasharray="2 5"
-          />
-        </AnimatedSvg>
-
-        <View
-          style={[
-            orbStyles.coreBorder,
-            { borderColor: color + "40" },
-          ]}
-        />
+        <View style={[orbStyles.coreBorder, { borderColor: color + "50" }]} />
       </Animated.View>
     </View>
   );
@@ -238,22 +193,22 @@ function ResonantOrb({ color }: { color: string }) {
 
 const orbStyles = StyleSheet.create({
   container: {
-    width: ORB_SIZE + 60,
-    height: ORB_SIZE + 60,
+    width: GLOW_SIZE,
+    height: GLOW_SIZE,
     alignItems: "center",
     justifyContent: "center",
   },
   outerGlow: {
     position: "absolute",
-    width: ORB_SIZE + 60,
-    height: ORB_SIZE + 60,
-    borderRadius: (ORB_SIZE + 60) / 2,
+    width: GLOW_SIZE,
+    height: GLOW_SIZE,
+    borderRadius: GLOW_SIZE / 2,
   },
   midGlow: {
     position: "absolute",
-    width: ORB_SIZE + 30,
-    height: ORB_SIZE + 30,
-    borderRadius: (ORB_SIZE + 30) / 2,
+    width: ORB_SIZE + 40,
+    height: ORB_SIZE + 40,
+    borderRadius: (ORB_SIZE + 40) / 2,
   },
   core: {
     width: ORB_SIZE,
@@ -263,26 +218,23 @@ const orbStyles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  coreGradient: {
-    ...StyleSheet.absoluteFillObject,
-    borderRadius: ORB_SIZE / 2,
-  },
-  innerHighlight: {
-    ...StyleSheet.absoluteFillObject,
-    borderRadius: ORB_SIZE / 2,
-    overflow: "hidden",
-  },
-  highlightGradient: {
-    width: "100%",
-    height: "60%",
-  },
-  rings: {
+  glitterImage: {
+    width: ORB_SIZE * IMG_SCALE,
+    height: ORB_SIZE * IMG_SCALE,
     position: "absolute",
+  },
+  colorTint: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: ORB_SIZE / 2,
+  },
+  highlightOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: ORB_SIZE / 2,
   },
   coreBorder: {
     ...StyleSheet.absoluteFillObject,
     borderRadius: ORB_SIZE / 2,
-    borderWidth: 1,
+    borderWidth: 1.5,
   },
 });
 
@@ -442,7 +394,7 @@ export default function PlayerScreen() {
       </View>
 
       <View style={styles.orbSection}>
-        <ResonantOrb color={categoryColor} />
+        <GlitterOrb color={categoryColor} isPlaying={isPlaying} />
       </View>
 
       <View style={styles.midSection}>
