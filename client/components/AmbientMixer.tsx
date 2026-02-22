@@ -5,6 +5,7 @@ import {
   Pressable,
   Modal,
   Platform,
+  ScrollView,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
@@ -16,21 +17,29 @@ import { ThemedText } from "@/components/ThemedText";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { getApiUrl } from "@/lib/query-client";
 
-interface AmbientLayer {
+interface NoiseColor {
   id: string;
   name: string;
-  icon: keyof typeof Feather.glyphMap;
+  subtitle: string;
+  color: string;
   active: boolean;
   volume: number;
 }
 
-const AMBIENT_LAYERS: AmbientLayer[] = [
-  { id: "rain", name: "Rain", icon: "cloud-rain", active: false, volume: 0.5 },
-  { id: "ocean", name: "Ocean Waves", icon: "wind", active: false, volume: 0.5 },
-  { id: "forest", name: "Forest", icon: "feather", active: false, volume: 0.5 },
-  { id: "fire", name: "Fireplace", icon: "sun", active: false, volume: 0.5 },
-  { id: "night", name: "Night Crickets", icon: "moon", active: false, volume: 0.5 },
-  { id: "wind", name: "Wind", icon: "navigation", active: false, volume: 0.5 },
+const NOISE_COLORS: NoiseColor[] = [
+  { id: "white", name: "White", subtitle: "Bright hiss, TV static", color: "#E0E0E0", active: false, volume: 0.5 },
+  { id: "pink", name: "Pink", subtitle: "Balanced, steady rainfall", color: "#F48FB1", active: false, volume: 0.5 },
+  { id: "brown", name: "Brown", subtitle: "Deep rumble, low waterfall", color: "#8D6E63", active: false, volume: 0.5 },
+  { id: "blue", name: "Blue", subtitle: "Shrill, high-pitched hiss", color: "#64B5F6", active: false, volume: 0.5 },
+  { id: "violet", name: "Violet", subtitle: "Sharp, piercing steam", color: "#CE93D8", active: false, volume: 0.5 },
+  { id: "grey", name: "Grey", subtitle: "Perceptually even loudness", color: "#9E9E9E", active: false, volume: 0.5 },
+  { id: "green", name: "Green", subtitle: "Mid-range, lush forest", color: "#81C784", active: false, volume: 0.5 },
+  { id: "orange", name: "Orange", subtitle: "Clashing, out-of-tune", color: "#FFB74D", active: false, volume: 0.5 },
+  { id: "red", name: "Red", subtitle: "Extra deep bass emphasis", color: "#EF5350", active: false, volume: 0.5 },
+  { id: "black", name: "Black", subtitle: "Near silence, deep space", color: "#424242", active: false, volume: 0.5 },
+  { id: "speech", name: "Speech", subtitle: "Blocks nearby voices", color: "#4DD0E1", active: false, volume: 0.5 },
+  { id: "modulated", name: "Modulated", subtitle: "Rhythmic breathing swell", color: "#7986CB", active: false, volume: 0.5 },
+  { id: "dither", name: "Dither", subtitle: "Ultra-subtle, fine grain", color: "#A1887F", active: false, volume: 0.5 },
 ];
 
 interface AmbientMixerProps {
@@ -41,7 +50,7 @@ interface AmbientMixerProps {
 
 export function AmbientMixer({ visible, onClose, accentColor = Colors.dark.link }: AmbientMixerProps) {
   const insets = useSafeAreaInsets();
-  const [layers, setLayers] = useState<AmbientLayer[]>(AMBIENT_LAYERS);
+  const [layers, setLayers] = useState<NoiseColor[]>(NOISE_COLORS);
   const audioContextRef = useRef<any>(null);
   const webNodesRef = useRef<Record<string, { source: any; gain: any }>>({});
   const nativeSoundsRef = useRef<Record<string, Audio.Sound>>({});
@@ -57,49 +66,169 @@ export function AmbientMixer({ visible, onClose, accentColor = Colors.dark.link 
     return audioContextRef.current;
   }, []);
 
+  function generateWhiteNoise(ctx: any, bufferSize: number): Float32Array {
+    const data = new Float32Array(bufferSize);
+    for (let i = 0; i < bufferSize; i++) {
+      data[i] = Math.random() * 2 - 1;
+    }
+    return data;
+  }
+
+  function generatePinkNoise(ctx: any, bufferSize: number): Float32Array {
+    const data = new Float32Array(bufferSize);
+    let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0;
+    for (let i = 0; i < bufferSize; i++) {
+      const white = Math.random() * 2 - 1;
+      b0 = 0.99886 * b0 + white * 0.0555179;
+      b1 = 0.99332 * b1 + white * 0.0750759;
+      b2 = 0.96900 * b2 + white * 0.1538520;
+      b3 = 0.86650 * b3 + white * 0.3104856;
+      b4 = 0.55000 * b4 + white * 0.5329522;
+      b5 = -0.7616 * b5 - white * 0.0168980;
+      data[i] = (b0 + b1 + b2 + b3 + b4 + b5 + b6 + white * 0.5362) * 0.11;
+      b6 = white * 0.115926;
+    }
+    return data;
+  }
+
   function createNoiseBuffer(ctx: any, type: string): any {
     const bufferSize = ctx.sampleRate * 2;
     const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
     const data = buffer.getChannelData(0);
+    const sr = ctx.sampleRate;
 
-    for (let i = 0; i < bufferSize; i++) {
-      switch (type) {
-        case "rain":
-          data[i] = (Math.random() * 2 - 1) * 0.3;
-          if (Math.random() < 0.001) data[i] *= 3;
-          break;
-        case "ocean": {
-          const t = i / ctx.sampleRate;
-          const wave = Math.sin(t * 0.15 * Math.PI * 2) * 0.5 + 0.5;
-          data[i] = (Math.random() * 2 - 1) * wave * 0.4;
-          break;
+    switch (type) {
+      case "white": {
+        const gen = generateWhiteNoise(ctx, bufferSize);
+        for (let i = 0; i < bufferSize; i++) data[i] = gen[i];
+        break;
+      }
+      case "pink": {
+        const gen = generatePinkNoise(ctx, bufferSize);
+        for (let i = 0; i < bufferSize; i++) data[i] = gen[i];
+        break;
+      }
+      case "brown": {
+        let prev = 0;
+        for (let i = 0; i < bufferSize; i++) {
+          const white = Math.random() * 2 - 1;
+          prev = (prev + 0.02 * white) / 1.02;
+          data[i] = prev * 3.5;
         }
-        case "forest":
-          data[i] = (Math.random() * 2 - 1) * 0.15;
-          if (Math.random() < 0.0005) data[i] = Math.sin(i * 0.1) * 0.5;
-          break;
-        case "fire":
-          data[i] = (Math.random() * 2 - 1) * 0.2 * (0.8 + Math.random() * 0.4);
-          break;
-        case "night":
-          data[i] = (Math.random() * 2 - 1) * 0.05;
-          if (Math.random() < 0.002) {
-            const chirpLen = Math.min(2000, bufferSize - i);
-            for (let j = 0; j < chirpLen; j++) {
-              const env = Math.sin((j / chirpLen) * Math.PI);
-              data[i + j] += Math.sin(j * 0.3) * env * 0.3;
-            }
+        break;
+      }
+      case "blue": {
+        let prev = 0;
+        for (let i = 0; i < bufferSize; i++) {
+          const white = Math.random() * 2 - 1;
+          data[i] = white - prev;
+          prev = white;
+        }
+        break;
+      }
+      case "violet": {
+        let prev1 = 0, prev2 = 0;
+        for (let i = 0; i < bufferSize; i++) {
+          const white = Math.random() * 2 - 1;
+          data[i] = white - 2 * prev1 + prev2;
+          prev2 = prev1;
+          prev1 = white;
+        }
+        break;
+      }
+      case "grey": {
+        const pink = generatePinkNoise(ctx, bufferSize);
+        for (let i = 0; i < bufferSize; i++) {
+          const freq = (i % sr) / sr;
+          const isoWeight = 1.0 + 0.4 * Math.sin(freq * Math.PI * 2 * 3.5);
+          data[i] = pink[i] * isoWeight;
+        }
+        break;
+      }
+      case "green": {
+        const pink = generatePinkNoise(ctx, bufferSize);
+        for (let i = 0; i < bufferSize; i++) data[i] = pink[i];
+        break;
+      }
+      case "orange": {
+        const numOsc = 12;
+        const freqs: number[] = [];
+        const baseFreqs = [261.63, 293.66, 329.63, 349.23, 392.00, 440.00];
+        for (let k = 0; k < numOsc; k++) {
+          freqs.push(baseFreqs[k % baseFreqs.length] * (1 + (Math.random() * 0.08 - 0.04)));
+        }
+        for (let i = 0; i < bufferSize; i++) {
+          let sum = 0;
+          const t = i / sr;
+          for (let k = 0; k < numOsc; k++) {
+            sum += Math.sin(2 * Math.PI * freqs[k] * t) * 0.1;
           }
-          break;
-        case "wind":
-          data[i] = (Math.random() * 2 - 1) * 0.25;
-          break;
-        default:
-          data[i] = (Math.random() * 2 - 1) * 0.2;
+          sum += (Math.random() * 2 - 1) * 0.15;
+          data[i] = sum;
+        }
+        break;
+      }
+      case "red": {
+        let prev = 0;
+        for (let i = 0; i < bufferSize; i++) {
+          const white = Math.random() * 2 - 1;
+          prev = (prev + 0.01 * white) / 1.01;
+          data[i] = prev * 5;
+        }
+        break;
+      }
+      case "black": {
+        for (let i = 0; i < bufferSize; i++) {
+          const r1 = Math.random();
+          const r2 = Math.random();
+          const gaussian = Math.sqrt(-2 * Math.log(r1 + 1e-10)) * Math.cos(2 * Math.PI * r2);
+          data[i] = gaussian * 0.003;
+        }
+        break;
+      }
+      case "speech": {
+        const pink = generatePinkNoise(ctx, bufferSize);
+        for (let i = 0; i < bufferSize; i++) data[i] = pink[i];
+        break;
+      }
+      case "modulated": {
+        let prev = 0;
+        for (let i = 0; i < bufferSize; i++) {
+          const white = Math.random() * 2 - 1;
+          prev = (prev + 0.02 * white) / 1.02;
+          const t = i / sr;
+          const mod = Math.sin(2 * Math.PI * 0.1 * t) * 0.4 + 0.6;
+          data[i] = prev * 3.5 * mod;
+        }
+        break;
+      }
+      case "dither": {
+        for (let i = 0; i < bufferSize; i++) {
+          const r1 = Math.random();
+          const r2 = Math.random();
+          data[i] = (r1 + r2 - 1) * 0.05;
+        }
+        break;
+      }
+      default: {
+        for (let i = 0; i < bufferSize; i++) data[i] = (Math.random() * 2 - 1) * 0.2;
       }
     }
 
     return buffer;
+  }
+
+  function getFilterConfig(type: string): { filterType: BiquadFilterType; freq: number; q: number } | null {
+    switch (type) {
+      case "green":
+        return { filterType: "bandpass", freq: 1000, q: 0.5 };
+      case "speech":
+        return { filterType: "bandpass", freq: 1500, q: 0.4 };
+      case "red":
+        return { filterType: "lowpass", freq: 200, q: 0.7 };
+      default:
+        return null;
+    }
   }
 
   function startWebLayer(layerId: string, volume: number) {
@@ -108,21 +237,26 @@ export function AmbientMixer({ visible, onClose, accentColor = Colors.dark.link 
 
     stopWebLayer(layerId);
 
-    const buffer = createNoiseBuffer(ctx, layerId);
+    const audioBuffer = createNoiseBuffer(ctx, layerId);
     const source = ctx.createBufferSource();
-    source.buffer = buffer;
+    source.buffer = audioBuffer;
     source.loop = true;
-
-    const filter = ctx.createBiquadFilter();
-    filter.type = layerId === "wind" ? "lowpass" : "bandpass";
-    filter.frequency.value = layerId === "rain" ? 8000 : layerId === "ocean" ? 400 : layerId === "wind" ? 600 : 2000;
-    filter.Q.value = layerId === "ocean" ? 0.5 : 1;
 
     const gain = ctx.createGain();
     gain.gain.value = volume;
 
-    source.connect(filter);
-    filter.connect(gain);
+    const filterCfg = getFilterConfig(layerId);
+    if (filterCfg) {
+      const filter = ctx.createBiquadFilter();
+      filter.type = filterCfg.filterType;
+      filter.frequency.value = filterCfg.freq;
+      filter.Q.value = filterCfg.q;
+      source.connect(filter);
+      filter.connect(gain);
+    } else {
+      source.connect(gain);
+    }
+
     gain.connect(ctx.destination);
     source.start();
 
@@ -252,13 +386,13 @@ export function AmbientMixer({ visible, onClose, accentColor = Colors.dark.link 
       <Pressable style={styles.overlay} onPress={onClose}>
         <Pressable onPress={(e) => e.stopPropagation()} style={[styles.content, { paddingBottom: insets.bottom + Spacing.lg }]}>
           <View style={styles.header}>
-            <ThemedText type="h4">Ambient Mixer</ThemedText>
+            <ThemedText type="h4">Noise Color Mixer</ThemedText>
             <Pressable onPress={onClose} testID="button-close-mixer">
               <Feather name="x" size={24} color={Colors.dark.text} />
             </Pressable>
           </View>
           <ThemedText style={styles.description}>
-            Layer ambient sounds over your binaural beats
+            Layer noise colors over your binaural beats
           </ThemedText>
           {activeLayers > 0 ? (
             <View style={[styles.activeBadge, { backgroundColor: accentColor + "20" }]}>
@@ -269,42 +403,56 @@ export function AmbientMixer({ visible, onClose, accentColor = Colors.dark.link 
             </View>
           ) : null}
 
-          {layers.map((layer) => (
-            <View key={layer.id} style={styles.layerRow}>
-              <Pressable
-                style={[
-                  styles.layerToggle,
-                  layer.active ? { backgroundColor: accentColor + "20", borderColor: accentColor } : {},
-                ]}
-                onPress={() => toggleLayer(layer.id)}
-                testID={`toggle-${layer.id}`}
-              >
-                <Feather
-                  name={layer.icon}
-                  size={20}
-                  color={layer.active ? accentColor : Colors.dark.textSecondary}
-                />
-              </Pressable>
-              <View style={styles.layerInfo}>
-                <ThemedText style={[styles.layerName, layer.active ? { color: Colors.dark.text } : {}]}>
-                  {layer.name}
-                </ThemedText>
-                {layer.active ? (
-                  <Slider
-                    style={styles.slider}
-                    minimumValue={0}
-                    maximumValue={1}
-                    value={layer.volume}
-                    onValueChange={(v: number) => setLayerVolume(layer.id, v)}
-                    minimumTrackTintColor={accentColor}
-                    maximumTrackTintColor="rgba(255,255,255,0.12)"
-                    thumbTintColor={accentColor}
-                    testID={`slider-${layer.id}`}
+          <ScrollView
+            style={styles.scrollArea}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.scrollContent}
+          >
+            {layers.map((layer) => (
+              <View key={layer.id} style={styles.layerRow}>
+                <Pressable
+                  style={[
+                    styles.layerToggle,
+                    layer.active
+                      ? { backgroundColor: layer.color + "30", borderColor: layer.color }
+                      : {},
+                  ]}
+                  onPress={() => toggleLayer(layer.id)}
+                  testID={`toggle-${layer.id}`}
+                >
+                  <View
+                    style={[
+                      styles.colorDot,
+                      { backgroundColor: layer.active ? layer.color : layer.color + "60" },
+                    ]}
                   />
-                ) : null}
+                </Pressable>
+                <View style={styles.layerInfo}>
+                  <View style={styles.layerLabelRow}>
+                    <ThemedText style={[styles.layerName, layer.active ? { color: layer.color } : {}]}>
+                      {layer.name}
+                    </ThemedText>
+                    <ThemedText style={styles.layerSubtitle}>
+                      {layer.subtitle}
+                    </ThemedText>
+                  </View>
+                  {layer.active ? (
+                    <Slider
+                      style={styles.slider}
+                      minimumValue={0}
+                      maximumValue={1}
+                      value={layer.volume}
+                      onValueChange={(v: number) => setLayerVolume(layer.id, v)}
+                      minimumTrackTintColor={layer.color}
+                      maximumTrackTintColor="rgba(255,255,255,0.12)"
+                      thumbTintColor={layer.color}
+                      testID={`slider-${layer.id}`}
+                    />
+                  ) : null}
+                </View>
               </View>
-            </View>
-          ))}
+            ))}
+          </ScrollView>
         </Pressable>
       </Pressable>
     </Modal>
@@ -322,6 +470,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: BorderRadius.xl,
     borderTopRightRadius: BorderRadius.xl,
     padding: Spacing["2xl"],
+    maxHeight: "85%",
   },
   header: {
     flexDirection: "row",
@@ -348,6 +497,12 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "500",
   },
+  scrollArea: {
+    flexGrow: 0,
+  },
+  scrollContent: {
+    paddingBottom: Spacing.md,
+  },
   layerRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -361,16 +516,32 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.dark.backgroundSecondary,
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: "transparent",
+  },
+  colorDot: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
   },
   layerInfo: {
     flex: 1,
   },
+  layerLabelRow: {
+    flexDirection: "row",
+    alignItems: "baseline",
+    gap: Spacing.sm,
+  },
   layerName: {
     fontSize: 15,
     color: Colors.dark.textSecondary,
-    fontWeight: "500",
+    fontWeight: "600",
+  },
+  layerSubtitle: {
+    fontSize: 12,
+    color: Colors.dark.textSecondary,
+    opacity: 0.6,
+    flex: 1,
   },
   slider: {
     width: "100%",
