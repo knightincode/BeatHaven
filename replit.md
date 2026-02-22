@@ -84,7 +84,7 @@ Preferred communication style: Simple, everyday language.
 - **Favorites**: Heart icon on track cards and player, toggled via /api/favorites endpoints
 - **Mood/Goal Filters**: Horizontal chips on home screen (Deep Sleep, Anxiety Relief, Focus, Creativity, Lucid Dreaming) filtering categories
 - **Educational Tooltips**: Info icon on each category header showing frequency range, description, and benefits
-- **Ambient Mixer**: Bottom sheet with 6 generative ambient sound layers (Rain, Ocean, Forest, Fireplace, Night, Wind) with independent volume (web only via Web Audio API)
+- **Noise Color Mixer**: Bottom sheet with 13 noise colors (White, Pink, Brown, Blue, Violet, Grey, Green, Orange, Red, Black, Speech, Modulated, Dither) each with independent volume. Generated as .wav files in Object Storage at ambient/{color}.wav, served via /api/audio/ambient/{color}.wav. Web uses Web Audio API real-time generation; native uses streamed .wav files.
 - **Restore Purchases**: Button on account screen to re-verify subscription status
 - **Offline Indicator**: Animated banner when network connection is lost
 
