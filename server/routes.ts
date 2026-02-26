@@ -285,6 +285,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post("/api/admin/toggle-subscription", adminMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const user = req.user!;
+      const newStatus = user.subscriptionStatus === "active" ? "inactive" : "active";
+      await db.execute(
+        sql`UPDATE users SET subscription_status = ${newStatus} WHERE id = ${user.id}`
+      );
+      const updatedUser = await storage.getUser(user.id);
+      res.json(updatedUser);
+    } catch (error: any) {
+      console.error("Toggle subscription error:", error);
+      res.status(500).json({ message: "Failed to toggle subscription" });
+    }
+  });
+
   app.get("/api/playlists", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const user = req.user!;

@@ -121,6 +121,13 @@ export default function AccountScreen() {
     navigation.navigate("Admin");
   }
 
+  function handleAdminTesting() {
+    if (Platform.OS !== "web") {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+    navigation.navigate("AdminTesting");
+  }
+
   return (
     <ThemedView style={styles.container}>
       <KeyboardAwareScrollViewCompat
@@ -183,6 +190,14 @@ export default function AccountScreen() {
                 title="Upload Tracks"
                 subtitle="Add new binaural beats to the app"
                 onPress={handleAdmin}
+                color={Colors.dark.accent}
+              />
+              <View style={styles.menuDivider} />
+              <MenuItem
+                icon="tool"
+                title="Admin Testing"
+                subtitle="Toggle subscription to test user experiences"
+                onPress={handleAdminTesting}
                 color={Colors.dark.accent}
               />
             </Card>

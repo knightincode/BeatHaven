@@ -87,6 +87,13 @@ Preferred communication style: Simple, everyday language.
 - **Noise Color Mixer**: Bottom sheet with 13 noise colors (White, Pink, Brown, Blue, Violet, Grey, Green, Orange, Red, Black, Speech, Modulated, Dither) each with independent volume. Generated as .wav files in Object Storage at ambient/{color}.wav, served via /api/audio/ambient/{color}.wav. Web uses Web Audio API real-time generation; native uses streamed .wav files.
 - **Restore Purchases**: Button on account screen to re-verify subscription status
 - **Offline Indicator**: Animated banner when network connection is lost
+- **Admin Testing**: Admin-only screen (Account > Admin Testing) with a toggle to simulate active/inactive subscription for testing both free and premium user experiences. Uses `POST /api/admin/toggle-subscription` endpoint.
+
+### Admin Account
+
+- Email: BeatHavenAdmin@gmail.com (isAdmin: true)
+- Has access to Upload Tracks and Admin Testing screens via Account tab
+- Admin Testing toggle switches subscriptionStatus between "active" and "inactive" to test both user tiers
 
 ### Environment Variables Required
 

@@ -10,6 +10,7 @@ import PlaylistDetailScreen from "@/screens/PlaylistDetailScreen";
 import SubscriptionScreen from "@/screens/SubscriptionScreen";
 import EditProfileScreen from "@/screens/EditProfileScreen";
 import AdminScreen from "@/screens/AdminScreen";
+import AdminTestingScreen from "@/screens/AdminTestingScreen";
 import { ActivityIndicator, View, StyleSheet } from "react-native";
 import { Colors } from "@/constants/theme";
 
@@ -21,6 +22,7 @@ export type RootStackParamList = {
   Subscription: undefined;
   EditProfile: undefined;
   Admin: undefined;
+  AdminTesting: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -82,6 +84,11 @@ export default function RootStackNavigator() {
             name="Admin"
             component={AdminScreen}
             options={{ headerTitle: "Admin Panel" }}
+          />
+          <Stack.Screen
+            name="AdminTesting"
+            component={AdminTestingScreen}
+            options={{ headerTitle: "Admin Testing" }}
           />
         </>
       )}
