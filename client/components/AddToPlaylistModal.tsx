@@ -36,7 +36,7 @@ interface AddToPlaylistModalProps {
 
 export function AddToPlaylistModal({ visible, onClose, trackId, trackTitle }: AddToPlaylistModalProps) {
   const insets = useSafeAreaInsets();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, hasActiveSubscription } = useAuth();
   const [showCreateInput, setShowCreateInput] = useState(false);
   const [newPlaylistName, setNewPlaylistName] = useState("");
   const [successPlaylistId, setSuccessPlaylistId] = useState<string | null>(null);
@@ -91,7 +91,7 @@ export function AddToPlaylistModal({ visible, onClose, trackId, trackTitle }: Ad
     }
   }
 
-  if (!isAuthenticated) {
+  if (!isAuthenticated || !hasActiveSubscription) {
     return null;
   }
 

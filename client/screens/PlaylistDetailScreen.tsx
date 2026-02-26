@@ -17,10 +17,13 @@ import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { Platform } from "react-native";
 
+import { LinearGradient } from "expo-linear-gradient";
+
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { Card } from "@/components/Card";
 import { usePlayer, Track } from "@/contexts/PlayerContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { apiRequest } from "@/lib/query-client";
 import { Colors, Spacing, BorderRadius, FrequencyColors } from "@/constants/theme";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
@@ -40,6 +43,7 @@ export default function PlaylistDetailScreen() {
   const insets = useSafeAreaInsets();
   const headerHeight = useHeaderHeight();
   const { playTrack } = usePlayer();
+  const { hasActiveSubscription } = useAuth();
   const queryClient = useQueryClient();
   const { playlistId, playlistName } = route.params;
 
@@ -141,6 +145,42 @@ export default function PlaylistDetailScreen() {
     );
   }
 
+  if (!isFavorites && !hasActiveSubscription) {
+    return (
+      <ThemedView style={styles.container}>
+        <View
+          style={[
+            styles.gateContainer,
+            { paddingTop: headerHeight + Spacing["3xl"], paddingBottom: insets.bottom + Spacing.xl },
+          ]}
+        >
+          <View style={styles.gateIconWrap}>
+            <Feather name="lock" size={32} color={Colors.dark.link} />
+          </View>
+          <ThemedText style={styles.gateTitle}>Resubscribe to Access Playlists</ThemedText>
+          <ThemedText style={styles.gateSubtext}>
+            Your playlists are still saved. Subscribe to access them again.
+          </ThemedText>
+          <Pressable
+            style={styles.gateUpgradeBtn}
+            onPress={() => navigation.navigate("Subscription")}
+            testID="button-resubscribe-playlist-detail"
+          >
+            <LinearGradient
+              colors={[Colors.dark.link, "#5BA3E2"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.gateUpgradeGradient}
+            >
+              <Feather name="zap" size={18} color="#FFFFFF" style={{ marginRight: Spacing.sm }} />
+              <ThemedText style={styles.gateUpgradeText}>Resubscribe</ThemedText>
+            </LinearGradient>
+          </Pressable>
+        </View>
+      </ThemedView>
+    );
+  }
+
   if (isLoading) {
     return (
       <ThemedView style={styles.loadingContainer}>
@@ -233,5 +273,54 @@ const styles = StyleSheet.create({
   emptyText: {
     color: Colors.dark.textSecondary,
     textAlign: "center",
+  },
+
+  gateContainer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: Spacing["2xl"],
+  },
+  gateIconWrap: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: Colors.dark.link + "15",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: Spacing.xl,
+  },
+  gateTitle: {
+    color: Colors.dark.text,
+    fontSize: 20,
+    fontWeight: "700",
+    textAlign: "center",
+    marginBottom: Spacing.md,
+  },
+  gateSubtext: {
+    color: Colors.dark.textSecondary,
+    fontSize: 15,
+    textAlign: "center",
+    lineHeight: 22,
+    marginBottom: Spacing["2xl"],
+    paddingHorizontal: Spacing.lg,
+  },
+  gateUpgradeBtn: {
+    borderRadius: BorderRadius.full,
+    overflow: "hidden",
+  },
+  gateUpgradeGradient: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: Spacing["3xl"],
+    paddingVertical: Spacing.lg,
+    borderRadius: BorderRadius.full,
+  },
+  gateUpgradeText: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "700",
+    letterSpacing: 0.3,
   },
 });

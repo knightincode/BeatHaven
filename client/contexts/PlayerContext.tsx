@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useState, useRef, ReactNode, useEffect, useCallback } from "react";
+import { Platform } from "react-native";
 import { Audio, AVPlaybackStatus } from "expo-av";
 import { useAuth } from "@/contexts/AuthContext";
+import { getLocalUri } from "@/lib/downloadManager";
 
 export interface Track {
   id: string;
@@ -16,7 +18,7 @@ export interface Track {
 export type LoopMode = "none" | "one" | "all";
 export type SleepTimerOption = number | null;
 
-const FREE_PREVIEW_MS = 5 * 60 * 1000;
+const FREE_PREVIEW_MS = 2 * 60 * 1000;
 
 interface PlayerContextType {
   currentTrack: Track | null;
@@ -184,10 +186,6 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
           if (soundRef.current) {
             soundRef.current.replayAsync();
           }
-        } else if (loopModeRef.current === "one") {
-          if (soundRef.current) {
-            soundRef.current.replayAsync();
-          }
         } else {
           setIsPlaying(false);
           setProgress(0);
@@ -212,9 +210,17 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         staysActiveInBackground: true,
       });
 
+      let audioUri = track.fileUrl;
+      if (Platform.OS !== "web") {
+        const localUri = await getLocalUri(track.id);
+        if (localUri) {
+          audioUri = localUri;
+        }
+      }
+
       const { sound } = await Audio.Sound.createAsync(
-        { uri: track.fileUrl },
-        { shouldPlay: true },
+        { uri: audioUri },
+        { shouldPlay: true, isLooping: hasActiveSubscription },
         onPlaybackStatusUpdate
       );
 

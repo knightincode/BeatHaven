@@ -1,5 +1,6 @@
 import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "node:http";
+import { spawn } from "node:child_process";
 import multer from "multer";
 import { storage } from "./storage";
 import {
@@ -230,6 +231,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Audio stream error:", error);
       res.status(500).json({ message: "Failed to stream audio" });
+    }
+  });
+
+  app.get("/api/audio/compressed/:trackId", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const user = req.user!;
+      if (user.subscriptionStatus !== "active") {
+        return res.status(403).json({ message: "Active subscription required for downloads" });
+      }
+
+      const track = await storage.getTrack(req.params.trackId);
+      if (!track) {
+        return res.status(404).json({ message: "Track not found" });
+      }
+
+      const fileUrl = track.fileUrl;
+      const objectPath = fileUrl.replace(/^\/api\/audio\//, "");
+      const fileData = await getAudioFileAsBuffer(objectPath);
+      if (!fileData) {
+        return res.status(404).json({ message: "Audio file not found" });
+      }
+
+      res.setHeader("Content-Type", "audio/mp4");
+      res.setHeader("Content-Disposition", `attachment; filename="${track.title.replace(/[^a-zA-Z0-9 ]/g, "")}.m4a"`);
+
+      const ffmpeg = spawn("ffmpeg", [
+        "-i", "pipe:0",
+        "-c:a", "aac",
+        "-b:a", "128k",
+        "-f", "ipod",
+        "-movflags", "frag_keyframe+empty_moov",
+        "pipe:1",
+      ]);
+
+      ffmpeg.stdin.write(fileData.buffer);
+      ffmpeg.stdin.end();
+
+      ffmpeg.stdout.pipe(res);
+
+      ffmpeg.stderr.on("data", () => {});
+      ffmpeg.on("error", (err) => {
+        console.error("FFmpeg error:", err);
+        if (!res.headersSent) {
+          res.status(500).json({ message: "Compression failed" });
+        }
+      });
+    } catch (error: any) {
+      console.error("Compressed audio error:", error);
+      if (!res.headersSent) {
+        res.status(500).json({ message: "Failed to compress audio" });
+      }
     }
   });
 

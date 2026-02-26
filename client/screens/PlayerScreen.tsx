@@ -39,6 +39,7 @@ import { AmbientMixer } from "@/components/AmbientMixer";
 import { AddToPlaylistModal } from "@/components/AddToPlaylistModal";
 import { Colors, Spacing, BorderRadius, FrequencyColors } from "@/constants/theme";
 import type { LoopMode, SleepTimerOption } from "@/contexts/PlayerContext";
+import { downloadTrack, isTrackDownloaded, deleteDownloadedTrack } from "@/lib/downloadManager";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 const OVERFLOW = 40;
@@ -149,7 +150,7 @@ const bgStyles = StyleSheet.create({
   },
 });
 
-const FREE_PREVIEW_MS = 5 * 60 * 1000;
+const FREE_PREVIEW_MS = 2 * 60 * 1000;
 
 const SLEEP_TIMER_OPTIONS: { label: string; value: SleepTimerOption }[] = [
   { label: "15 min", value: 15 },
@@ -183,15 +184,60 @@ export default function PlayerScreen() {
     dismissPreviewEnded,
   } = usePlayer();
 
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, token } = useAuth();
   const { isFavorite, toggleFavorite } = useFavorites();
   const [timerModalVisible, setTimerModalVisible] = useState(false);
   const [mixerVisible, setMixerVisible] = useState(false);
   const [playlistModalVisible, setPlaylistModalVisible] = useState(false);
   const [showCustomTimer, setShowCustomTimer] = useState(false);
   const [customMinutes, setCustomMinutes] = useState("");
+  const [isDownloaded, setIsDownloaded] = useState(false);
+  const [downloadProgress, setDownloadProgress] = useState<number | null>(null);
+  const downloadCancelRef = React.useRef<(() => void) | null>(null);
 
   const trackIsFavorite = currentTrack ? isFavorite(currentTrack.id) : false;
+
+  useEffect(() => {
+    if (currentTrack && Platform.OS !== "web") {
+      isTrackDownloaded(currentTrack.id).then(setIsDownloaded);
+    } else {
+      setIsDownloaded(false);
+    }
+  }, [currentTrack?.id]);
+
+  async function handleDownload() {
+    if (!currentTrack || !token || !hasActiveSubscription) return;
+    if (Platform.OS === "web") return;
+    if (Platform.OS !== "web") {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    }
+
+    if (isDownloaded) {
+      await deleteDownloadedTrack(currentTrack.id);
+      setIsDownloaded(false);
+      return;
+    }
+
+    setDownloadProgress(0);
+    const { promise, cancel } = downloadTrack(
+      currentTrack.id,
+      token,
+      (p) => setDownloadProgress(p)
+    );
+    downloadCancelRef.current = cancel;
+
+    try {
+      await promise;
+      setIsDownloaded(true);
+      setDownloadProgress(null);
+      if (Platform.OS !== "web") {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
+    } catch {
+      setDownloadProgress(null);
+    }
+    downloadCancelRef.current = null;
+  }
 
   function handleToggleFavorite() {
     if (!currentTrack || !isAuthenticated) return;
@@ -314,16 +360,38 @@ export default function PlayerScreen() {
             <Feather name="heart" size={22} color={trackIsFavorite ? "#FF6B8A" : "rgba(255,255,255,0.6)"} />
           </Pressable>
           <Pressable style={styles.actionButton} testID="button-add-playlist" onPress={() => {
+            if (!hasActiveSubscription) {
+              (navigation as any).navigate("Subscription");
+              return;
+            }
             if (Platform.OS !== "web") {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
             }
             setPlaylistModalVisible(true);
           }}>
-            <Feather name="plus" size={22} color="rgba(255,255,255,0.6)" />
+            <Feather name="plus" size={22} color={hasActiveSubscription ? "rgba(255,255,255,0.6)" : "rgba(255,255,255,0.2)"} />
           </Pressable>
           <Pressable style={styles.actionButton} testID="button-mixer" onPress={() => setMixerVisible(true)}>
             <Feather name="sliders" size={22} color="rgba(255,255,255,0.6)" />
           </Pressable>
+          {hasActiveSubscription && Platform.OS !== "web" ? (
+            <Pressable style={styles.actionButton} testID="button-download" onPress={handleDownload}>
+              {downloadProgress !== null ? (
+                <View style={styles.downloadProgressWrap}>
+                  <ActivityIndicator size="small" color={categoryColor} />
+                  <ThemedText style={[styles.downloadProgressText, { color: categoryColor }]}>
+                    {Math.round(downloadProgress * 100)}%
+                  </ThemedText>
+                </View>
+              ) : (
+                <Feather
+                  name={isDownloaded ? "check-circle" : "download"}
+                  size={22}
+                  color={isDownloaded ? categoryColor : "rgba(255,255,255,0.6)"}
+                />
+              )}
+            </Pressable>
+          ) : null}
           <Pressable style={styles.actionButton} testID="button-timer" onPress={() => setTimerModalVisible(true)}>
             <Feather name="clock" size={22} color={timerIconColor} />
             {sleepTimer !== null ? (
@@ -651,7 +719,7 @@ export default function PlayerScreen() {
               Preview Complete
             </ThemedText>
             <ThemedText style={styles.upgradeDescription}>
-              You've reached the 5-minute free preview limit. Subscribe to unlock unlimited listening with continuous looping.
+              You've enjoyed a 2-minute preview. Start your free 7-day trial to unlock unlimited listening with seamless looping, all frequency categories, and playlist creation.
             </ThemedText>
             <Pressable
               style={[styles.upgradeButton, { backgroundColor: categoryColor }]}
@@ -662,7 +730,7 @@ export default function PlayerScreen() {
               testID="button-upgrade-subscribe"
             >
               <Feather name="star" size={18} color="#FFFFFF" />
-              <ThemedText style={styles.upgradeButtonText}>Subscribe - $0.99/mo</ThemedText>
+              <ThemedText style={styles.upgradeButtonText}>Start 7-Day Free Trial</ThemedText>
             </Pressable>
             <Pressable
               style={styles.upgradeDismissButton}
@@ -1044,5 +1112,14 @@ const styles = StyleSheet.create({
   upgradeDismissText: {
     color: Colors.dark.textSecondary,
     fontSize: 14,
+  },
+  downloadProgressWrap: {
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  downloadProgressText: {
+    fontSize: 9,
+    fontWeight: "700",
+    marginTop: 1,
   },
 });

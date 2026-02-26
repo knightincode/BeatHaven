@@ -54,7 +54,7 @@ export default function PlaylistsScreen() {
   const headerHeight = useHeaderHeight();
   const tabBarHeight = useBottomTabBarHeight();
   const navigation = useNavigation<NavigationProp>();
-  const { token } = useAuth();
+  const { token, hasActiveSubscription } = useAuth();
   const queryClient = useQueryClient();
   const { favorites } = useFavorites();
 
@@ -243,6 +243,59 @@ export default function PlaylistsScreen() {
           </View>
         ) : null}
       </View>
+    );
+  }
+
+  if (!hasActiveSubscription) {
+    return (
+      <ThemedView style={styles.container}>
+        <View
+          style={[
+            styles.gateContainer,
+            { paddingTop: headerHeight + Spacing["3xl"], paddingBottom: tabBarHeight + Spacing.xl },
+          ]}
+        >
+          <View style={styles.gateIconWrap}>
+            <Feather name="lock" size={36} color={Colors.dark.link} />
+          </View>
+          <ThemedText style={styles.gateTitle}>Playlists are a Premium Feature</ThemedText>
+          <ThemedText style={styles.gateSubtext}>
+            Create custom playlists, organize your favorite tracks, and build the perfect listening experience.
+          </ThemedText>
+          <Pressable
+            style={styles.gateUpgradeBtn}
+            onPress={() => navigation.navigate("Subscription")}
+            testID="button-upgrade-playlists"
+          >
+            <LinearGradient
+              colors={[Colors.dark.link, "#5BA3E2"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.gateUpgradeGradient}
+            >
+              <Feather name="zap" size={18} color="#FFFFFF" style={{ marginRight: Spacing.sm }} />
+              <ThemedText style={styles.gateUpgradeText}>Start 7-Day Free Trial</ThemedText>
+            </LinearGradient>
+          </Pressable>
+          <ThemedText style={styles.gatePriceText}>
+            Then just $0.99/month
+          </ThemedText>
+
+          <View style={styles.gateFeatures}>
+            {[
+              { icon: "music" as const, text: "Unlimited custom playlists" },
+              { icon: "heart" as const, text: "Organize your favorite tracks" },
+              { icon: "headphones" as const, text: "Full access to all categories" },
+              { icon: "repeat" as const, text: "Seamless infinite looping" },
+            ].map((feature, index) => (
+              <View key={index} style={styles.gateFeatureRow}>
+                <Feather name={feature.icon} size={16} color={Colors.dark.link} />
+                <ThemedText style={styles.gateFeatureText}>{feature.text}</ThemedText>
+              </View>
+            ))}
+          </View>
+        </View>
+      </ThemedView>
     );
   }
 
@@ -640,5 +693,74 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 15,
     fontWeight: "700",
+  },
+
+  gateContainer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: Spacing["2xl"],
+  },
+  gateIconWrap: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: Colors.dark.link + "15",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: Spacing.xl,
+  },
+  gateTitle: {
+    color: Colors.dark.text,
+    fontSize: 22,
+    fontWeight: "700",
+    textAlign: "center",
+    marginBottom: Spacing.md,
+  },
+  gateSubtext: {
+    color: Colors.dark.textSecondary,
+    fontSize: 15,
+    textAlign: "center",
+    lineHeight: 22,
+    marginBottom: Spacing["2xl"],
+    paddingHorizontal: Spacing.lg,
+  },
+  gateUpgradeBtn: {
+    borderRadius: BorderRadius.full,
+    overflow: "hidden",
+    marginBottom: Spacing.md,
+  },
+  gateUpgradeGradient: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: Spacing["3xl"],
+    paddingVertical: Spacing.lg,
+    borderRadius: BorderRadius.full,
+  },
+  gateUpgradeText: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "700",
+    letterSpacing: 0.3,
+  },
+  gatePriceText: {
+    color: Colors.dark.textSecondary,
+    fontSize: 13,
+    marginBottom: Spacing["3xl"],
+  },
+  gateFeatures: {
+    width: "100%",
+    gap: Spacing.lg,
+    paddingHorizontal: Spacing.lg,
+  },
+  gateFeatureRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+  },
+  gateFeatureText: {
+    color: Colors.dark.textSecondary,
+    fontSize: 14,
   },
 });

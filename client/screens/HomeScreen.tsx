@@ -87,7 +87,7 @@ export default function HomeScreen() {
   const tabBarHeight = useBottomTabBarHeight();
   const navigation = useNavigation<NavigationProp>();
   const { playTrack } = usePlayer();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, hasActiveSubscription } = useAuth();
   const { isFavorite, toggleFavorite } = useFavorites();
   const [activeFilter, setActiveFilter] = useState("all");
   const [infoModalCategory, setInfoModalCategory] = useState<string | null>(null);
@@ -98,7 +98,14 @@ export default function HomeScreen() {
   });
 
   const activeFilterObj = MOOD_FILTERS.find((f) => f.id === activeFilter);
-  const visibleCategories = activeFilterObj ? activeFilterObj.categories : CATEGORIES.map((c) => c.id);
+  const allVisibleCategories = activeFilterObj ? activeFilterObj.categories : CATEGORIES.map((c) => c.id);
+  const visibleCategories = hasActiveSubscription
+    ? allVisibleCategories
+    : allVisibleCategories.filter((c) => c === "gamma");
+
+  const availableMoodFilters = hasActiveSubscription
+    ? MOOD_FILTERS
+    : MOOD_FILTERS.filter((f) => f.categories.includes("gamma"));
 
   function getTracksByCategory(category: string) {
     return tracks?.filter((t) => t.category.toLowerCase() === category) || [];
@@ -154,13 +161,36 @@ export default function HomeScreen() {
           Explore binaural beats designed to enhance your mental state
         </ThemedText>
 
+        {!hasActiveSubscription ? (
+          <Pressable
+            style={styles.upgradeBanner}
+            onPress={() => navigation.navigate("Subscription")}
+            testID="button-upgrade-banner"
+          >
+            <View style={styles.upgradeBannerContent}>
+              <View style={styles.upgradeBannerLeft}>
+                <Feather name="unlock" size={20} color="#F59E0B" />
+                <View style={styles.upgradeBannerTextContainer}>
+                  <ThemedText style={styles.upgradeBannerTitle}>
+                    Unlock All Frequencies
+                  </ThemedText>
+                  <ThemedText style={styles.upgradeBannerSubtitle}>
+                    Start your 7-day free trial to access all categories
+                  </ThemedText>
+                </View>
+              </View>
+              <Feather name="chevron-right" size={20} color={Colors.dark.textSecondary} />
+            </View>
+          </Pressable>
+        ) : null}
+
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
           style={styles.filterScroll}
           contentContainerStyle={styles.filterContainer}
         >
-          {MOOD_FILTERS.map((filter) => {
+          {availableMoodFilters.map((filter) => {
             const isActive = activeFilter === filter.id;
             return (
               <Pressable
@@ -227,7 +257,7 @@ export default function HomeScreen() {
                       color={category.color}
                       isFavorite={isAuthenticated ? isFavorite(item.id) : undefined}
                       onToggleFavorite={isAuthenticated ? () => toggleFavorite(item.id) : undefined}
-                      onAddToPlaylist={isAuthenticated ? () => setPlaylistModalTrack(item) : undefined}
+                      onAddToPlaylist={isAuthenticated && hasActiveSubscription ? () => setPlaylistModalTrack(item) : undefined}
                     />
                   )}
                 />
@@ -447,5 +477,37 @@ const styles = StyleSheet.create({
   infoBenefitText: {
     color: Colors.dark.text,
     fontSize: 14,
+  },
+  upgradeBanner: {
+    backgroundColor: "rgba(245, 158, 11, 0.1)",
+    borderWidth: 1,
+    borderColor: "rgba(245, 158, 11, 0.25)",
+    borderRadius: BorderRadius.md,
+    padding: Spacing.lg,
+    marginBottom: Spacing.lg,
+  },
+  upgradeBannerContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  upgradeBannerLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    flex: 1,
+  },
+  upgradeBannerTextContainer: {
+    flex: 1,
+  },
+  upgradeBannerTitle: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#F59E0B",
+    marginBottom: 2,
+  },
+  upgradeBannerSubtitle: {
+    fontSize: 13,
+    color: Colors.dark.textSecondary,
   },
 });
