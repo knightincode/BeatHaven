@@ -21,16 +21,23 @@ import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollV
 
 const PASSWORD_RULES = [
   { label: "At least 8 characters", test: (p: string) => p.length >= 8 },
-  { label: "Maximum 15 characters", test: (p: string) => p.length > 0 && p.length <= 15 },
+  {
+    label: "Maximum 20 characters",
+    test: (p: string) => p.length > 0 && p.length <= 20,
+  },
   { label: "At least one number", test: (p: string) => /\d/.test(p) },
-  { label: "At least one special character (!, @, #, $, &, *)", test: (p: string) => /[!@#$&*]/.test(p) },
+  {
+    label: "At least one special character (!, @, #, $, &, *)",
+    test: (p: string) => /[!@#$&*]/.test(p),
+  },
 ];
 
 function validatePassword(password: string): string | null {
   if (password.length < 8) return "Password must be at least 8 characters";
-  if (password.length > 15) return "Password must be 15 characters or fewer";
+  if (password.length > 20) return "Password must be 20 characters or fewer";
   if (!/\d/.test(password)) return "Password must include at least one number";
-  if (!/[!@#$&*]/.test(password)) return "Password must include a special character (!, @, #, $, &, *)";
+  if (!/[!@#$&*]/.test(password))
+    return "Password must include a special character (!, @, #, $, &, *)";
   return null;
 }
 
@@ -46,7 +53,9 @@ function PasswordRulesChecklist({ password }: { password: string }) {
               size={14}
               color={passed ? Colors.dark.success : Colors.dark.textSecondary}
             />
-            <ThemedText style={[styles.ruleText, passed ? styles.ruleTextPassed : null]}>
+            <ThemedText
+              style={[styles.ruleText, passed ? styles.ruleTextPassed : null]}
+            >
               {rule.label}
             </ThemedText>
           </View>
@@ -68,7 +77,7 @@ export default function AuthScreen() {
 
   async function handleSubmit() {
     setError("");
-    
+
     if (!email || !password) {
       setError("Please fill in all fields");
       return;
@@ -161,9 +170,9 @@ export default function AuthScreen() {
             placeholder="Password"
             placeholderTextColor={Colors.dark.textSecondary}
             value={password}
-            onChangeText={(text) => setPassword(text.slice(0, 15))}
+            onChangeText={(text) => setPassword(text.slice(0, 20))}
             secureTextEntry
-            maxLength={15}
+            maxLength={20}
             testID="input-password"
           />
 
@@ -177,15 +186,13 @@ export default function AuthScreen() {
                 value={confirmPassword}
                 onChangeText={setConfirmPassword}
                 secureTextEntry
-                maxLength={15}
+                maxLength={20}
                 testID="input-confirm-password"
               />
             </>
           ) : null}
 
-          {error ? (
-            <ThemedText style={styles.error}>{error}</ThemedText>
-          ) : null}
+          {error ? <ThemedText style={styles.error}>{error}</ThemedText> : null}
 
           <Button
             onPress={handleSubmit}
@@ -203,7 +210,9 @@ export default function AuthScreen() {
 
           <Pressable onPress={toggleMode} style={styles.toggleContainer}>
             <ThemedText style={styles.toggleText}>
-              {isLogin ? "Don't have an account? " : "Already have an account? "}
+              {isLogin
+                ? "Don't have an account? "
+                : "Already have an account? "}
               <ThemedText type="link" style={styles.toggleLink}>
                 {isLogin ? "Sign Up" : "Sign In"}
               </ThemedText>
