@@ -208,9 +208,7 @@ export default function PlayerScreen() {
   async function handleDownload() {
     if (!currentTrack || !token || !hasActiveSubscription) return;
     if (Platform.OS === "web") return;
-    if (Platform.OS !== "web") {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    }
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
     if (isDownloaded) {
       await deleteDownloadedTrack(currentTrack.id);
@@ -230,9 +228,7 @@ export default function PlayerScreen() {
       await promise;
       setIsDownloaded(true);
       setDownloadProgress(null);
-      if (Platform.OS !== "web") {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      }
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch {
       setDownloadProgress(null);
     }
