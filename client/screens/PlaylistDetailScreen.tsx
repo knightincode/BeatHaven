@@ -81,7 +81,7 @@ export default function PlaylistDetailScreen() {
     if (Platform.OS !== "web") {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
-    playTrack(track);
+    playTrack(track, tracks || [track]);
     navigation.navigate("Player");
   }
 

@@ -81,6 +81,7 @@ Preferred communication style: Simple, everyday language.
 - **Resonant Orb**: Animated playback visualization with 4-7-8 breathing rhythm, category-colored glow, slow-rotating SVG rings
 - **Sleep Timer**: 15/30/45/60 minute options with 30-second volume fade-out before pause
 - **Loop Controls**: Loop one / loop all toggle in player controls
+- **Track Queue / Skip Controls**: Next/previous buttons in player. Queue is set from the category or playlist track list when a track is tapped. Skip-back restarts if progress > 3s, otherwise goes to previous. Auto-advances to next track on finish. Uses refs for stale-closure safety.
 - **Favorites**: Heart icon on track cards and player, toggled via /api/favorites endpoints
 - **Mood/Goal Filters**: Horizontal chips on home screen (Deep Sleep, Anxiety Relief, Focus, Creativity, Lucid Dreaming) filtering categories
 - **Educational Tooltips**: Info icon on each category header showing frequency range, description, and benefits

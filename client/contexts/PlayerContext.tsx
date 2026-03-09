@@ -33,7 +33,13 @@ interface PlayerContextType {
   isFadingOut: boolean;
   hasActiveSubscription: boolean;
   previewEnded: boolean;
-  playTrack: (track: Track) => Promise<void>;
+  queue: Track[];
+  queueIndex: number;
+  hasNext: boolean;
+  hasPrevious: boolean;
+  playTrack: (track: Track, trackQueue?: Track[]) => Promise<void>;
+  playNext: () => Promise<void>;
+  playPrevious: () => Promise<void>;
   pause: () => Promise<void>;
   resume: () => Promise<void>;
   stop: () => Promise<void>;
@@ -63,12 +69,16 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const [sleepTimerRemaining, setSleepTimerRemaining] = useState(0);
   const [isFadingOut, setIsFadingOut] = useState(false);
   const [previewEnded, setPreviewEnded] = useState(false);
+  const [queue, setQueue] = useState<Track[]>([]);
+  const [queueIndex, setQueueIndex] = useState(0);
   const soundRef = useRef<Audio.Sound | null>(null);
   const sleepTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const fadeIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const sleepTimerEndRef = useRef<number>(0);
   const subscriptionRef = useRef(hasActiveSubscription);
   const loopModeRef = useRef(loopMode);
+  const queueRef = useRef<Track[]>([]);
+  const queueIndexRef = useRef(0);
 
   useEffect(() => {
     subscriptionRef.current = hasActiveSubscription;
@@ -77,6 +87,14 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     loopModeRef.current = loopMode;
   }, [loopMode]);
+
+  useEffect(() => {
+    queueRef.current = queue;
+  }, [queue]);
+
+  useEffect(() => {
+    queueIndexRef.current = queueIndex;
+  }, [queueIndex]);
 
   useEffect(() => {
     return () => {
@@ -183,8 +201,24 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
       if (status.didJustFinish) {
         if (subscriptionRef.current) {
-          if (soundRef.current) {
-            soundRef.current.replayAsync();
+          if (loopModeRef.current === "one") {
+            if (soundRef.current) {
+              soundRef.current.replayAsync();
+            }
+          } else if (queueRef.current.length > 1) {
+            const nextIdx = queueIndexRef.current + 1;
+            if (nextIdx < queueRef.current.length) {
+              playTrackInternal(queueRef.current[nextIdx], queueRef.current, nextIdx);
+            } else if (loopModeRef.current === "all") {
+              playTrackInternal(queueRef.current[0], queueRef.current, 0);
+            } else {
+              setIsPlaying(false);
+              setProgress(0);
+            }
+          } else {
+            if (soundRef.current) {
+              soundRef.current.replayAsync();
+            }
           }
         } else {
           setIsPlaying(false);
@@ -194,9 +228,13 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  async function playTrack(track: Track) {
+  async function playTrackInternal(track: Track, trackQueue: Track[], index: number) {
     try {
       setCurrentTrack(track);
+      setQueue(trackQueue);
+      setQueueIndex(index);
+      queueRef.current = trackQueue;
+      queueIndexRef.current = index;
       setIsPlayerVisible(true);
       setIsLoading(true);
       setPreviewEnded(false);
@@ -218,9 +256,11 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         }
       }
 
+      const shouldLoopSingle = hasActiveSubscription && (loopModeRef.current === "one" || trackQueue.length <= 1);
+
       const { sound } = await Audio.Sound.createAsync(
         { uri: audioUri },
-        { shouldPlay: true, isLooping: hasActiveSubscription },
+        { shouldPlay: true, isLooping: shouldLoopSingle },
         onPlaybackStatusUpdate
       );
 
@@ -232,6 +272,47 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       setIsPlaying(false);
       setIsLoading(false);
     }
+  }
+
+  async function playTrack(track: Track, trackQueue?: Track[]) {
+    const q = trackQueue || [track];
+    const index = q.findIndex((t) => t.id === track.id);
+    await playTrackInternal(track, q, index >= 0 ? index : 0);
+  }
+
+  async function playNext() {
+    const currentQueue = queueRef.current;
+    const currentIdx = queueIndexRef.current;
+    if (currentQueue.length <= 1) return;
+    let nextIdx = currentIdx + 1;
+    if (nextIdx >= currentQueue.length) {
+      if (loopModeRef.current === "all") {
+        nextIdx = 0;
+      } else {
+        return;
+      }
+    }
+    await playTrackInternal(currentQueue[nextIdx], currentQueue, nextIdx);
+  }
+
+  async function playPrevious() {
+    const currentQueue = queueRef.current;
+    const currentIdx = queueIndexRef.current;
+    if (currentQueue.length <= 1) return;
+    if (progress > 3000) {
+      await seek(0);
+      return;
+    }
+    let prevIdx = currentIdx - 1;
+    if (prevIdx < 0) {
+      if (loopModeRef.current === "all") {
+        prevIdx = currentQueue.length - 1;
+      } else {
+        await seek(0);
+        return;
+      }
+    }
+    await playTrackInternal(currentQueue[prevIdx], currentQueue, prevIdx);
   }
 
   async function pause() {
@@ -298,6 +379,9 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     setPreviewEnded(false);
   }
 
+  const hasNext = queue.length > 1 && (queueIndex < queue.length - 1 || loopMode === "all");
+  const hasPrevious = queue.length > 1;
+
   return (
     <PlayerContext.Provider
       value={{
@@ -313,7 +397,13 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         isFadingOut,
         hasActiveSubscription,
         previewEnded,
+        queue,
+        queueIndex,
+        hasNext,
+        hasPrevious,
         playTrack,
+        playNext,
+        playPrevious,
         pause,
         resume,
         stop,

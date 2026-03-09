@@ -111,11 +111,11 @@ export default function HomeScreen() {
     return tracks?.filter((t) => t.category.toLowerCase() === category) || [];
   }
 
-  function handlePlayTrack(track: Track) {
+  function handlePlayTrack(track: Track, trackQueue?: Track[]) {
     if (Platform.OS !== "web") {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
-    playTrack(track);
+    playTrack(track, trackQueue);
     navigation.navigate("Player");
   }
 
@@ -253,7 +253,7 @@ export default function HomeScreen() {
                   renderItem={({ item }) => (
                     <TrackCard
                       track={item}
-                      onPress={() => handlePlayTrack(item)}
+                      onPress={() => handlePlayTrack(item, categoryTracks)}
                       color={category.color}
                       isFavorite={isAuthenticated ? isFavorite(item.id) : undefined}
                       onToggleFavorite={isAuthenticated ? () => toggleFavorite(item.id) : undefined}

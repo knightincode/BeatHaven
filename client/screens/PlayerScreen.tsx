@@ -174,6 +174,11 @@ export default function PlayerScreen() {
     isFadingOut,
     hasActiveSubscription,
     previewEnded,
+    queue,
+    hasNext,
+    hasPrevious,
+    playNext,
+    playPrevious,
     pause,
     resume,
     stop,
@@ -246,6 +251,22 @@ export default function PlayerScreen() {
   function handleClose() {
     hidePlayer();
     navigation.goBack();
+  }
+
+  async function handleSkipNext() {
+    if (!hasNext) return;
+    if (Platform.OS !== "web") {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    }
+    await playNext();
+  }
+
+  async function handleSkipPrevious() {
+    if (!hasPrevious) return;
+    if (Platform.OS !== "web") {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    }
+    await playPrevious();
   }
 
   function handlePlayPause() {
@@ -480,8 +501,13 @@ export default function PlayerScreen() {
               ) : null}
             </Pressable>
 
-            <Pressable style={styles.transportControl} testID="button-skip-back">
-              <Feather name="skip-back" size={26} color={Colors.dark.text} />
+            <Pressable
+              style={[styles.transportControl, !hasPrevious && styles.transportDisabled]}
+              onPress={handleSkipPrevious}
+              disabled={!hasPrevious}
+              testID="button-skip-back"
+            >
+              <Feather name="skip-back" size={26} color={hasPrevious ? Colors.dark.text : "rgba(255,255,255,0.3)"} />
             </Pressable>
 
             <Pressable
@@ -502,8 +528,13 @@ export default function PlayerScreen() {
               )}
             </Pressable>
 
-            <Pressable style={styles.transportControl} testID="button-skip-forward">
-              <Feather name="skip-forward" size={26} color={Colors.dark.text} />
+            <Pressable
+              style={[styles.transportControl, !hasNext && styles.transportDisabled]}
+              onPress={handleSkipNext}
+              disabled={!hasNext}
+              testID="button-skip-forward"
+            >
+              <Feather name="skip-forward" size={26} color={hasNext ? Colors.dark.text : "rgba(255,255,255,0.3)"} />
             </Pressable>
 
             <Pressable style={styles.sideControl} testID="button-shuffle">
@@ -895,6 +926,9 @@ const styles = StyleSheet.create({
     height: 48,
     alignItems: "center",
     justifyContent: "center",
+  },
+  transportDisabled: {
+    opacity: 0.5,
   },
   playButton: {
     width: 64,
