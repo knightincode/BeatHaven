@@ -16,6 +16,9 @@ import { ThemedText } from "@/components/ThemedText";
 import { Track } from "@/contexts/PlayerContext";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 
+const CARD_WIDTH = 160;
+const CARD_HEIGHT = 210;
+
 interface TrackCardProps {
   track: Track;
   onPress: () => void;
@@ -161,6 +164,8 @@ export function TrackCard({
 const styles = StyleSheet.create({
   wrapper: {
     position: "relative",
+    width: CARD_WIDTH,
+    height: CARD_HEIGHT,
   },
   glowEffect: {
     position: "absolute",
@@ -171,8 +176,8 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.lg,
   },
   container: {
-    width: 160,
-    minHeight: 200,
+    width: CARD_WIDTH,
+    height: CARD_HEIGHT,
     backgroundColor: Colors.dark.backgroundDefault,
     borderRadius: BorderRadius.lg,
     padding: Spacing.lg,
