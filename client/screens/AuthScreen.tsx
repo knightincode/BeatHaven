@@ -74,6 +74,8 @@ export default function AuthScreen() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   async function handleSubmit() {
     setError("");
@@ -165,30 +167,56 @@ export default function AuthScreen() {
             testID="input-email"
           />
 
-          <TextInput
-            style={styles.input}
-            placeholder="Password"
-            placeholderTextColor={Colors.dark.textSecondary}
-            value={password}
-            onChangeText={(text) => setPassword(text.slice(0, 20))}
-            secureTextEntry
-            maxLength={20}
-            testID="input-password"
-          />
+          <View style={styles.inputContainer}>
+            <TextInput
+              style={styles.inputWithIcon}
+              placeholder="Password"
+              placeholderTextColor={Colors.dark.textSecondary}
+              value={password}
+              onChangeText={(text) => setPassword(text.slice(0, 20))}
+              secureTextEntry={!showPassword}
+              maxLength={20}
+              testID="input-password"
+            />
+            <Pressable
+              onPress={() => setShowPassword((v) => !v)}
+              style={styles.eyeButton}
+              testID="button-toggle-password"
+            >
+              <Feather
+                name={showPassword ? "eye-off" : "eye"}
+                size={18}
+                color={Colors.dark.textSecondary}
+              />
+            </Pressable>
+          </View>
 
           {!isLogin ? (
             <>
               <PasswordRulesChecklist password={password} />
-              <TextInput
-                style={styles.input}
-                placeholder="Confirm Password"
-                placeholderTextColor={Colors.dark.textSecondary}
-                value={confirmPassword}
-                onChangeText={setConfirmPassword}
-                secureTextEntry
-                maxLength={20}
-                testID="input-confirm-password"
-              />
+              <View style={styles.inputContainer}>
+                <TextInput
+                  style={styles.inputWithIcon}
+                  placeholder="Confirm Password"
+                  placeholderTextColor={Colors.dark.textSecondary}
+                  value={confirmPassword}
+                  onChangeText={setConfirmPassword}
+                  secureTextEntry={!showConfirmPassword}
+                  maxLength={20}
+                  testID="input-confirm-password"
+                />
+                <Pressable
+                  onPress={() => setShowConfirmPassword((v) => !v)}
+                  style={styles.eyeButton}
+                  testID="button-toggle-confirm-password"
+                >
+                  <Feather
+                    name={showConfirmPassword ? "eye-off" : "eye"}
+                    size={18}
+                    color={Colors.dark.textSecondary}
+                  />
+                </Pressable>
+              </View>
             </>
           ) : null}
 
@@ -270,6 +298,28 @@ const styles = StyleSheet.create({
     fontSize: 16,
     borderWidth: 1,
     borderColor: Colors.dark.border,
+  },
+  inputContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    height: Spacing.inputHeight,
+    backgroundColor: Colors.dark.backgroundDefault,
+    borderRadius: BorderRadius.sm,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  inputWithIcon: {
+    flex: 1,
+    height: "100%",
+    paddingHorizontal: Spacing.lg,
+    color: Colors.dark.text,
+    fontSize: 16,
+  },
+  eyeButton: {
+    paddingHorizontal: Spacing.md,
+    height: "100%",
+    justifyContent: "center",
+    alignItems: "center",
   },
   rulesContainer: {
     backgroundColor: Colors.dark.backgroundDefault,
