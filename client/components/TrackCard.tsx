@@ -77,12 +77,6 @@ export function TrackCard({
     setTimeout(onPress, 100);
   }
 
-  function formatDuration(seconds: number) {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, "0")}`;
-  }
-
   return (
     <View style={styles.wrapper}>
       <Animated.View
@@ -141,19 +135,12 @@ export function TrackCard({
         </View>
         <View style={styles.contentArea}>
           <View>
-            <ThemedText style={styles.title} numberOfLines={2} ellipsizeMode="tail">
+            <ThemedText style={styles.title}>
               {track.title}
             </ThemedText>
             <View style={styles.meta}>
-              <ThemedText
-                style={styles.frequency}
-                numberOfLines={1}
-                ellipsizeMode="tail"
-              >
+              <ThemedText style={styles.frequency}>
                 {track.frequency}
-              </ThemedText>
-              <ThemedText style={styles.duration}>
-                {formatDuration(track.duration)}
               </ThemedText>
             </View>
           </View>
@@ -185,11 +172,10 @@ const styles = StyleSheet.create({
   },
   container: {
     width: 160,
-    height: 240,
+    minHeight: 200,
     backgroundColor: Colors.dark.backgroundDefault,
     borderRadius: BorderRadius.lg,
     padding: Spacing.lg,
-    overflow: "hidden",
   },
   topRow: {
     flexDirection: "row",
@@ -226,11 +212,6 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   frequency: {
-    color: Colors.dark.textSecondary,
-    fontSize: 11,
-    flexShrink: 1,
-  },
-  duration: {
     color: Colors.dark.textSecondary,
     fontSize: 11,
   },
