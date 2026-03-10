@@ -27,7 +27,14 @@ interface TrackCardProps {
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
-export function TrackCard({ track, onPress, color, isFavorite, onToggleFavorite, onAddToPlaylist }: TrackCardProps) {
+export function TrackCard({
+  track,
+  onPress,
+  color,
+  isFavorite,
+  onToggleFavorite,
+  onAddToPlaylist,
+}: TrackCardProps) {
   const scale = useSharedValue(1);
   const glowOpacity = useSharedValue(0);
   const glowScale = useSharedValue(1);
@@ -57,16 +64,16 @@ export function TrackCard({ track, onPress, color, isFavorite, onToggleFavorite,
 
   function handlePress() {
     triggerHaptic();
-    
+
     glowOpacity.value = withSequence(
       withTiming(0.8, { duration: 150, easing: Easing.out(Easing.ease) }),
-      withTiming(0, { duration: 400, easing: Easing.out(Easing.ease) })
+      withTiming(0, { duration: 400, easing: Easing.out(Easing.ease) }),
     );
     glowScale.value = withSequence(
       withTiming(1.15, { duration: 150, easing: Easing.out(Easing.ease) }),
-      withTiming(1.3, { duration: 400, easing: Easing.out(Easing.ease) })
+      withTiming(1.3, { duration: 400, easing: Easing.out(Easing.ease) }),
     );
-    
+
     setTimeout(onPress, 100);
   }
 
@@ -79,11 +86,7 @@ export function TrackCard({ track, onPress, color, isFavorite, onToggleFavorite,
   return (
     <View style={styles.wrapper}>
       <Animated.View
-        style={[
-          styles.glowEffect,
-          { backgroundColor: color },
-          glowStyle,
-        ]}
+        style={[styles.glowEffect, { backgroundColor: color }, glowStyle]}
       />
       <AnimatedPressable
         onPress={handlePress}
@@ -92,7 +95,9 @@ export function TrackCard({ track, onPress, color, isFavorite, onToggleFavorite,
         style={[styles.container, animatedStyle]}
       >
         <View style={styles.topRow}>
-          <View style={[styles.iconContainer, { backgroundColor: color + "20" }]}>
+          <View
+            style={[styles.iconContainer, { backgroundColor: color + "20" }]}
+          >
             <Feather name="headphones" size={28} color={color} />
           </View>
           <View style={styles.actionButtons}>
@@ -138,13 +143,24 @@ export function TrackCard({ track, onPress, color, isFavorite, onToggleFavorite,
           {track.title}
         </ThemedText>
         <View style={styles.meta}>
-          <ThemedText style={styles.frequency} numberOfLines={1} ellipsizeMode="tail">
+          <ThemedText
+            style={styles.frequency}
+            numberOfLines={1}
+            ellipsizeMode="tail"
+          >
             {track.frequency}
           </ThemedText>
-          <ThemedText style={styles.duration}>{formatDuration(track.duration)}</ThemedText>
+          <ThemedText style={styles.duration}>
+            {formatDuration(track.duration)}
+          </ThemedText>
         </View>
         <View style={[styles.playButton, { backgroundColor: color }]}>
-          <Feather name="play" size={16} color="#FFFFFF" style={{ marginLeft: 2 }} />
+          <Feather
+            name="play"
+            size={16}
+            color="#FFFFFF"
+            style={{ marginLeft: 2 }}
+          />
         </View>
       </AnimatedPressable>
     </View>

@@ -97,7 +97,10 @@ export default function SubscriptionScreen() {
   }
 
   const features = [
-    { icon: "headphones" as const, text: "Unlimited access to all binaural beats" },
+    {
+      icon: "headphones" as const,
+      text: "Unlimited access to all binaural beats",
+    },
     { icon: "list" as const, text: "Create unlimited playlists" },
     { icon: "heart" as const, text: "Save your favorite tracks" },
     { icon: "x" as const, text: "Cancel anytime" },
@@ -109,7 +112,10 @@ export default function SubscriptionScreen() {
         style={styles.scrollView}
         contentContainerStyle={[
           styles.content,
-          { paddingTop: headerHeight + Spacing.xl, paddingBottom: insets.bottom + Spacing.xl },
+          {
+            paddingTop: headerHeight + Spacing.xl,
+            paddingBottom: insets.bottom + Spacing.xl,
+          },
         ]}
         scrollIndicatorInsets={{ bottom: insets.bottom }}
       >
@@ -117,7 +123,11 @@ export default function SubscriptionScreen() {
           <>
             <View style={styles.statusCard}>
               <View style={styles.activeIcon}>
-                <Feather name="check-circle" size={48} color={Colors.dark.success} />
+                <Feather
+                  name="check-circle"
+                  size={48}
+                  color={Colors.dark.success}
+                />
               </View>
               <ThemedText type="h3" style={styles.statusTitle}>
                 Active Subscription
@@ -142,9 +152,7 @@ export default function SubscriptionScreen() {
         ) : (
           <>
             <View style={styles.priceSection}>
-              <ThemedText style={styles.price}>
-                $0.99
-              </ThemedText>
+              <ThemedText style={styles.price}>$4.99</ThemedText>
               <ThemedText style={styles.priceInterval}>per month</ThemedText>
             </View>
 
@@ -156,7 +164,9 @@ export default function SubscriptionScreen() {
                     size={20}
                     color={Colors.dark.success}
                   />
-                  <ThemedText style={styles.featureText}>{feature.text}</ThemedText>
+                  <ThemedText style={styles.featureText}>
+                    {feature.text}
+                  </ThemedText>
                 </View>
               ))}
             </Card>
@@ -174,7 +184,8 @@ export default function SubscriptionScreen() {
             </Button>
 
             <ThemedText style={styles.disclaimer}>
-              After your free trial, you'll be charged $0.99/month. Cancel anytime.
+              After your free trial, you'll be charged $4.99/month. Cancel
+              anytime.
             </ThemedText>
           </>
         )}
