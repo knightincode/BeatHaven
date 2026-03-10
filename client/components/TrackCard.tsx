@@ -2,6 +2,7 @@ import React from "react";
 import { View, StyleSheet, Pressable, Platform } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
+import { LinearGradient } from "expo-linear-gradient";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -43,9 +44,9 @@ export function TrackCard({
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
-    shadowOpacity: glowShadowOpacity.value,
-    shadowRadius: glowShadowRadius.value,
-    elevation: glowShadowOpacity.value * 12,
+    shadowOpacity: glowShadowOpacity.value + 0.25,
+    shadowRadius: glowShadowRadius.value + 8,
+    elevation: glowShadowOpacity.value * 12 + 3,
   }));
 
   function handlePressIn() {
@@ -85,73 +86,84 @@ export function TrackCard({
         onPressOut={handlePressOut}
         style={[
           styles.container,
-          { shadowColor: color, shadowOffset: { width: 0, height: 0 } },
+          {
+            shadowColor: color,
+            shadowOffset: { width: 0, height: 2 },
+            borderColor: color + "33",
+          },
           animatedStyle,
         ]}
       >
-        <View style={styles.topRow}>
-          <View
-            style={[styles.iconContainer, { backgroundColor: color + "20" }]}
-          >
-            <Feather name="headphones" size={28} color={color} />
-          </View>
-          <View style={styles.actionButtons}>
-            {onToggleFavorite ? (
-              <Pressable
-                onPress={(e) => {
-                  e.stopPropagation();
-                  if (Platform.OS !== "web") {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  }
-                  onToggleFavorite();
-                }}
-                style={styles.heartButton}
-                hitSlop={8}
-                testID={`button-favorite-${track.id}`}
-              >
-                <Feather
-                  name={isFavorite ? "heart" : "heart"}
-                  size={18}
-                  color={isFavorite ? "#FF6B8A" : "rgba(255,255,255,0.3)"}
-                />
-              </Pressable>
-            ) : null}
-            {onAddToPlaylist ? (
-              <Pressable
-                onPress={(e) => {
-                  e.stopPropagation();
-                  if (Platform.OS !== "web") {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  }
-                  onAddToPlaylist();
-                }}
-                style={styles.heartButton}
-                hitSlop={8}
-                testID={`button-add-playlist-${track.id}`}
-              >
-                <Feather name="plus" size={18} color="rgba(255,255,255,0.3)" />
-              </Pressable>
-            ) : null}
-          </View>
-        </View>
-        <View style={styles.contentArea}>
-          <View>
-            <ThemedText style={styles.title}>
-              {track.title}
-            </ThemedText>
-            <View style={styles.meta}>
-              <ThemedText style={styles.frequency}>
-                {track.frequency}
-              </ThemedText>
+        <LinearGradient
+          colors={[color + "28", color + "0D", "transparent"]}
+          locations={[0, 0.4, 1]}
+          style={styles.gradientOverlay}
+        />
+        <View style={styles.cardContent}>
+          <View style={styles.topRow}>
+            <View
+              style={[styles.iconContainer, { backgroundColor: color + "25" }]}
+            >
+              <Feather name="headphones" size={28} color={color} />
+            </View>
+            <View style={styles.actionButtons}>
+              {onToggleFavorite ? (
+                <Pressable
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    if (Platform.OS !== "web") {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    }
+                    onToggleFavorite();
+                  }}
+                  style={styles.heartButton}
+                  hitSlop={8}
+                  testID={`button-favorite-${track.id}`}
+                >
+                  <Feather
+                    name={isFavorite ? "heart" : "heart"}
+                    size={18}
+                    color={isFavorite ? "#FF6B8A" : "rgba(255,255,255,0.3)"}
+                  />
+                </Pressable>
+              ) : null}
+              {onAddToPlaylist ? (
+                <Pressable
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    if (Platform.OS !== "web") {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    }
+                    onAddToPlaylist();
+                  }}
+                  style={styles.heartButton}
+                  hitSlop={8}
+                  testID={`button-add-playlist-${track.id}`}
+                >
+                  <Feather name="plus" size={18} color="rgba(255,255,255,0.3)" />
+                </Pressable>
+              ) : null}
             </View>
           </View>
-          <View style={[styles.playButton, { backgroundColor: color }]}>
-            <Feather
-              name="play"
-              size={16}
-              color="#FFFFFF"
-              style={{ marginLeft: 2 }}
-            />
+          <View style={styles.contentArea}>
+            <View>
+              <ThemedText style={styles.title}>
+                {track.title}
+              </ThemedText>
+              <View style={styles.meta}>
+                <ThemedText style={styles.frequency}>
+                  {track.frequency}
+                </ThemedText>
+              </View>
+            </View>
+            <View style={[styles.playButton, { backgroundColor: color }]}>
+              <Feather
+                name="play"
+                size={16}
+                color="#FFFFFF"
+                style={{ marginLeft: 2 }}
+              />
+            </View>
           </View>
         </View>
       </AnimatedPressable>
@@ -170,6 +182,20 @@ const styles = StyleSheet.create({
     height: CARD_HEIGHT,
     backgroundColor: Colors.dark.backgroundDefault,
     borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    overflow: "hidden",
+  },
+  gradientOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    height: "60%",
+    borderTopLeftRadius: BorderRadius.lg,
+    borderTopRightRadius: BorderRadius.lg,
+  },
+  cardContent: {
+    flex: 1,
     padding: Spacing.lg,
   },
   topRow: {
