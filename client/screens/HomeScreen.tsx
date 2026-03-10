@@ -405,6 +405,7 @@ const styles = StyleSheet.create({
   },
   trackList: {
     gap: Spacing.md,
+    alignItems: "center",
   },
   emptyCategory: {
     backgroundColor: Colors.dark.backgroundDefault,

@@ -17,7 +17,7 @@ import { Track } from "@/contexts/PlayerContext";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 
 const CARD_WIDTH = 160;
-const CARD_HEIGHT = 210;
+const CARD_HEIGHT = 250;
 
 interface TrackCardProps {
   track: Track;
@@ -209,6 +209,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 15,
+    lineHeight: 22,
     fontWeight: "600",
     marginBottom: Spacing.xs,
   },
@@ -219,6 +220,7 @@ const styles = StyleSheet.create({
   frequency: {
     color: Colors.dark.textSecondary,
     fontSize: 11,
+    lineHeight: 16,
   },
   playButton: {
     width: 32,
