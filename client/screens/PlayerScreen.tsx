@@ -10,26 +10,16 @@ import {
   KeyboardAvoidingView,
   Keyboard,
   ScrollView,
-  Image,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
-import { LinearGradient } from "expo-linear-gradient";
 import { BlurView } from "expo-blur";
 import { Feather } from "@expo/vector-icons";
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withRepeat,
-  withTiming,
-  withSequence,
-  Easing,
-  interpolate,
-} from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
 import { Platform } from "react-native";
+import { useVideoPlayer, VideoView } from "expo-video";
 
-const glitterTexture = require("../assets/images/glitter-texture.png");
+const zenMotionVideo = require("../assets/videos/zen-motion.mp4");
 
 import { ThemedText } from "@/components/ThemedText";
 import { usePlayer } from "@/contexts/PlayerContext";
@@ -41,90 +31,30 @@ import { Colors, Spacing, BorderRadius, FrequencyColors } from "@/constants/them
 import type { LoopMode, SleepTimerOption } from "@/contexts/PlayerContext";
 import { downloadTrack, isTrackDownloaded, deleteDownloadedTrack } from "@/lib/downloadManager";
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
-const OVERFLOW = 40;
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
-function GlitterBackground({ color, isPlaying }: { color: string; isPlaying: boolean }) {
-  const wave1 = useSharedValue(0);
-  const wave2 = useSharedValue(0);
-  const wave3 = useSharedValue(0);
-  const wave4 = useSharedValue(0);
-  const tintPulse = useSharedValue(0);
+function VideoBackground({ isPlaying }: { isPlaying: boolean }) {
+  const player = useVideoPlayer(zenMotionVideo, (p) => {
+    p.loop = true;
+    p.muted = true;
+    p.play();
+  });
 
   useEffect(() => {
-    wave1.value = withRepeat(
-      withTiming(1, { duration: 3000, easing: Easing.inOut(Easing.sin) }),
-      -1,
-      true
-    );
-    wave2.value = withRepeat(
-      withTiming(1, { duration: 4200, easing: Easing.inOut(Easing.sin) }),
-      -1,
-      true
-    );
-    wave3.value = withRepeat(
-      withTiming(1, { duration: 5500, easing: Easing.inOut(Easing.sin) }),
-      -1,
-      true
-    );
-    wave4.value = withRepeat(
-      withTiming(1, { duration: 7000, easing: Easing.inOut(Easing.sin) }),
-      -1,
-      true
-    );
-    tintPulse.value = withRepeat(
-      withSequence(
-        withTiming(1, { duration: 4000, easing: Easing.inOut(Easing.sin) }),
-        withTiming(1, { duration: 7000 }),
-        withTiming(0, { duration: 8000, easing: Easing.inOut(Easing.sin) })
-      ),
-      -1
-    );
-  }, []);
-
-  const imageStyle = useAnimatedStyle(() => {
-    if (!isPlaying) {
-      return { transform: [{ translateX: 0 }, { translateY: 0 }] };
+    if (isPlaying) {
+      player.play();
+    } else {
+      player.pause();
     }
-    const tx =
-      interpolate(wave1.value, [0, 1], [-18, 18]) +
-      interpolate(wave3.value, [0, 1], [8, -8]);
-    const ty =
-      interpolate(wave2.value, [0, 1], [-12, 12]) +
-      interpolate(wave4.value, [0, 1], [6, -6]);
-
-    return {
-      transform: [
-        { translateX: tx },
-        { translateY: ty },
-      ],
-    };
-  });
-
-  const tintStyle = useAnimatedStyle(() => {
-    return {
-      opacity: isPlaying
-        ? interpolate(tintPulse.value, [0, 1], [0.3, 0.45])
-        : 0.35,
-    };
-  });
+  }, [isPlaying]);
 
   return (
     <View style={bgStyles.container} pointerEvents="none">
-      <Animated.Image
-        source={glitterTexture}
-        style={[bgStyles.image, imageStyle]}
-        resizeMode="cover"
-      />
-      <Animated.View
-        style={[bgStyles.tint, { backgroundColor: color }, tintStyle]}
-      />
-      <LinearGradient
-        colors={["transparent", "rgba(0,0,0,0.12)", "transparent"]}
-        style={bgStyles.vignette}
-        start={{ x: 0.5, y: 0 }}
-        end={{ x: 0.5, y: 1 }}
-        locations={[0, 0.5, 1]}
+      <VideoView
+        player={player}
+        style={bgStyles.video}
+        contentFit="cover"
+        nativeControls={false}
       />
     </View>
   );
@@ -135,17 +65,7 @@ const bgStyles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     overflow: "hidden",
   },
-  image: {
-    width: SCREEN_WIDTH + OVERFLOW * 2,
-    height: SCREEN_HEIGHT + OVERFLOW * 2,
-    position: "absolute",
-    top: -OVERFLOW,
-    left: -OVERFLOW,
-  },
-  tint: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  vignette: {
+  video: {
     ...StyleSheet.absoluteFillObject,
   },
 });
@@ -345,7 +265,7 @@ export default function PlayerScreen() {
 
   return (
     <View style={styles.container}>
-      <GlitterBackground color={categoryColor} isPlaying={isPlaying} />
+      <VideoBackground isPlaying={isPlaying} />
 
       <View style={[styles.topBar, { paddingTop: insets.top + Spacing.md }]}>
         <Pressable onPress={handleClose} style={styles.topBarButton} testID="button-close">
