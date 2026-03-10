@@ -19,7 +19,7 @@ export default function HomeStackNavigator() {
         name="Home"
         component={HomeScreen}
         options={{
-          headerTitle: () => <HeaderTitle title="BinauralBeats" />,
+          headerTitle: () => <HeaderTitle title="Beat Haven" />,
         }}
       />
     </Stack.Navigator>
