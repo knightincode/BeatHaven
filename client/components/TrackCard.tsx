@@ -38,16 +38,14 @@ export function TrackCard({
   onAddToPlaylist,
 }: TrackCardProps) {
   const scale = useSharedValue(1);
-  const glowOpacity = useSharedValue(0);
-  const glowScale = useSharedValue(1);
+  const glowShadowOpacity = useSharedValue(0);
+  const glowShadowRadius = useSharedValue(0);
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
-  }));
-
-  const glowStyle = useAnimatedStyle(() => ({
-    opacity: glowOpacity.value,
-    transform: [{ scale: glowScale.value }],
+    shadowOpacity: glowShadowOpacity.value,
+    shadowRadius: glowShadowRadius.value,
+    elevation: glowShadowOpacity.value * 12,
   }));
 
   function handlePressIn() {
@@ -67,13 +65,13 @@ export function TrackCard({
   function handlePress() {
     triggerHaptic();
 
-    glowOpacity.value = withSequence(
-      withTiming(0.8, { duration: 150, easing: Easing.out(Easing.ease) }),
-      withTiming(0, { duration: 400, easing: Easing.out(Easing.ease) }),
+    glowShadowOpacity.value = withSequence(
+      withTiming(0.65, { duration: 150, easing: Easing.out(Easing.ease) }),
+      withTiming(0, { duration: 350, easing: Easing.out(Easing.ease) }),
     );
-    glowScale.value = withSequence(
-      withTiming(1.15, { duration: 150, easing: Easing.out(Easing.ease) }),
-      withTiming(1.3, { duration: 400, easing: Easing.out(Easing.ease) }),
+    glowShadowRadius.value = withSequence(
+      withTiming(18, { duration: 150, easing: Easing.out(Easing.ease) }),
+      withTiming(0, { duration: 350, easing: Easing.out(Easing.ease) }),
     );
 
     setTimeout(onPress, 100);
@@ -81,14 +79,15 @@ export function TrackCard({
 
   return (
     <View style={styles.wrapper}>
-      <Animated.View
-        style={[styles.glowEffect, { backgroundColor: color }, glowStyle]}
-      />
       <AnimatedPressable
         onPress={handlePress}
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}
-        style={[styles.container, animatedStyle]}
+        style={[
+          styles.container,
+          { shadowColor: color, shadowOffset: { width: 0, height: 0 } },
+          animatedStyle,
+        ]}
       >
         <View style={styles.topRow}>
           <View
@@ -137,7 +136,9 @@ export function TrackCard({
         </View>
         <View style={styles.contentArea}>
           <View>
-            <ThemedText style={styles.title}>{track.title}</ThemedText>
+            <ThemedText style={styles.title}>
+              {track.title}
+            </ThemedText>
             <View style={styles.meta}>
               <ThemedText style={styles.frequency}>
                 {track.frequency}
@@ -163,14 +164,6 @@ const styles = StyleSheet.create({
     position: "relative",
     width: CARD_WIDTH,
     height: CARD_HEIGHT,
-  },
-  glowEffect: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    borderRadius: BorderRadius.lg,
   },
   container: {
     width: CARD_WIDTH,
