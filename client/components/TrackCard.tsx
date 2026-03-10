@@ -181,6 +181,7 @@ const styles = StyleSheet.create({
   },
   container: {
     width: 160,
+    height: 218,
     backgroundColor: Colors.dark.backgroundDefault,
     borderRadius: BorderRadius.lg,
     padding: Spacing.lg,
