@@ -249,6 +249,7 @@ export default function HomeScreen() {
                   data={categoryTracks}
                   keyExtractor={(item) => item.id}
                   showsHorizontalScrollIndicator={false}
+                  style={styles.trackListOuter}
                   contentContainerStyle={styles.trackList}
                   renderItem={({ item }) => (
                     <TrackCard
@@ -403,9 +404,13 @@ const styles = StyleSheet.create({
   infoButton: {
     padding: Spacing.xs,
   },
+  trackListOuter: {
+    marginHorizontal: -Spacing.lg,
+  },
   trackList: {
     gap: Spacing.md,
     alignItems: "center",
+    paddingHorizontal: Spacing.lg,
   },
   emptyCategory: {
     backgroundColor: Colors.dark.backgroundDefault,
