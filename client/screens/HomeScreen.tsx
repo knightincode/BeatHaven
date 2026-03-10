@@ -340,6 +340,9 @@ const styles = StyleSheet.create({
   },
   welcomeTitle: {
     marginBottom: Spacing.xs,
+    textShadowColor: "rgba(74, 144, 226, 0.3)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 6,
   },
   welcomeSubtitle: {
     color: Colors.dark.textSecondary,
@@ -361,7 +364,7 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.full,
     backgroundColor: Colors.dark.backgroundSecondary,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.08)",
+    borderColor: "rgba(255,255,255,0.12)",
     gap: Spacing.xs,
   },
   filterChipActive: {
@@ -485,9 +488,9 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   upgradeBanner: {
-    backgroundColor: "rgba(245, 158, 11, 0.1)",
+    backgroundColor: "rgba(245, 158, 11, 0.16)",
     borderWidth: 1,
-    borderColor: "rgba(245, 158, 11, 0.25)",
+    borderColor: "rgba(245, 158, 11, 0.4)",
     borderRadius: BorderRadius.md,
     padding: Spacing.lg,
     marginBottom: Spacing.lg,

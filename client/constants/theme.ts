@@ -6,7 +6,7 @@ const tintColorDark = "#4A90E2";
 export const Colors = {
   light: {
     text: "#FFFFFF",
-    textSecondary: "#A0A8B8",
+    textSecondary: "#B0B8C4",
     buttonText: "#FFFFFF",
     tabIconDefault: "#6B7280",
     tabIconSelected: tintColorLight,
@@ -14,7 +14,7 @@ export const Colors = {
     accent: "#7B68EE",
     backgroundRoot: "#0A0E1A",
     backgroundDefault: "#1A1F2E",
-    backgroundSecondary: "#252B3D",
+    backgroundSecondary: "#2E3548",
     backgroundTertiary: "#303850",
     success: "#5AD07A",
     error: "#E94B3C",
@@ -22,7 +22,7 @@ export const Colors = {
   },
   dark: {
     text: "#FFFFFF",
-    textSecondary: "#A0A8B8",
+    textSecondary: "#B0B8C4",
     buttonText: "#FFFFFF",
     tabIconDefault: "#6B7280",
     tabIconSelected: tintColorDark,
@@ -30,7 +30,7 @@ export const Colors = {
     accent: "#7B68EE",
     backgroundRoot: "#0A0E1A",
     backgroundDefault: "#1A1F2E",
-    backgroundSecondary: "#252B3D",
+    backgroundSecondary: "#2E3548",
     backgroundTertiary: "#303850",
     success: "#5AD07A",
     error: "#E94B3C",
@@ -91,14 +91,14 @@ export const Typography = {
   body: {
     fontSize: 16,
     lineHeight: 24,
-    fontWeight: "400" as const,
-    fontFamily: "Nunito_400Regular",
+    fontWeight: "600" as const,
+    fontFamily: "Nunito_600SemiBold",
   },
   small: {
     fontSize: 14,
     lineHeight: 20,
-    fontWeight: "400" as const,
-    fontFamily: "Nunito_400Regular",
+    fontWeight: "600" as const,
+    fontFamily: "Nunito_600SemiBold",
   },
   link: {
     fontSize: 16,
