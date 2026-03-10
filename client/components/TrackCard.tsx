@@ -9,7 +9,6 @@ import Animated, {
   withSequence,
   withTiming,
   Easing,
-  runOnJS,
 } from "react-native-reanimated";
 
 import { ThemedText } from "@/components/ThemedText";
@@ -138,9 +137,7 @@ export function TrackCard({
         </View>
         <View style={styles.contentArea}>
           <View>
-            <ThemedText style={styles.title}>
-              {track.title}
-            </ThemedText>
+            <ThemedText style={styles.title}>{track.title}</ThemedText>
             <View style={styles.meta}>
               <ThemedText style={styles.frequency}>
                 {track.frequency}
