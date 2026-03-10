@@ -69,7 +69,7 @@ Preferred communication style: Simple, everyday language.
 ### Key NPM Packages
 
 - `expo-av`: Audio playback engine
-- `expo-video`: Video playback for player screen background animation
+- `expo-av` Video component: Also used for player screen background video animation (looping, muted .mp4)
 - `@tanstack/react-query`: Data fetching and caching
 - `drizzle-orm` + `drizzle-kit`: Database ORM and migrations
 - `react-native-reanimated`: Advanced animations
