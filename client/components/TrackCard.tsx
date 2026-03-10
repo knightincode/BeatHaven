@@ -139,28 +139,32 @@ export function TrackCard({
             ) : null}
           </View>
         </View>
-        <ThemedText style={styles.title} numberOfLines={2} ellipsizeMode="tail">
-          {track.title}
-        </ThemedText>
-        <View style={styles.meta}>
-          <ThemedText
-            style={styles.frequency}
-            numberOfLines={1}
-            ellipsizeMode="tail"
-          >
-            {track.frequency}
-          </ThemedText>
-          <ThemedText style={styles.duration}>
-            {formatDuration(track.duration)}
-          </ThemedText>
-        </View>
-        <View style={[styles.playButton, { backgroundColor: color }]}>
-          <Feather
-            name="play"
-            size={16}
-            color="#FFFFFF"
-            style={{ marginLeft: 2 }}
-          />
+        <View style={styles.contentArea}>
+          <View>
+            <ThemedText style={styles.title} numberOfLines={2} ellipsizeMode="tail">
+              {track.title}
+            </ThemedText>
+            <View style={styles.meta}>
+              <ThemedText
+                style={styles.frequency}
+                numberOfLines={1}
+                ellipsizeMode="tail"
+              >
+                {track.frequency}
+              </ThemedText>
+              <ThemedText style={styles.duration}>
+                {formatDuration(track.duration)}
+              </ThemedText>
+            </View>
+          </View>
+          <View style={[styles.playButton, { backgroundColor: color }]}>
+            <Feather
+              name="play"
+              size={16}
+              color="#FFFFFF"
+              style={{ marginLeft: 2 }}
+            />
+          </View>
         </View>
       </AnimatedPressable>
     </View>
@@ -181,7 +185,7 @@ const styles = StyleSheet.create({
   },
   container: {
     width: 160,
-    height: 218,
+    height: 240,
     backgroundColor: Colors.dark.backgroundDefault,
     borderRadius: BorderRadius.lg,
     padding: Spacing.lg,
@@ -208,15 +212,17 @@ const styles = StyleSheet.create({
   heartButton: {
     padding: 4,
   },
+  contentArea: {
+    flex: 1,
+    justifyContent: "space-between",
+  },
   title: {
     fontSize: 15,
     fontWeight: "600",
     marginBottom: Spacing.xs,
-    flexShrink: 1,
   },
   meta: {
     flexDirection: "column",
-    marginBottom: Spacing.md,
     gap: 2,
   },
   frequency: {
