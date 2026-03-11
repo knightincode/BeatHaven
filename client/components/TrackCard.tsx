@@ -99,6 +99,11 @@ export function TrackCard({
           locations={[0, 0.4, 1]}
           style={styles.gradientOverlay}
         />
+        <LinearGradient
+          colors={[color + "28", color + "0D", "transparent"]}
+          locations={[0, 0.6, 1]}
+          style={styles.gradientOverlay}
+        />
         <View style={styles.cardContent}>
           <View style={styles.topRow}>
             <View
@@ -140,16 +145,18 @@ export function TrackCard({
                   hitSlop={8}
                   testID={`button-add-playlist-${track.id}`}
                 >
-                  <Feather name="plus" size={18} color="rgba(255,255,255,0.3)" />
+                  <Feather
+                    name="plus"
+                    size={18}
+                    color="rgba(255,255,255,0.3)"
+                  />
                 </Pressable>
               ) : null}
             </View>
           </View>
           <View style={styles.contentArea}>
             <View>
-              <ThemedText style={styles.title}>
-                {track.title}
-              </ThemedText>
+              <ThemedText style={styles.title}>{track.title}</ThemedText>
               <View style={styles.meta}>
                 <ThemedText style={styles.frequency}>
                   {track.frequency}
@@ -181,18 +188,20 @@ const styles = StyleSheet.create({
     width: CARD_WIDTH,
     height: CARD_HEIGHT,
     backgroundColor: Colors.dark.backgroundDefault,
-    borderRadius: BorderRadius.lg,
+    borderRadius: BorderRadius.xl,
     borderWidth: 1,
     overflow: "hidden",
   },
   gradientOverlay: {
-    position: "absolute",
+    position: "relative",
     top: 0,
     left: 0,
     right: 0,
-    height: "60%",
-    borderTopLeftRadius: BorderRadius.lg,
-    borderTopRightRadius: BorderRadius.lg,
+    height: "5%",
+    borderTopLeftRadius: BorderRadius.md,
+    borderTopRightRadius: BorderRadius.md,
+    borderBottomLeftRadius: BorderRadius.md,
+    borderBottomRightRadius: BorderRadius.md,
   },
   cardContent: {
     flex: 1,
