@@ -100,9 +100,9 @@ export function TrackCard({
           style={styles.gradientOverlay}
         />
         <LinearGradient
-          colors={[color + "28", color + "0D", "transparent"]}
+          colors={["transparent", color + "0D", color + "28"]}
           locations={[0, 0.6, 1]}
-          style={styles.gradientOverlay}
+          style={styles.gradientOverlayBottom}
         />
         <View style={styles.cardContent}>
           <View style={styles.topRow}>
@@ -200,8 +200,15 @@ const styles = StyleSheet.create({
     height: "5%",
     borderTopLeftRadius: BorderRadius.md,
     borderTopRightRadius: BorderRadius.md,
-    borderBottomLeftRadius: BorderRadius.md,
-    borderBottomRightRadius: BorderRadius.md,
+  },
+  gradientOverlayBottom: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: "5%",
+    borderBottomLeftRadius: BorderRadius.xl,
+    borderBottomRightRadius: BorderRadius.xl,
   },
   cardContent: {
     flex: 1,
