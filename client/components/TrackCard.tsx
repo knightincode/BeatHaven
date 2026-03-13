@@ -19,19 +19,7 @@ import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 const CARD_WIDTH = 160;
 const CARD_HEIGHT = 250;
 
-function metallicBlend(categoryHex: string, ratio = 0.38): string {
-  const silverR = 180, silverG = 190, silverB = 205;
-  const hex = categoryHex.replace("#", "");
-  if (hex.length < 6) return `rgb(${silverR}, ${silverG}, ${silverB})`;
-  const r = parseInt(hex.substring(0, 2), 16);
-  const g = parseInt(hex.substring(2, 4), 16);
-  const b = parseInt(hex.substring(4, 6), 16);
-  if (isNaN(r) || isNaN(g) || isNaN(b)) return `rgb(${silverR}, ${silverG}, ${silverB})`;
-  const mr = Math.round(silverR * (1 - ratio) + r * ratio);
-  const mg = Math.round(silverG * (1 - ratio) + g * ratio);
-  const mb = Math.round(silverB * (1 - ratio) + b * ratio);
-  return `rgb(${mr}, ${mg}, ${mb})`;
-}
+const STEEL_COLOR = "#C2CCD6";
 
 interface TrackCardProps {
   track: Track;
@@ -62,8 +50,6 @@ export function TrackCard({
     shadowRadius: glowShadowRadius.value + 8,
     elevation: glowShadowOpacity.value * 12 + 3,
   }));
-
-  const metallicColor = metallicBlend(color);
 
   function handlePressIn() {
     scale.value = withSpring(0.96, { damping: 15, stiffness: 150 });
@@ -144,7 +130,7 @@ export function TrackCard({
                   <Feather
                     name={isFavorite ? "heart" : "heart"}
                     size={18}
-                    color={isFavorite ? "#FF6B8A" : metallicColor}
+                    color={isFavorite ? "#FF6B8A" : STEEL_COLOR}
                     style={styles.iconShadow}
                   />
                 </Pressable>
@@ -165,7 +151,7 @@ export function TrackCard({
                   <Feather
                     name="plus"
                     size={18}
-                    color={metallicColor}
+                    color={STEEL_COLOR}
                     style={styles.iconShadow}
                   />
                 </Pressable>
@@ -287,9 +273,9 @@ const styles = StyleSheet.create({
     alignSelf: "flex-end",
   },
   iconShadow: {
-    textShadowColor: "rgba(0, 0, 0, 0.5)",
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 3,
+    textShadowColor: "rgba(255, 255, 255, 0.4)",
+    textShadowOffset: { width: 0, height: -1 },
+    textShadowRadius: 2,
   },
   playIconShadow: {
     textShadowColor: "rgba(0, 0, 0, 0.25)",
