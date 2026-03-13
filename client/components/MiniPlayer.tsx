@@ -30,7 +30,7 @@ import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
 const MINI_PLAYER_HEIGHT = 64;
 const SCREEN_WIDTH = Dimensions.get("window").width;
-const DISMISS_THRESHOLD = -SCREEN_WIDTH * 0.35;
+const DISMISS_THRESHOLD = -SCREEN_WIDTH * 0.4;
 
 export function MiniPlayer() {
   const insets = useSafeAreaInsets();
