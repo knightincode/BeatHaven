@@ -130,9 +130,9 @@ export const Fonts = Platform.select({
 });
 
 export const FrequencyColors: Record<string, string> = {
-  delta: "#6366F1",
-  theta: "#8B5CF6",
+  delta: "#16F7C9",
+  theta: "#9064F7",
   alpha: "#4A90E2",
-  beta: "#10B981",
+  beta: "#95AD63",
   gamma: "#F59E0B",
 };
