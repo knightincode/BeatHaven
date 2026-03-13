@@ -109,7 +109,7 @@ export function TrackCard({
             <View
               style={[styles.iconContainer, { backgroundColor: color + "25" }]}
             >
-              <Feather name="headphones" size={28} color={color} />
+              <Feather name="headphones" size={28} color={color} style={styles.iconShadow} />
             </View>
             <View style={styles.actionButtons}>
               {onToggleFavorite ? (
@@ -129,6 +129,7 @@ export function TrackCard({
                     name={isFavorite ? "heart" : "heart"}
                     size={18}
                     color={isFavorite ? "#FF6B8A" : "rgba(255,255,255,0.3)"}
+                    style={styles.iconShadow}
                   />
                 </Pressable>
               ) : null}
@@ -149,6 +150,7 @@ export function TrackCard({
                     name="plus"
                     size={18}
                     color="rgba(255,255,255,0.3)"
+                    style={styles.iconShadow}
                   />
                 </Pressable>
               ) : null}
@@ -168,7 +170,7 @@ export function TrackCard({
                 name="play"
                 size={16}
                 color="#000000"
-                style={{ marginLeft: 2 }}
+                style={[{ marginLeft: 2 }, styles.playIconShadow]}
               />
             </View>
           </View>
@@ -244,6 +246,9 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     fontWeight: "600",
     marginBottom: Spacing.xs,
+    textShadowColor: "rgba(0, 0, 0, 0.6)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
   },
   meta: {
     flexDirection: "column",
@@ -253,6 +258,9 @@ const styles = StyleSheet.create({
     color: Colors.dark.textSecondary,
     fontSize: 11,
     lineHeight: 16,
+    textShadowColor: "rgba(0, 0, 0, 0.5)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
   playButton: {
     width: 32,
@@ -261,5 +269,15 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     alignSelf: "flex-end",
+  },
+  iconShadow: {
+    textShadowColor: "rgba(0, 0, 0, 0.5)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
+  },
+  playIconShadow: {
+    textShadowColor: "rgba(0, 0, 0, 0.25)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
 });
