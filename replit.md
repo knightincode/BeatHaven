@@ -90,6 +90,7 @@ Preferred communication style: Simple, everyday language.
 - **Restore Purchases**: Button on account screen to re-verify subscription status
 - **Offline Indicator**: Animated banner when network connection is lost
 - **Admin Testing**: Admin-only screen (Account > Admin Testing) with a toggle to simulate active/inactive subscription for testing both free and premium user experiences. Uses `POST /api/admin/toggle-subscription` endpoint.
+- **No Offline Playback**: Audio tracks are streaming-only; there is no download/offline feature. Users require an internet connection to listen.
 
 ### Admin Account
 

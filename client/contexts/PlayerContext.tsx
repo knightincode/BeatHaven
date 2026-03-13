@@ -2,7 +2,6 @@ import React, { createContext, useContext, useState, useRef, ReactNode, useEffec
 import { Platform } from "react-native";
 import { Audio, AVPlaybackStatus } from "expo-av";
 import { useAuth } from "@/contexts/AuthContext";
-import { getLocalUri } from "@/lib/downloadManager";
 
 export interface Track {
   id: string;
@@ -249,12 +248,6 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       });
 
       let audioUri = track.fileUrl;
-      if (Platform.OS !== "web") {
-        const localUri = await getLocalUri(track.id);
-        if (localUri) {
-          audioUri = localUri;
-        }
-      }
 
       const shouldLoopSingle = hasActiveSubscription && (loopModeRef.current === "one" || trackQueue.length <= 1);
 

@@ -107,13 +107,13 @@ export default function AdminTestingScreen() {
           <View style={styles.infoItem}>
             <Feather name="toggle-right" size={16} color={Colors.dark.success} />
             <ThemedText style={styles.infoText}>
-              ON: Full access to all categories, playlists, unlimited playback, and downloads
+              ON: Full access to all categories, playlists, and unlimited playback
             </ThemedText>
           </View>
           <View style={styles.infoItem}>
             <Feather name="toggle-left" size={16} color={Colors.dark.textSecondary} />
             <ThemedText style={styles.infoText}>
-              OFF: Gamma category only, 2-minute previews, no playlists or downloads
+              OFF: Gamma category only, 2-minute previews, no playlists
             </ThemedText>
           </View>
         </Card>

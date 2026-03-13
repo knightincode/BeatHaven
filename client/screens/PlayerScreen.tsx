@@ -29,7 +29,6 @@ import { AmbientMixer } from "@/components/AmbientMixer";
 import { AddToPlaylistModal } from "@/components/AddToPlaylistModal";
 import { Colors, Spacing, BorderRadius, FrequencyColors } from "@/constants/theme";
 import type { LoopMode, SleepTimerOption } from "@/contexts/PlayerContext";
-import { downloadTrack, isTrackDownloaded, deleteDownloadedTrack } from "@/lib/downloadManager";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -116,49 +115,7 @@ export default function PlayerScreen() {
   const [playlistModalVisible, setPlaylistModalVisible] = useState(false);
   const [showCustomTimer, setShowCustomTimer] = useState(false);
   const [customMinutes, setCustomMinutes] = useState("");
-  const [isDownloaded, setIsDownloaded] = useState(false);
-  const [downloadProgress, setDownloadProgress] = useState<number | null>(null);
-  const downloadCancelRef = React.useRef<(() => void) | null>(null);
-
   const trackIsFavorite = currentTrack ? isFavorite(currentTrack.id) : false;
-
-  useEffect(() => {
-    if (currentTrack && Platform.OS !== "web") {
-      isTrackDownloaded(currentTrack.id).then(setIsDownloaded);
-    } else {
-      setIsDownloaded(false);
-    }
-  }, [currentTrack?.id]);
-
-  async function handleDownload() {
-    if (!currentTrack || !token || !hasActiveSubscription) return;
-    if (Platform.OS === "web") return;
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-
-    if (isDownloaded) {
-      await deleteDownloadedTrack(currentTrack.id);
-      setIsDownloaded(false);
-      return;
-    }
-
-    setDownloadProgress(0);
-    const { promise, cancel } = downloadTrack(
-      currentTrack.id,
-      token,
-      (p) => setDownloadProgress(p)
-    );
-    downloadCancelRef.current = cancel;
-
-    try {
-      await promise;
-      setIsDownloaded(true);
-      setDownloadProgress(null);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    } catch {
-      setDownloadProgress(null);
-    }
-    downloadCancelRef.current = null;
-  }
 
   function handleToggleFavorite() {
     if (!currentTrack || !isAuthenticated) return;
@@ -311,24 +268,6 @@ export default function PlayerScreen() {
           <Pressable style={styles.actionButton} testID="button-mixer" onPress={() => setMixerVisible(true)}>
             <Feather name="sliders" size={22} color="rgba(255,255,255,0.8)" />
           </Pressable>
-          {hasActiveSubscription && Platform.OS !== "web" ? (
-            <Pressable style={styles.actionButton} testID="button-download" onPress={handleDownload}>
-              {downloadProgress !== null ? (
-                <View style={styles.downloadProgressWrap}>
-                  <ActivityIndicator size="small" color={categoryColor} />
-                  <ThemedText style={[styles.downloadProgressText, { color: categoryColor }]}>
-                    {Math.round(downloadProgress * 100)}%
-                  </ThemedText>
-                </View>
-              ) : (
-                <Feather
-                  name={isDownloaded ? "check-circle" : "download"}
-                  size={22}
-                  color={isDownloaded ? categoryColor : "rgba(255,255,255,0.8)"}
-                />
-              )}
-            </Pressable>
-          ) : null}
           <Pressable style={styles.actionButton} testID="button-timer" onPress={() => setTimerModalVisible(true)}>
             <Feather name="clock" size={22} color={timerIconColor} />
             {sleepTimer !== null ? (
@@ -1062,14 +1001,5 @@ const styles = StyleSheet.create({
   upgradeDismissText: {
     color: Colors.dark.textSecondary,
     fontSize: 14,
-  },
-  downloadProgressWrap: {
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  downloadProgressText: {
-    fontSize: 9,
-    fontWeight: "700",
-    marginTop: 1,
   },
 });
