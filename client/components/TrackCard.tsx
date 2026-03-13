@@ -19,6 +19,18 @@ import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 const CARD_WIDTH = 160;
 const CARD_HEIGHT = 250;
 
+function metallicBlend(categoryHex: string, ratio = 0.38): string {
+  const silverR = 180, silverG = 190, silverB = 205;
+  const hex = categoryHex.replace("#", "");
+  const r = parseInt(hex.substring(0, 2), 16);
+  const g = parseInt(hex.substring(2, 4), 16);
+  const b = parseInt(hex.substring(4, 6), 16);
+  const mr = Math.round(silverR * (1 - ratio) + r * ratio);
+  const mg = Math.round(silverG * (1 - ratio) + g * ratio);
+  const mb = Math.round(silverB * (1 - ratio) + b * ratio);
+  return `rgb(${mr}, ${mg}, ${mb})`;
+}
+
 interface TrackCardProps {
   track: Track;
   onPress: () => void;
@@ -48,6 +60,8 @@ export function TrackCard({
     shadowRadius: glowShadowRadius.value + 8,
     elevation: glowShadowOpacity.value * 12 + 3,
   }));
+
+  const metallicColor = metallicBlend(color);
 
   function handlePressIn() {
     scale.value = withSpring(0.96, { damping: 15, stiffness: 150 });
@@ -128,7 +142,7 @@ export function TrackCard({
                   <Feather
                     name={isFavorite ? "heart" : "heart"}
                     size={18}
-                    color={isFavorite ? "#FF6B8A" : "rgba(255,255,255,0.3)"}
+                    color={isFavorite ? "#FF6B8A" : metallicColor}
                     style={styles.iconShadow}
                   />
                 </Pressable>
@@ -149,7 +163,7 @@ export function TrackCard({
                   <Feather
                     name="plus"
                     size={18}
-                    color="rgba(255,255,255,0.3)"
+                    color={metallicColor}
                     style={styles.iconShadow}
                   />
                 </Pressable>
