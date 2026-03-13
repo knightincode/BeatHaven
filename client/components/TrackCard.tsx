@@ -167,7 +167,7 @@ export function TrackCard({
               <Feather
                 name="play"
                 size={16}
-                color="#FFFFFF"
+                color="#000000"
                 style={{ marginLeft: 2 }}
               />
             </View>
