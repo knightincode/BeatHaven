@@ -22,9 +22,11 @@ const CARD_HEIGHT = 250;
 function metallicBlend(categoryHex: string, ratio = 0.38): string {
   const silverR = 180, silverG = 190, silverB = 205;
   const hex = categoryHex.replace("#", "");
+  if (hex.length < 6) return `rgb(${silverR}, ${silverG}, ${silverB})`;
   const r = parseInt(hex.substring(0, 2), 16);
   const g = parseInt(hex.substring(2, 4), 16);
   const b = parseInt(hex.substring(4, 6), 16);
+  if (isNaN(r) || isNaN(g) || isNaN(b)) return `rgb(${silverR}, ${silverG}, ${silverB})`;
   const mr = Math.round(silverR * (1 - ratio) + r * ratio);
   const mg = Math.round(silverG * (1 - ratio) + g * ratio);
   const mb = Math.round(silverB * (1 - ratio) + b * ratio);
