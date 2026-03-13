@@ -175,7 +175,7 @@ export default function AccountScreen() {
             <MenuItem
               icon="credit-card"
               title="Subscription"
-              subtitle={hasActiveSubscription ? "$0.99/month - Active" : "Start your subscription"}
+              subtitle={hasActiveSubscription ? "$4.99/month - Active" : "Start your subscription"}
               onPress={handleSubscription}
             />
           </Card>
