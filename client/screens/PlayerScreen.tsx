@@ -294,7 +294,7 @@ export default function PlayerScreen() {
 
         <View style={styles.actionRow}>
           <Pressable style={styles.actionButton} testID="button-heart" onPress={handleToggleFavorite}>
-            <Feather name="heart" size={22} color={trackIsFavorite ? "#FF6B8A" : "rgba(255,255,255,0.6)"} />
+            <Feather name="heart" size={22} color={trackIsFavorite ? "#FF6B8A" : "rgba(255,255,255,0.8)"} />
           </Pressable>
           <Pressable style={styles.actionButton} testID="button-add-playlist" onPress={() => {
             if (!hasActiveSubscription) {
@@ -306,10 +306,10 @@ export default function PlayerScreen() {
             }
             setPlaylistModalVisible(true);
           }}>
-            <Feather name="plus" size={22} color={hasActiveSubscription ? "rgba(255,255,255,0.6)" : "rgba(255,255,255,0.2)"} />
+            <Feather name="plus" size={22} color={hasActiveSubscription ? "rgba(255,255,255,0.8)" : "rgba(255,255,255,0.3)"} />
           </Pressable>
           <Pressable style={styles.actionButton} testID="button-mixer" onPress={() => setMixerVisible(true)}>
-            <Feather name="sliders" size={22} color="rgba(255,255,255,0.6)" />
+            <Feather name="sliders" size={22} color="rgba(255,255,255,0.8)" />
           </Pressable>
           {hasActiveSubscription && Platform.OS !== "web" ? (
             <Pressable style={styles.actionButton} testID="button-download" onPress={handleDownload}>
@@ -324,7 +324,7 @@ export default function PlayerScreen() {
                 <Feather
                   name={isDownloaded ? "check-circle" : "download"}
                   size={22}
-                  color={isDownloaded ? categoryColor : "rgba(255,255,255,0.6)"}
+                  color={isDownloaded ? categoryColor : "rgba(255,255,255,0.8)"}
                 />
               )}
             </Pressable>
@@ -766,7 +766,7 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(255,255,255,0.06)",
+    backgroundColor: "rgba(255,255,255,0.14)",
   },
   controlPanelWrapper: {
     borderTopLeftRadius: BorderRadius.xl,
