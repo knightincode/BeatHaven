@@ -13,6 +13,7 @@ import * as Haptics from "expo-haptics";
 import { Platform } from "react-native";
 import { Feather } from "@expo/vector-icons";
 
+import * as AppleAuthentication from "expo-apple-authentication";
 import { ThemedText } from "@/components/ThemedText";
 import { Button } from "@/components/Button";
 import { BiometricPromptModal } from "@/components/BiometricPromptModal";
@@ -82,7 +83,6 @@ export default function AuthScreen() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [isAppleLoading, setIsAppleLoading] = useState(false);
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -134,7 +134,6 @@ export default function AuthScreen() {
 
   async function handleAppleSignIn() {
     setError("");
-    setIsAppleLoading(true);
     try {
       await loginWithApple();
       if (Platform.OS !== "web") {
@@ -148,8 +147,6 @@ export default function AuthScreen() {
       if (Platform.OS !== "web") {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       }
-    } finally {
-      setIsAppleLoading(false);
     }
   }
 
@@ -276,23 +273,14 @@ export default function AuthScreen() {
                 <View style={styles.dividerLine} />
               </View>
 
-              <Pressable
+              <AppleAuthentication.AppleAuthenticationButton
+                buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
+                buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.WHITE}
+                cornerRadius={BorderRadius.sm}
+                style={styles.appleButton}
                 onPress={handleAppleSignIn}
-                disabled={isAppleLoading}
-                style={[styles.appleButton, isAppleLoading ? styles.appleButtonDisabled : null]}
                 testID="button-apple-signin"
-              >
-                {isAppleLoading ? (
-                  <ActivityIndicator color="#000000" />
-                ) : (
-                  <>
-                    <Feather name="smartphone" size={20} color="#000000" />
-                    <ThemedText style={styles.appleButtonText}>
-                      Sign in with Apple
-                    </ThemedText>
-                  </>
-                )}
-              </Pressable>
+              />
             </>
           ) : null}
 
@@ -428,20 +416,7 @@ const styles = StyleSheet.create({
   },
   appleButton: {
     height: Spacing.inputHeight,
-    backgroundColor: "#FFFFFF",
-    borderRadius: BorderRadius.sm,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: Spacing.sm,
-  },
-  appleButtonDisabled: {
-    opacity: 0.6,
-  },
-  appleButtonText: {
-    color: "#000000",
-    fontSize: 16,
-    fontWeight: "600",
+    width: "100%",
   },
   toggleContainer: {
     alignItems: "center",

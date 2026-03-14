@@ -8,6 +8,7 @@ import {
   comparePasswords,
   authenticateToken,
 } from "./auth";
+import { verifyAppleIdentityToken } from "./appleAuth";
 import { getUncachableStripeClient, getStripePublishableKey } from "./stripeClient";
 import { uploadAudioFile, streamAudioFile, getAudioFileAsBuffer } from "./objectStorage";
 import { User } from "../shared/schema";
@@ -88,34 +89,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/auth/apple", async (req: Request, res: Response) => {
     try {
-      const { appleUserId, email, fullName } = req.body;
+      const { identityToken, email, fullName } = req.body;
 
-      if (!appleUserId) {
-        return res.status(400).json({ message: "Apple user ID is required" });
+      if (!identityToken) {
+        return res.status(400).json({ message: "Apple identity token is required" });
       }
+
+      let verifiedPayload;
+      try {
+        verifiedPayload = await verifyAppleIdentityToken(identityToken);
+      } catch (verifyError: any) {
+        console.error("Apple token verification failed:", verifyError);
+        return res.status(401).json({ message: "Invalid Apple identity token" });
+      }
+
+      const appleUserId = verifiedPayload.sub;
+      const verifiedEmail = verifiedPayload.email || email;
 
       let user = await storage.getUserByAppleId(appleUserId);
 
       if (!user) {
-        const userEmail = email || `apple_${appleUserId}@privaterelay.appleid.com`;
+        const userEmail = verifiedEmail || `apple_${appleUserId}@privaterelay.appleid.com`;
 
-        const existingEmailUser = await storage.getUserByEmail(userEmail);
-        if (existingEmailUser) {
-          await storage.updateUser(existingEmailUser.id, {
-            appleUserId,
-            authProvider: "apple",
-          });
-          user = await storage.getUser(existingEmailUser.id);
-        } else {
-          user = await storage.createUser(userEmail, null, {
-            authProvider: "apple",
-            appleUserId,
-          });
-        }
-      }
-
-      if (!user) {
-        return res.status(500).json({ message: "Failed to create or find user" });
+        user = await storage.createUser(userEmail, null, {
+          authProvider: "apple",
+          appleUserId,
+        });
       }
 
       const token = generateToken(user.id);

@@ -2,10 +2,9 @@ import * as AppleAuthentication from "expo-apple-authentication";
 import { Platform } from "react-native";
 
 export interface AppleAuthResult {
-  appleUserId: string;
+  identityToken: string;
   email: string | null;
   fullName: string | null;
-  identityToken: string | null;
 }
 
 export async function isAppleAuthAvailable(): Promise<boolean> {
@@ -26,15 +25,20 @@ export async function signInWithApple(): Promise<AppleAuthResult> {
     ],
   });
 
+  if (!credential.identityToken) {
+    throw new Error("Apple Sign-In did not return an identity token");
+  }
+
   const fullName =
     credential.fullName?.givenName && credential.fullName?.familyName
       ? `${credential.fullName.givenName} ${credential.fullName.familyName}`
       : null;
 
   return {
-    appleUserId: credential.user,
+    identityToken: credential.identityToken,
     email: credential.email,
     fullName,
-    identityToken: credential.identityToken,
   };
 }
+
+export { AppleAuthentication };

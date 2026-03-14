@@ -95,8 +95,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setToken(storedBioToken);
             await setStoredToken(storedBioToken);
             await fetchUser(storedBioToken);
-            return;
           }
+          return;
         }
       }
 
@@ -161,7 +161,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   async function loginWithApple() {
     const appleResult = await signInWithApple();
     const res = await apiRequest("POST", "/api/auth/apple", {
-      appleUserId: appleResult.appleUserId,
+      identityToken: appleResult.identityToken,
       email: appleResult.email,
       fullName: appleResult.fullName,
     });
