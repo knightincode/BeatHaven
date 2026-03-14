@@ -16,7 +16,6 @@ import { Feather } from "@expo/vector-icons";
 import * as AppleAuthentication from "expo-apple-authentication";
 import { ThemedText } from "@/components/ThemedText";
 import { Button } from "@/components/Button";
-import { BiometricPromptModal } from "@/components/BiometricPromptModal";
 import { useAuth } from "@/contexts/AuthContext";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
@@ -73,9 +72,6 @@ export default function AuthScreen() {
     login,
     register,
     loginWithApple,
-    showBiometricPrompt,
-    handleEnableBiometric,
-    handleSkipBiometric,
     appleAuthAvailable,
   } = useAuth();
   const [isLogin, setIsLogin] = useState(true);
@@ -300,12 +296,6 @@ export default function AuthScreen() {
           Start your 7-day free trial, then $4.99/month
         </ThemedText>
       </KeyboardAwareScrollViewCompat>
-
-      <BiometricPromptModal
-        visible={showBiometricPrompt}
-        onEnable={handleEnableBiometric}
-        onSkip={handleSkipBiometric}
-      />
     </LinearGradient>
   );
 }

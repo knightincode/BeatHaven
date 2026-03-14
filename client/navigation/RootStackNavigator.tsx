@@ -11,6 +11,7 @@ import SubscriptionScreen from "@/screens/SubscriptionScreen";
 import EditProfileScreen from "@/screens/EditProfileScreen";
 import AdminScreen from "@/screens/AdminScreen";
 import AdminTestingScreen from "@/screens/AdminTestingScreen";
+import { BiometricPromptModal } from "@/components/BiometricPromptModal";
 import { ActivityIndicator, View, StyleSheet } from "react-native";
 import { Colors } from "@/constants/theme";
 
@@ -28,7 +29,7 @@ export type RootStackParamList = {
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function RootStackNavigator() {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, showBiometricPrompt, handleEnableBiometric, handleSkipBiometric } = useAuth();
   const screenOptions = useScreenOptions();
 
   if (isLoading) {
@@ -40,6 +41,7 @@ export default function RootStackNavigator() {
   }
 
   return (
+    <>
     <Stack.Navigator screenOptions={screenOptions}>
       {!isAuthenticated ? (
           <Stack.Screen
@@ -93,6 +95,12 @@ export default function RootStackNavigator() {
         </>
       )}
     </Stack.Navigator>
+    <BiometricPromptModal
+      visible={showBiometricPrompt}
+      onEnable={handleEnableBiometric}
+      onSkip={handleSkipBiometric}
+    />
+    </>
   );
 }
 
