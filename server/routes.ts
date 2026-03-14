@@ -499,7 +499,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             price_data: {
               currency: "usd",
               product_data: {
-                name: "BinauralBeats Premium",
+                name: "Beat Haven Premium",
                 description: "Unlimited access to all binaural beats",
               },
               unit_amount: 99,

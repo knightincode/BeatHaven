@@ -1,4 +1,4 @@
-# Binaural Beats App
+# Beat Haven - Binaural Beats App
 
 ## Overview
 
@@ -107,4 +107,5 @@ Preferred communication style: Simple, everyday language.
 - `DATABASE_URL`: PostgreSQL connection string
 - `SESSION_SECRET`: JWT signing key (falls back to default in dev)
 - `REPLIT_DEV_DOMAIN` / `REPLIT_DOMAINS`: CORS configuration
+- `APPLE_CLIENT_ID`: Apple Sign-In bundle ID (defaults to `com.binauralbeats.app`; server also accepts `host.exp.Exponent` for Expo Go testing)
 - Stripe credentials obtained dynamically via Replit connectors

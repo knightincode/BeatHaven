@@ -172,7 +172,7 @@ export default function AuthScreen() {
             resizeMode="contain"
           />
           <ThemedText type="h1" style={styles.title}>
-            BinauralBeats
+            Beat Haven
           </ThemedText>
           <ThemedText style={styles.subtitle}>
             Your personal meditation sanctuary

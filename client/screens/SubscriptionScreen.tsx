@@ -133,7 +133,7 @@ export default function SubscriptionScreen() {
                 Active Subscription
               </ThemedText>
               <ThemedText style={styles.statusText}>
-                You have full access to all BinauralBeats features
+                You have full access to all Beat Haven features
               </ThemedText>
             </View>
 
