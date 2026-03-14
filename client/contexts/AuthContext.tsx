@@ -6,6 +6,8 @@ import { signInWithApple, isAppleAuthAvailable } from "@/services/appleAuth";
 import {
   isBiometricAvailable,
   isBiometricEnabled,
+  isBiometricDeclined,
+  declineBiometric,
   authenticateWithBiometric,
   enableBiometric,
   disableBiometric,
@@ -155,7 +157,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (biometricAlreadyEnabled && biometricAvail) {
       await enableBiometric(authToken);
     } else if (biometricAvail && !biometricAlreadyEnabled) {
-      setShowBiometricPrompt(true);
+      const declined = await isBiometricDeclined();
+      if (!declined) {
+        setShowBiometricPrompt(true);
+      }
     }
   }
 
@@ -208,8 +213,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setShowBiometricPrompt(false);
   }
 
-  function handleSkipBiometric() {
+  async function handleSkipBiometric() {
     setShowBiometricPrompt(false);
+    await declineBiometric();
   }
 
   const isAuthenticated = !!user;

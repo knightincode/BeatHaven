@@ -4,6 +4,7 @@ import { Platform } from "react-native";
 
 const BIOMETRIC_ENABLED_KEY = "biometric_login_enabled";
 const BIOMETRIC_USER_TOKEN_KEY = "biometric_user_token";
+const BIOMETRIC_DECLINED_KEY = "biometric_prompt_declined";
 
 export async function isBiometricAvailable(): Promise<boolean> {
   if (Platform.OS === "web") return false;
@@ -63,6 +64,22 @@ export async function enableBiometric(token: string): Promise<void> {
 export async function disableBiometric(): Promise<void> {
   await SecureStore.deleteItemAsync(BIOMETRIC_ENABLED_KEY);
   await SecureStore.deleteItemAsync(BIOMETRIC_USER_TOKEN_KEY);
+  await SecureStore.deleteItemAsync(BIOMETRIC_DECLINED_KEY);
+}
+
+export async function isBiometricDeclined(): Promise<boolean> {
+  if (Platform.OS === "web") return false;
+  try {
+    const value = await SecureStore.getItemAsync(BIOMETRIC_DECLINED_KEY);
+    return value === "true";
+  } catch {
+    return false;
+  }
+}
+
+export async function declineBiometric(): Promise<void> {
+  if (Platform.OS === "web") return;
+  await SecureStore.setItemAsync(BIOMETRIC_DECLINED_KEY, "true");
 }
 
 export async function getBiometricToken(): Promise<string | null> {
