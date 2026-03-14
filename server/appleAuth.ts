@@ -2,7 +2,7 @@ import { createRemoteJWKSet, jwtVerify } from "jose";
 
 const APPLE_JWKS_URL = "https://appleid.apple.com/auth/keys";
 const APPLE_ISSUER = "https://appleid.apple.com";
-const APPLE_CLIENT_ID = process.env.APPLE_CLIENT_ID || "com.binauralbeats.app";
+const APPLE_CLIENT_ID = process.env.APPLE_CLIENT_ID || "com.beathaven.app";
 const EXPO_GO_CLIENT_ID = "host.exp.Exponent";
 const VALID_AUDIENCES = [APPLE_CLIENT_ID, EXPO_GO_CLIENT_ID];
 
