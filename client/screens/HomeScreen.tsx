@@ -96,7 +96,7 @@ export default function HomeScreen() {
   useEffect(() => {
     if (showSubscriptionOffer) {
       setShowSubscriptionOffer(false);
-      (navigation as any).navigate("Subscription");
+      navigation.navigate("Subscription");
     }
   }, [showSubscriptionOffer]);
 
