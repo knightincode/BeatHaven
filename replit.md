@@ -34,14 +34,18 @@ Preferred communication style: Simple, everyday language.
 
 **API Design**: RESTful endpoints under `/api/*` prefix. Authentication via Bearer tokens in Authorization header. Admin-only routes protected with middleware.
 
-**Authentication**: Custom JWT-like token system using HMAC-SHA256 signatures. Passwords hashed with bcryptjs. Tokens stored client-side via expo-secure-store (native) or localStorage (web).
+**Authentication**: Custom JWT-like token system using HMAC-SHA256 signatures. Passwords hashed with bcryptjs. Tokens stored client-side via expo-secure-store (native) or localStorage (web). Supports multiple auth providers:
+- **Email/Password**: Traditional email + password registration and login
+- **Apple Sign-In**: iOS-only via expo-apple-authentication. Creates/links accounts using Apple user ID. Button hidden on web/Android.
+- **Biometric Login**: Face ID/Touch ID via expo-local-authentication. Users prompted after first successful login. Biometric preference stored in SecureStore. On app launch, biometric auth is attempted before showing login screen.
+- **Schema**: `users.auth_provider` (email/apple/google), `users.apple_user_id` (nullable, unique), `users.password` (nullable for Apple-only users)
 
 **File Storage**: Replit Object Storage for audio file uploads. Generates signed download URLs for secure streaming.
 
 ### Data Storage
 
 **Database**: PostgreSQL with Drizzle ORM. Schema includes:
-- `users` - Authentication, Stripe subscription info, admin flag
+- `users` - Authentication (email/Apple/Google), Stripe subscription info, admin flag, auth_provider, apple_user_id
 - `audio_tracks` - Track metadata, frequency category, file URLs
 - `playlists` - User-created collections
 - `playlist_tracks` - Many-to-many join table with position ordering

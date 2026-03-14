@@ -53,7 +53,8 @@ export async function hashPassword(password: string): Promise<string> {
   return bcrypt.hash(password, 10);
 }
 
-export async function comparePasswords(password: string, hash: string): Promise<boolean> {
+export async function comparePasswords(password: string, hash: string | null): Promise<boolean> {
+  if (!hash) return false;
   return bcrypt.compare(password, hash);
 }
 

@@ -2,6 +2,15 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import * as SecureStore from "expo-secure-store";
 import { Platform } from "react-native";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
+import { signInWithApple, isAppleAuthAvailable } from "@/services/appleAuth";
+import {
+  isBiometricAvailable,
+  isBiometricEnabled,
+  authenticateWithBiometric,
+  enableBiometric,
+  disableBiometric,
+  getBiometricToken,
+} from "@/services/biometricAuth";
 
 interface User {
   id: string;
@@ -19,8 +28,14 @@ interface AuthContextType {
   hasActiveSubscription: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string) => Promise<void>;
+  loginWithApple: () => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
+  showBiometricPrompt: boolean;
+  setShowBiometricPrompt: (show: boolean) => void;
+  handleEnableBiometric: () => Promise<void>;
+  handleSkipBiometric: () => void;
+  appleAuthAvailable: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -54,13 +69,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [showBiometricPrompt, setShowBiometricPrompt] = useState(false);
+  const [appleAuthAvailable, setAppleAuthAvailable] = useState(false);
 
   useEffect(() => {
     loadStoredAuth();
+    checkAppleAuth();
   }, []);
+
+  async function checkAppleAuth() {
+    const available = await isAppleAuthAvailable();
+    setAppleAuthAvailable(available);
+  }
 
   async function loadStoredAuth() {
     try {
+      const biometricEnabled = await isBiometricEnabled();
+      const biometricAvail = await isBiometricAvailable();
+
+      if (biometricEnabled && biometricAvail) {
+        const storedBioToken = await getBiometricToken();
+        if (storedBioToken) {
+          const success = await authenticateWithBiometric();
+          if (success) {
+            setToken(storedBioToken);
+            await setStoredToken(storedBioToken);
+            await fetchUser(storedBioToken);
+            return;
+          }
+        }
+      }
+
       const storedToken = await getStoredToken();
       if (storedToken) {
         setToken(storedToken);
@@ -95,24 +134,44 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  async function handleAuthSuccess(authToken: string, userData: User) {
+    await setStoredToken(authToken);
+    setToken(authToken);
+    setUser(userData);
+
+    const biometricAvail = await isBiometricAvailable();
+    const biometricAlreadyEnabled = await isBiometricEnabled();
+    if (biometricAvail && !biometricAlreadyEnabled) {
+      setShowBiometricPrompt(true);
+    }
+  }
+
   async function login(email: string, password: string) {
     const res = await apiRequest("POST", "/api/auth/login", { email, password });
     const data = await res.json();
-    await setStoredToken(data.token);
-    setToken(data.token);
-    setUser(data.user);
+    await handleAuthSuccess(data.token, data.user);
   }
 
   async function register(email: string, password: string) {
     const res = await apiRequest("POST", "/api/auth/register", { email, password });
     const data = await res.json();
-    await setStoredToken(data.token);
-    setToken(data.token);
-    setUser(data.user);
+    await handleAuthSuccess(data.token, data.user);
+  }
+
+  async function loginWithApple() {
+    const appleResult = await signInWithApple();
+    const res = await apiRequest("POST", "/api/auth/apple", {
+      appleUserId: appleResult.appleUserId,
+      email: appleResult.email,
+      fullName: appleResult.fullName,
+    });
+    const data = await res.json();
+    await handleAuthSuccess(data.token, data.user);
   }
 
   async function logout() {
     await removeStoredToken();
+    await disableBiometric();
     setToken(null);
     setUser(null);
   }
@@ -121,6 +180,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (token) {
       await fetchUser(token);
     }
+  }
+
+  async function handleEnableBiometric() {
+    if (token) {
+      const success = await authenticateWithBiometric();
+      if (success) {
+        await enableBiometric(token);
+      }
+    }
+    setShowBiometricPrompt(false);
+  }
+
+  function handleSkipBiometric() {
+    setShowBiometricPrompt(false);
   }
 
   const isAuthenticated = !!user;
@@ -138,8 +211,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         hasActiveSubscription,
         login,
         register,
+        loginWithApple,
         logout,
         refreshUser,
+        showBiometricPrompt,
+        setShowBiometricPrompt,
+        handleEnableBiometric,
+        handleSkipBiometric,
+        appleAuthAvailable,
       }}
     >
       {children}

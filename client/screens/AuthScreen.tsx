@@ -15,6 +15,7 @@ import { Feather } from "@expo/vector-icons";
 
 import { ThemedText } from "@/components/ThemedText";
 import { Button } from "@/components/Button";
+import { BiometricPromptModal } from "@/components/BiometricPromptModal";
 import { useAuth } from "@/contexts/AuthContext";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
@@ -67,12 +68,21 @@ function PasswordRulesChecklist({ password }: { password: string }) {
 
 export default function AuthScreen() {
   const insets = useSafeAreaInsets();
-  const { login, register } = useAuth();
+  const {
+    login,
+    register,
+    loginWithApple,
+    showBiometricPrompt,
+    handleEnableBiometric,
+    handleSkipBiometric,
+    appleAuthAvailable,
+  } = useAuth();
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isAppleLoading, setIsAppleLoading] = useState(false);
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -119,6 +129,27 @@ export default function AuthScreen() {
       }
     } finally {
       setIsLoading(false);
+    }
+  }
+
+  async function handleAppleSignIn() {
+    setError("");
+    setIsAppleLoading(true);
+    try {
+      await loginWithApple();
+      if (Platform.OS !== "web") {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
+    } catch (err: any) {
+      const code = err?.code;
+      if (code !== "ERR_REQUEST_CANCELED") {
+        setError("Apple Sign-In failed. Please try again.");
+      }
+      if (Platform.OS !== "web") {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      }
+    } finally {
+      setIsAppleLoading(false);
     }
   }
 
@@ -226,6 +257,7 @@ export default function AuthScreen() {
             onPress={handleSubmit}
             disabled={isLoading}
             style={styles.button}
+            testID="button-submit-auth"
           >
             {isLoading ? (
               <ActivityIndicator color="#FFFFFF" />
@@ -235,6 +267,34 @@ export default function AuthScreen() {
               "Create Account"
             )}
           </Button>
+
+          {appleAuthAvailable ? (
+            <>
+              <View style={styles.dividerContainer}>
+                <View style={styles.dividerLine} />
+                <ThemedText style={styles.dividerText}>or</ThemedText>
+                <View style={styles.dividerLine} />
+              </View>
+
+              <Pressable
+                onPress={handleAppleSignIn}
+                disabled={isAppleLoading}
+                style={[styles.appleButton, isAppleLoading ? styles.appleButtonDisabled : null]}
+                testID="button-apple-signin"
+              >
+                {isAppleLoading ? (
+                  <ActivityIndicator color="#000000" />
+                ) : (
+                  <>
+                    <Feather name="smartphone" size={20} color="#000000" />
+                    <ThemedText style={styles.appleButtonText}>
+                      Sign in with Apple
+                    </ThemedText>
+                  </>
+                )}
+              </Pressable>
+            </>
+          ) : null}
 
           <Pressable onPress={toggleMode} style={styles.toggleContainer}>
             <ThemedText style={styles.toggleText}>
@@ -252,6 +312,12 @@ export default function AuthScreen() {
           Start your 7-day free trial, then $4.99/month
         </ThemedText>
       </KeyboardAwareScrollViewCompat>
+
+      <BiometricPromptModal
+        visible={showBiometricPrompt}
+        onEnable={handleEnableBiometric}
+        onSkip={handleSkipBiometric}
+      />
     </LinearGradient>
   );
 }
@@ -345,6 +411,37 @@ const styles = StyleSheet.create({
   },
   button: {
     marginTop: Spacing.sm,
+  },
+  dividerContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: Colors.dark.border,
+  },
+  dividerText: {
+    color: Colors.dark.textSecondary,
+    fontSize: 14,
+  },
+  appleButton: {
+    height: Spacing.inputHeight,
+    backgroundColor: "#FFFFFF",
+    borderRadius: BorderRadius.sm,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+  },
+  appleButtonDisabled: {
+    opacity: 0.6,
+  },
+  appleButtonText: {
+    color: "#000000",
+    fontSize: 16,
+    fontWeight: "600",
   },
   toggleContainer: {
     alignItems: "center",

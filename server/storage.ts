@@ -24,10 +24,24 @@ export class Storage {
     return user;
   }
 
-  async createUser(email: string, hashedPassword: string): Promise<User> {
+  async getUserByAppleId(appleUserId: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.appleUserId, appleUserId));
+    return user;
+  }
+
+  async createUser(
+    email: string,
+    hashedPassword: string | null,
+    options?: { authProvider?: string; appleUserId?: string }
+  ): Promise<User> {
     const [user] = await db
       .insert(users)
-      .values({ email, password: hashedPassword })
+      .values({
+        email,
+        password: hashedPassword,
+        authProvider: options?.authProvider || "email",
+        appleUserId: options?.appleUserId || null,
+      })
       .returning();
     return user;
   }

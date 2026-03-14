@@ -86,6 +86,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post("/api/auth/apple", async (req: Request, res: Response) => {
+    try {
+      const { appleUserId, email, fullName } = req.body;
+
+      if (!appleUserId) {
+        return res.status(400).json({ message: "Apple user ID is required" });
+      }
+
+      let user = await storage.getUserByAppleId(appleUserId);
+
+      if (!user) {
+        const userEmail = email || `apple_${appleUserId}@privaterelay.appleid.com`;
+
+        const existingEmailUser = await storage.getUserByEmail(userEmail);
+        if (existingEmailUser) {
+          await storage.updateUser(existingEmailUser.id, {
+            appleUserId,
+            authProvider: "apple",
+          });
+          user = await storage.getUser(existingEmailUser.id);
+        } else {
+          user = await storage.createUser(userEmail, null, {
+            authProvider: "apple",
+            appleUserId,
+          });
+        }
+      }
+
+      if (!user) {
+        return res.status(500).json({ message: "Failed to create or find user" });
+      }
+
+      const token = generateToken(user.id);
+
+      res.json({
+        token,
+        user: {
+          id: user.id,
+          email: user.email,
+          isAdmin: user.isAdmin,
+          subscriptionStatus: user.subscriptionStatus,
+        },
+      });
+    } catch (error: any) {
+      console.error("Apple auth error:", error);
+      res.status(500).json({ message: "Apple authentication failed" });
+    }
+  });
+
   app.post("/api/auth/login", async (req: Request, res: Response) => {
     try {
       const { email, password } = req.body;
@@ -97,6 +146,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const user = await storage.getUserByEmail(email);
       if (!user) {
         return res.status(401).json({ message: "Invalid email or password" });
+      }
+
+      if (!user.password) {
+        return res.status(401).json({ message: "This account uses Apple Sign-In. Please sign in with Apple." });
       }
 
       const validPassword = await comparePasswords(password, user.password);
@@ -147,12 +200,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       if (newPassword) {
-        if (!currentPassword) {
-          return res.status(400).json({ message: "Current password is required" });
-        }
-        const validPassword = await comparePasswords(currentPassword, user.password);
-        if (!validPassword) {
-          return res.status(400).json({ message: "Current password is incorrect" });
+        if (user.password) {
+          if (!currentPassword) {
+            return res.status(400).json({ message: "Current password is required" });
+          }
+          const validPassword = await comparePasswords(currentPassword, user.password);
+          if (!validPassword) {
+            return res.status(400).json({ message: "Current password is incorrect" });
+          }
         }
         updates.password = await hashPassword(newPassword);
       }
