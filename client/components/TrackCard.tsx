@@ -111,7 +111,12 @@ export function TrackCard({
             <View
               style={[styles.iconContainer, { backgroundColor: color + "25" }]}
             >
-              <Feather name="headphones" size={28} color={color} style={styles.iconShadow} />
+              <Feather
+                name="headphones"
+                size={28}
+                color={color}
+                style={styles.iconShadow}
+              />
             </View>
             <View style={styles.actionButtons}>
               {onToggleFavorite ? (
@@ -244,10 +249,10 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   title: {
-    fontSize: 15,
+    fontSize: 16,
     lineHeight: 22,
     fontWeight: "600",
-    marginBottom: Spacing.xs,
+    marginBottom: Spacing.sm,
     textShadowColor: "rgba(0, 0, 0, 0.6)",
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 3,
@@ -259,7 +264,7 @@ const styles = StyleSheet.create({
   frequency: {
     color: Colors.dark.textSecondary,
     fontSize: 11,
-    lineHeight: 16,
+    lineHeight: 20,
     textShadowColor: "rgba(0, 0, 0, 0.5)",
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,

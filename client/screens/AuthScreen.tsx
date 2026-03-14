@@ -249,7 +249,7 @@ export default function AuthScreen() {
         </View>
 
         <ThemedText style={styles.priceInfo}>
-          Start your 7-day free trial, then $0.99/month
+          Start your 7-day free trial, then $4.99/month
         </ThemedText>
       </KeyboardAwareScrollViewCompat>
     </LinearGradient>
