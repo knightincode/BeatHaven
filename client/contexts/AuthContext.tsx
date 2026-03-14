@@ -97,7 +97,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (success) {
             setToken(storedBioToken);
             await setStoredToken(storedBioToken);
-            await fetchUser(storedBioToken);
+            const userFetched = await fetchUser(storedBioToken);
+            if (!userFetched) {
+              await disableBiometric();
+              await removeStoredToken();
+              setToken(null);
+            }
           }
           return;
         }
@@ -115,7 +120,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  async function fetchUser(authToken: string) {
+  async function fetchUser(authToken: string): Promise<boolean> {
     try {
       const baseUrl = getApiUrl();
       const url = new URL("/api/user", baseUrl);
@@ -127,13 +132,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (res.ok) {
         const userData = await res.json();
         setUser(userData);
+        return true;
       } else {
         await removeStoredToken();
         setToken(null);
         setUser(null);
+        return false;
       }
     } catch (error) {
       console.error("Failed to fetch user:", error);
+      return false;
     }
   }
 
@@ -144,7 +152,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const biometricAvail = await isBiometricAvailable();
     const biometricAlreadyEnabled = await isBiometricEnabled();
-    if (biometricAvail && !biometricAlreadyEnabled) {
+    if (biometricAlreadyEnabled && biometricAvail) {
+      await enableBiometric(authToken);
+    } else if (biometricAvail && !biometricAlreadyEnabled) {
       setShowBiometricPrompt(true);
     }
   }
