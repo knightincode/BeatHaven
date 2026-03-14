@@ -10,7 +10,10 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.binauralbeats.app"
+      "bundleIdentifier": "com.binauralbeats.app",
+      "infoPlist": {
+        "NSFaceIDUsageDescription": "Use Face ID to sign in to BinauralBeats quickly and securely."
+      }
     },
     "android": {
       "adaptiveIcon": {

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   StyleSheet,
@@ -87,11 +87,18 @@ export default function HomeScreen() {
   const tabBarHeight = useBottomTabBarHeight();
   const navigation = useNavigation<NavigationProp>();
   const { playTrack } = usePlayer();
-  const { isAuthenticated, hasActiveSubscription } = useAuth();
+  const { isAuthenticated, hasActiveSubscription, showSubscriptionOffer, setShowSubscriptionOffer } = useAuth();
   const { isFavorite, toggleFavorite } = useFavorites();
   const [activeFilter, setActiveFilter] = useState("all");
   const [infoModalCategory, setInfoModalCategory] = useState<string | null>(null);
   const [playlistModalTrack, setPlaylistModalTrack] = useState<Track | null>(null);
+
+  useEffect(() => {
+    if (showSubscriptionOffer) {
+      setShowSubscriptionOffer(false);
+      (navigation as any).navigate("Subscription");
+    }
+  }, [showSubscriptionOffer]);
 
   const { data: tracks, isLoading, refetch, isRefetching } = useQuery<Track[]>({
     queryKey: ["/api/tracks"],

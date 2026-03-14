@@ -42,18 +42,18 @@ export default function RootStackNavigator() {
   return (
     <Stack.Navigator screenOptions={screenOptions}>
       {!isAuthenticated ? (
-        <Stack.Screen
-          name="Auth"
-          component={AuthScreen}
-          options={{ headerShown: false }}
-        />
-      ) : (
-        <>
           <Stack.Screen
-            name="Main"
-            component={MainTabNavigator}
+            name="Auth"
+            component={AuthScreen}
             options={{ headerShown: false }}
           />
+        ) : (
+          <>
+            <Stack.Screen
+              name="Main"
+              component={MainTabNavigator}
+              options={{ headerShown: false }}
+            />
           <Stack.Screen
             name="Player"
             component={PlayerScreen}

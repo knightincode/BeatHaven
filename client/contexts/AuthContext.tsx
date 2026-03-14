@@ -36,6 +36,8 @@ interface AuthContextType {
   handleEnableBiometric: () => Promise<void>;
   handleSkipBiometric: () => void;
   appleAuthAvailable: boolean;
+  showSubscriptionOffer: boolean;
+  setShowSubscriptionOffer: (show: boolean) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -70,6 +72,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [showBiometricPrompt, setShowBiometricPrompt] = useState(false);
+  const [showSubscriptionOffer, setShowSubscriptionOffer] = useState(false);
   const [appleAuthAvailable, setAppleAuthAvailable] = useState(false);
 
   useEffect(() => {
@@ -167,6 +170,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
     const data = await res.json();
     await handleAuthSuccess(data.token, data.user);
+    if (data.isNewUser && data.user.subscriptionStatus !== "active") {
+      setShowSubscriptionOffer(true);
+    }
   }
 
   async function logout() {
@@ -219,6 +225,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         handleEnableBiometric,
         handleSkipBiometric,
         appleAuthAvailable,
+        showSubscriptionOffer,
+        setShowSubscriptionOffer,
       }}
     >
       {children}

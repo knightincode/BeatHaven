@@ -107,6 +107,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const verifiedEmail = verifiedPayload.email || email;
 
       let user = await storage.getUserByAppleId(appleUserId);
+      let isNewUser = false;
 
       if (!user) {
         const userEmail = verifiedEmail || `apple_${appleUserId}@privaterelay.appleid.com`;
@@ -115,12 +116,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           authProvider: "apple",
           appleUserId,
         });
+        isNewUser = true;
       }
 
       const token = generateToken(user.id);
 
       res.json({
         token,
+        isNewUser,
         user: {
           id: user.id,
           email: user.email,
