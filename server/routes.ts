@@ -112,11 +112,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!user) {
         const userEmail = verifiedEmail || `apple_${appleUserId}@privaterelay.appleid.com`;
 
-        user = await storage.createUser(userEmail, null, {
-          authProvider: "apple",
-          appleUserId,
-        });
-        isNewUser = true;
+        const existingEmailUser = await storage.getUserByEmail(userEmail);
+        if (existingEmailUser) {
+          await storage.updateUser(existingEmailUser.id, {
+            appleUserId,
+            authProvider: existingEmailUser.authProvider === "email" ? "apple" : existingEmailUser.authProvider,
+          });
+          user = (await storage.getUser(existingEmailUser.id))!;
+        } else {
+          user = await storage.createUser(userEmail, null, {
+            authProvider: "apple",
+            appleUserId,
+          });
+          isNewUser = true;
+        }
       }
 
       const token = generateToken(user.id);
