@@ -103,7 +103,7 @@ export default function AuthScreen() {
       console.error("[GoogleAuth] Error response:", googleResponse.error);
       setError("Google Sign-In failed. Please try again.");
       setIsGoogleLoading(false);
-    } else if (googleResponse.type === "dismiss") {
+    } else {
       setIsGoogleLoading(false);
     }
   }, [googleResponse]);
@@ -312,10 +312,16 @@ export default function AuthScreen() {
           </View>
 
           <Pressable
-            onPress={() => {
+            onPress={async () => {
               setError("");
               setIsGoogleLoading(true);
-              googlePromptAsync();
+              try {
+                await googlePromptAsync();
+              } catch (err) {
+                console.error("[GoogleAuth] promptAsync failed:", err);
+                setError("Could not open Google Sign-In. Please try again.");
+                setIsGoogleLoading(false);
+              }
             }}
             disabled={!googleRequest || isGoogleLoading}
             style={[styles.googleButton, (!googleRequest || isGoogleLoading) ? styles.googleButtonDisabled : null]}
