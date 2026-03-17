@@ -19,7 +19,7 @@ import { Button } from "@/components/Button";
 import { useAuth } from "@/contexts/AuthContext";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
-import { useGoogleAuth } from "@/services/googleAuth";
+import { useGoogleAuth, getGoogleAuthSetupInfo } from "@/services/googleAuth";
 
 const PASSWORD_RULES = [
   { label: "At least 8 characters", test: (p: string) => p.length >= 8 },
@@ -116,7 +116,9 @@ export default function AuthScreen() {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
     } catch (err: any) {
-      setError("Google Sign-In failed. Please try again.");
+      console.error("[GoogleAuth] Sign-in failed:", err);
+      const message = err?.message || "Google Sign-In failed. Please try again.";
+      setError(message);
       if (Platform.OS !== "web") {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       }
