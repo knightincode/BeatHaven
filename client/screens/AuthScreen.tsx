@@ -201,6 +201,16 @@ export default function AuthScreen() {
       colors={["#0A0E1A", "#1A1F2E", "#252B3D"]}
       style={styles.gradient}
     >
+      {!isLogin ? (
+        <Pressable
+          onPress={toggleMode}
+          style={[styles.backButton, { top: insets.top + 12 }]}
+          testID="button-back-to-signin"
+        >
+          <Feather name="arrow-left" size={24} color={Colors.dark.text} />
+        </Pressable>
+      ) : null}
+
       <KeyboardAwareScrollViewCompat
         style={styles.container}
         contentContainerStyle={[
@@ -224,6 +234,54 @@ export default function AuthScreen() {
         </View>
 
         <View style={styles.form}>
+          <Pressable
+            onPress={async () => {
+              setError("");
+              setIsGoogleLoading(true);
+              try {
+                await googlePromptAsync();
+              } catch (err) {
+                console.error("[GoogleAuth] promptAsync failed:", err);
+                setError("Could not open Google Sign-In. Please try again.");
+                setIsGoogleLoading(false);
+              }
+            }}
+            disabled={!googleRequest || isGoogleLoading}
+            style={[styles.googleButton, (!googleRequest || isGoogleLoading) ? styles.googleButtonDisabled : null]}
+            testID="button-google-signin"
+          >
+            {isGoogleLoading ? (
+              <ActivityIndicator color="#333" size="small" />
+            ) : (
+              <>
+                <Image
+                  source={{ uri: "https://developers.google.com/identity/images/g-logo.png" }}
+                  style={styles.googleIcon}
+                />
+                <ThemedText style={styles.googleButtonText}>
+                  Continue with Google
+                </ThemedText>
+              </>
+            )}
+          </Pressable>
+
+          {appleAuthAvailable ? (
+            <AppleAuthentication.AppleAuthenticationButton
+              buttonType={AppleAuthentication.AppleAuthenticationButtonType.CONTINUE}
+              buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.WHITE}
+              cornerRadius={BorderRadius.sm}
+              style={styles.appleButton}
+              onPress={handleAppleSignIn}
+              testID="button-apple-signin"
+            />
+          ) : null}
+
+          <View style={styles.dividerContainer}>
+            <View style={styles.dividerLine} />
+            <ThemedText style={styles.dividerText}>or</ThemedText>
+            <View style={styles.dividerLine} />
+          </View>
+
           <TextInput
             style={styles.input}
             placeholder="Email"
@@ -305,54 +363,6 @@ export default function AuthScreen() {
             )}
           </Button>
 
-          <View style={styles.dividerContainer}>
-            <View style={styles.dividerLine} />
-            <ThemedText style={styles.dividerText}>or</ThemedText>
-            <View style={styles.dividerLine} />
-          </View>
-
-          <Pressable
-            onPress={async () => {
-              setError("");
-              setIsGoogleLoading(true);
-              try {
-                await googlePromptAsync();
-              } catch (err) {
-                console.error("[GoogleAuth] promptAsync failed:", err);
-                setError("Could not open Google Sign-In. Please try again.");
-                setIsGoogleLoading(false);
-              }
-            }}
-            disabled={!googleRequest || isGoogleLoading}
-            style={[styles.googleButton, (!googleRequest || isGoogleLoading) ? styles.googleButtonDisabled : null]}
-            testID="button-google-signin"
-          >
-            {isGoogleLoading ? (
-              <ActivityIndicator color="#333" size="small" />
-            ) : (
-              <>
-                <Image
-                  source={{ uri: "https://developers.google.com/identity/images/g-logo.png" }}
-                  style={styles.googleIcon}
-                />
-                <ThemedText style={styles.googleButtonText}>
-                  Continue with Google
-                </ThemedText>
-              </>
-            )}
-          </Pressable>
-
-          {appleAuthAvailable ? (
-            <AppleAuthentication.AppleAuthenticationButton
-              buttonType={AppleAuthentication.AppleAuthenticationButtonType.CONTINUE}
-              buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.WHITE}
-              cornerRadius={BorderRadius.sm}
-              style={styles.appleButton}
-              onPress={handleAppleSignIn}
-              testID="button-apple-signin"
-            />
-          ) : null}
-
           <Pressable onPress={toggleMode} style={styles.toggleContainer}>
             <ThemedText style={styles.toggleText}>
               {isLogin
@@ -376,6 +386,17 @@ export default function AuthScreen() {
 const styles = StyleSheet.create({
   gradient: {
     flex: 1,
+  },
+  backButton: {
+    position: "absolute",
+    left: Spacing.lg,
+    zIndex: 10,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(255,255,255,0.1)",
+    alignItems: "center",
+    justifyContent: "center",
   },
   container: {
     flex: 1,
