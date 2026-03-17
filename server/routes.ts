@@ -220,7 +220,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       if (!user.password) {
-        return res.status(401).json({ message: "This account uses Apple Sign-In. Please sign in with Apple." });
+        const provider = user.authProvider === "google" ? "Google" : user.authProvider === "apple" ? "Apple" : "social";
+        return res.status(401).json({ message: `This account uses ${provider} Sign-In. Please sign in with ${provider}.` });
       }
 
       const validPassword = await comparePasswords(password, user.password);
