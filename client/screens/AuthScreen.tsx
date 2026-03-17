@@ -88,15 +88,22 @@ export default function AuthScreen() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   useEffect(() => {
-    if (googleResponse?.type === "success") {
-      const { id_token } = googleResponse.params;
-      if (id_token) {
-        handleGoogleSignIn(id_token);
+    if (!googleResponse) return;
+
+    if (googleResponse.type === "success") {
+      const idToken = googleResponse.params?.id_token;
+      if (idToken) {
+        handleGoogleSignIn(idToken);
+      } else {
+        console.error("[GoogleAuth] Success response but no id_token in params:", JSON.stringify(googleResponse.params));
+        setError("Google Sign-In failed: no token received.");
+        setIsGoogleLoading(false);
       }
-    } else if (googleResponse?.type === "error") {
+    } else if (googleResponse.type === "error") {
+      console.error("[GoogleAuth] Error response:", googleResponse.error);
       setError("Google Sign-In failed. Please try again.");
       setIsGoogleLoading(false);
-    } else if (googleResponse?.type === "dismiss") {
+    } else if (googleResponse.type === "dismiss") {
       setIsGoogleLoading(false);
     }
   }, [googleResponse]);
@@ -321,7 +328,7 @@ export default function AuthScreen() {
                   style={styles.googleIcon}
                 />
                 <ThemedText style={styles.googleButtonText}>
-                  Sign in with Google
+                  Continue with Google
                 </ThemedText>
               </>
             )}
@@ -329,7 +336,7 @@ export default function AuthScreen() {
 
           {appleAuthAvailable ? (
             <AppleAuthentication.AppleAuthenticationButton
-              buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
+              buttonType={AppleAuthentication.AppleAuthenticationButtonType.CONTINUE}
               buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.WHITE}
               cornerRadius={BorderRadius.sm}
               style={styles.appleButton}

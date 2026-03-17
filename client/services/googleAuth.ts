@@ -1,5 +1,6 @@
 import { useAuthRequest, makeRedirectUri } from "expo-auth-session";
 import * as WebBrowser from "expo-web-browser";
+import { Platform } from "react-native";
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -11,20 +12,39 @@ const discovery = {
   revocationEndpoint: "https://oauth2.googleapis.com/revoke",
 };
 
+function getRedirectUri(): string {
+  if (Platform.OS === "web") {
+    const origin = typeof window !== "undefined" ? window.location.origin : "";
+    return origin;
+  }
+  return makeRedirectUri({
+    scheme: "beathaven",
+    path: "auth",
+  });
+}
+
 export function useGoogleAuth() {
+  const redirectUri = getRedirectUri();
+
   const [request, response, promptAsync] = useAuthRequest(
     {
       clientId: GOOGLE_CLIENT_ID,
-      redirectUri: makeRedirectUri({ preferLocalhost: false }),
+      redirectUri,
       scopes: ["openid", "profile", "email"],
       responseType: "id_token",
       usePKCE: false,
       extraParams: {
-        nonce: Math.random().toString(36).substring(2),
+        nonce: Date.now().toString(36) + Math.random().toString(36).substring(2),
+        prompt: "select_account",
       },
     },
     discovery
   );
+
+  if (__DEV__) {
+    console.log("[GoogleAuth] Redirect URI:", redirectUri);
+    console.log("[GoogleAuth] Platform:", Platform.OS);
+  }
 
   return { request, response, promptAsync };
 }
