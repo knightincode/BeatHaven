@@ -9,6 +9,7 @@ import {
   authenticateToken,
 } from "./auth";
 import { verifyAppleIdentityToken } from "./appleAuth";
+import { verifyGoogleIdToken } from "./googleAuth";
 import { getUncachableStripeClient, getStripePublishableKey } from "./stripeClient";
 import { uploadAudioFile, streamAudioFile, getAudioFileAsBuffer } from "./objectStorage";
 import { User } from "../shared/schema";
@@ -143,6 +144,65 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Apple auth error:", error);
       res.status(500).json({ message: "Apple authentication failed" });
+    }
+  });
+
+  app.post("/api/auth/google", async (req: Request, res: Response) => {
+    try {
+      const { idToken } = req.body;
+
+      if (!idToken) {
+        return res.status(400).json({ message: "Google ID token is required" });
+      }
+
+      let verifiedPayload;
+      try {
+        verifiedPayload = await verifyGoogleIdToken(idToken);
+      } catch (verifyError: any) {
+        console.error("Google token verification failed:", verifyError);
+        return res.status(401).json({ message: "Invalid Google ID token" });
+      }
+
+      const googleUserId = verifiedPayload.sub;
+      const verifiedEmail = verifiedPayload.email;
+
+      let user = await storage.getUserByGoogleId(googleUserId);
+      let isNewUser = false;
+
+      if (!user) {
+        const userEmail = verifiedEmail || `google_${googleUserId}@gmail.com`;
+
+        const existingEmailUser = await storage.getUserByEmail(userEmail);
+        if (existingEmailUser) {
+          await storage.updateUser(existingEmailUser.id, {
+            googleUserId,
+            authProvider: existingEmailUser.authProvider === "email" ? "google" : existingEmailUser.authProvider,
+          });
+          user = (await storage.getUser(existingEmailUser.id))!;
+        } else {
+          user = await storage.createUser(userEmail, null, {
+            authProvider: "google",
+            googleUserId,
+          });
+          isNewUser = true;
+        }
+      }
+
+      const token = generateToken(user.id);
+
+      res.json({
+        token,
+        isNewUser,
+        user: {
+          id: user.id,
+          email: user.email,
+          isAdmin: user.isAdmin,
+          subscriptionStatus: user.subscriptionStatus,
+        },
+      });
+    } catch (error: any) {
+      console.error("Google auth error:", error);
+      res.status(500).json({ message: "Google authentication failed" });
     }
   });
 

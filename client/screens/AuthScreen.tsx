@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   StyleSheet,
@@ -19,6 +19,7 @@ import { Button } from "@/components/Button";
 import { useAuth } from "@/contexts/AuthContext";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
+import { useGoogleAuth } from "@/services/googleAuth";
 
 const PASSWORD_RULES = [
   { label: "At least 8 characters", test: (p: string) => p.length >= 8 },
@@ -72,16 +73,50 @@ export default function AuthScreen() {
     login,
     register,
     loginWithApple,
+    loginWithGoogle,
     appleAuthAvailable,
   } = useAuth();
+  const { request: googleRequest, response: googleResponse, promptAsync: googlePromptAsync } = useGoogleAuth();
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  useEffect(() => {
+    if (googleResponse?.type === "success") {
+      const { id_token } = googleResponse.params;
+      if (id_token) {
+        handleGoogleSignIn(id_token);
+      }
+    } else if (googleResponse?.type === "error") {
+      setError("Google Sign-In failed. Please try again.");
+      setIsGoogleLoading(false);
+    } else if (googleResponse?.type === "dismiss") {
+      setIsGoogleLoading(false);
+    }
+  }, [googleResponse]);
+
+  async function handleGoogleSignIn(idToken: string) {
+    setError("");
+    try {
+      await loginWithGoogle(idToken);
+      if (Platform.OS !== "web") {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
+    } catch (err: any) {
+      setError("Google Sign-In failed. Please try again.");
+      if (Platform.OS !== "web") {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      }
+    } finally {
+      setIsGoogleLoading(false);
+    }
+  }
 
   async function handleSubmit() {
     setError("");
@@ -261,23 +296,46 @@ export default function AuthScreen() {
             )}
           </Button>
 
-          {appleAuthAvailable ? (
-            <>
-              <View style={styles.dividerContainer}>
-                <View style={styles.dividerLine} />
-                <ThemedText style={styles.dividerText}>or</ThemedText>
-                <View style={styles.dividerLine} />
-              </View>
+          <View style={styles.dividerContainer}>
+            <View style={styles.dividerLine} />
+            <ThemedText style={styles.dividerText}>or</ThemedText>
+            <View style={styles.dividerLine} />
+          </View>
 
-              <AppleAuthentication.AppleAuthenticationButton
-                buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
-                buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.WHITE}
-                cornerRadius={BorderRadius.sm}
-                style={styles.appleButton}
-                onPress={handleAppleSignIn}
-                testID="button-apple-signin"
-              />
-            </>
+          <Pressable
+            onPress={() => {
+              setError("");
+              setIsGoogleLoading(true);
+              googlePromptAsync();
+            }}
+            disabled={!googleRequest || isGoogleLoading}
+            style={[styles.googleButton, (!googleRequest || isGoogleLoading) ? styles.googleButtonDisabled : null]}
+            testID="button-google-signin"
+          >
+            {isGoogleLoading ? (
+              <ActivityIndicator color="#333" size="small" />
+            ) : (
+              <>
+                <Image
+                  source={{ uri: "https://developers.google.com/identity/images/g-logo.png" }}
+                  style={styles.googleIcon}
+                />
+                <ThemedText style={styles.googleButtonText}>
+                  Sign in with Google
+                </ThemedText>
+              </>
+            )}
+          </Pressable>
+
+          {appleAuthAvailable ? (
+            <AppleAuthentication.AppleAuthenticationButton
+              buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
+              buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.WHITE}
+              cornerRadius={BorderRadius.sm}
+              style={styles.appleButton}
+              onPress={handleAppleSignIn}
+              testID="button-apple-signin"
+            />
           ) : null}
 
           <Pressable onPress={toggleMode} style={styles.toggleContainer}>
@@ -403,6 +461,28 @@ const styles = StyleSheet.create({
   dividerText: {
     color: Colors.dark.textSecondary,
     fontSize: 14,
+  },
+  googleButton: {
+    height: Spacing.inputHeight,
+    width: "100%",
+    backgroundColor: "#FFFFFF",
+    borderRadius: BorderRadius.sm,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.md,
+  },
+  googleButtonDisabled: {
+    opacity: 0.6,
+  },
+  googleIcon: {
+    width: 20,
+    height: 20,
+  },
+  googleButtonText: {
+    color: "#333333",
+    fontSize: 16,
+    fontWeight: "600" as const,
   },
   appleButton: {
     height: Spacing.inputHeight,

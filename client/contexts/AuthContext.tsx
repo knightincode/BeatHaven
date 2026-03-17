@@ -31,6 +31,7 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string) => Promise<void>;
   loginWithApple: () => Promise<void>;
+  loginWithGoogle: (idToken: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
   showBiometricPrompt: boolean;
@@ -190,6 +191,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  async function loginWithGoogle(idToken: string) {
+    const res = await apiRequest("POST", "/api/auth/google", { idToken });
+    const data = await res.json();
+    await handleAuthSuccess(data.token, data.user);
+    if (data.isNewUser && data.user.subscriptionStatus !== "active") {
+      setShowSubscriptionOffer(true);
+    }
+  }
+
   async function logout() {
     await removeStoredToken();
     await disableBiometric();
@@ -234,6 +244,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         login,
         register,
         loginWithApple,
+        loginWithGoogle,
         logout,
         refreshUser,
         showBiometricPrompt,

@@ -37,8 +37,9 @@ Preferred communication style: Simple, everyday language.
 **Authentication**: Custom JWT-like token system using HMAC-SHA256 signatures. Passwords hashed with bcryptjs. Tokens stored client-side via expo-secure-store (native) or localStorage (web). Supports multiple auth providers:
 - **Email/Password**: Traditional email + password registration and login
 - **Apple Sign-In**: iOS-only via expo-apple-authentication. Creates/links accounts using Apple user ID. Button hidden on web/Android.
-- **Biometric Login**: Face ID/Touch ID via expo-local-authentication. Users prompted after first successful login. Biometric preference stored in SecureStore. On app launch, biometric auth is attempted before showing login screen.
-- **Schema**: `users.auth_provider` (email/apple/google), `users.apple_user_id` (nullable, unique), `users.password` (nullable for Apple-only users)
+- **Google Sign-In**: Cross-platform (iOS, Android, web) via expo-auth-session with Google's OAuth flow. Uses web client ID for all platforms. Server verifies Google ID tokens via Google's JWKS endpoint.
+- **Biometric Login**: Face ID/Touch ID via expo-local-authentication. Users prompted after first successful login (once only — declined choice is remembered). Biometric preference stored in SecureStore. On app launch, biometric auth is attempted before showing login screen.
+- **Schema**: `users.auth_provider` (email/apple/google), `users.apple_user_id` (nullable, unique), `users.google_user_id` (nullable, unique), `users.password` (nullable for Apple/Google-only users)
 
 **File Storage**: Replit Object Storage for audio file uploads. Generates signed download URLs for secure streaming.
 
@@ -108,4 +109,6 @@ Preferred communication style: Simple, everyday language.
 - `SESSION_SECRET`: JWT signing key (falls back to default in dev)
 - `REPLIT_DEV_DOMAIN` / `REPLIT_DOMAINS`: CORS configuration
 - `APPLE_CLIENT_ID`: Apple Sign-In bundle ID (defaults to `com.beathaven.app`; server also accepts `host.exp.Exponent` for Expo Go testing)
+- `GOOGLE_CLIENT_ID`: Google OAuth Web Client ID for server-side token verification
+- `EXPO_PUBLIC_GOOGLE_CLIENT_ID`: Google OAuth Web Client ID for frontend auth requests
 - Stripe credentials obtained dynamically via Replit connectors

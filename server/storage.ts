@@ -29,10 +29,15 @@ export class Storage {
     return user;
   }
 
+  async getUserByGoogleId(googleUserId: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.googleUserId, googleUserId));
+    return user;
+  }
+
   async createUser(
     email: string,
     hashedPassword: string | null,
-    options?: { authProvider?: string; appleUserId?: string }
+    options?: { authProvider?: string; appleUserId?: string; googleUserId?: string }
   ): Promise<User> {
     const [user] = await db
       .insert(users)
@@ -41,6 +46,7 @@ export class Storage {
         password: hashedPassword,
         authProvider: options?.authProvider || "email",
         appleUserId: options?.appleUserId || null,
+        googleUserId: options?.googleUserId || null,
       })
       .returning();
     return user;
