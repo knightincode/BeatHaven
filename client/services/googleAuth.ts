@@ -18,6 +18,7 @@ export function useGoogleAuth() {
       redirectUri: makeRedirectUri({ preferLocalhost: false }),
       scopes: ["openid", "profile", "email"],
       responseType: "id_token",
+      usePKCE: false,
       extraParams: {
         nonce: Math.random().toString(36).substring(2),
       },
