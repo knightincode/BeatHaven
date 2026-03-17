@@ -165,7 +165,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const googleUserId = verifiedPayload.sub;
       const verifiedEmail = verifiedPayload.email;
-      const emailVerified = verifiedPayload.email_verified;
+      const emailVerified = verifiedPayload.email_verified === true;
 
       console.log(`[Google Auth] sub=${googleUserId}, email=${verifiedEmail}, email_verified=${emailVerified}`);
 
@@ -175,7 +175,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!user) {
         const userEmail = verifiedEmail || `google_${googleUserId}@gmail.com`;
 
-        const existingEmailUser = emailVerified ? await storage.getUserByEmail(userEmail) : null;
+        const existingEmailUser = (emailVerified && verifiedEmail) ? await storage.getUserByEmail(userEmail) : null;
         if (existingEmailUser) {
           console.log(`[Google Auth] Linking to existing email user: ${existingEmailUser.id} (${existingEmailUser.email})`);
           await storage.updateUser(existingEmailUser.id, {
