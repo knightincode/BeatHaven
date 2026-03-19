@@ -111,7 +111,7 @@ export default function AuthScreen() {
   async function handleGoogleSignIn(idToken: string) {
     setError("");
     try {
-      await loginWithGoogle(idToken);
+      await loginWithGoogle(idToken, isLogin ? "login" : "signup");
       if (Platform.OS !== "web") {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
@@ -175,14 +175,15 @@ export default function AuthScreen() {
   async function handleAppleSignIn() {
     setError("");
     try {
-      await loginWithApple();
+      await loginWithApple(isLogin ? "login" : "signup");
       if (Platform.OS !== "web") {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
     } catch (err: any) {
       const code = err?.code;
       if (code !== "ERR_REQUEST_CANCELED") {
-        setError("Apple Sign-In failed. Please try again.");
+        const message = err?.message || "Apple Sign-In failed. Please try again.";
+        setError(message);
       }
       if (Platform.OS !== "web") {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
@@ -259,7 +260,7 @@ export default function AuthScreen() {
                   style={styles.googleIcon}
                 />
                 <ThemedText style={styles.googleButtonText}>
-                  Continue with Google
+                  {isLogin ? "Continue with Google" : "Create Account with Google"}
                 </ThemedText>
               </>
             )}
@@ -267,7 +268,9 @@ export default function AuthScreen() {
 
           {appleAuthAvailable ? (
             <AppleAuthentication.AppleAuthenticationButton
-              buttonType={AppleAuthentication.AppleAuthenticationButtonType.CONTINUE}
+              buttonType={isLogin
+                ? AppleAuthentication.AppleAuthenticationButtonType.CONTINUE
+                : AppleAuthentication.AppleAuthenticationButtonType.CREATE_ACCOUNT}
               buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.WHITE}
               cornerRadius={BorderRadius.sm}
               style={styles.appleButton}
@@ -290,6 +293,7 @@ export default function AuthScreen() {
             onChangeText={setEmail}
             autoCapitalize="none"
             keyboardType="email-address"
+            autoComplete="off"
             testID="input-email"
           />
 
@@ -302,6 +306,7 @@ export default function AuthScreen() {
               onChangeText={(text) => setPassword(text.slice(0, 20))}
               secureTextEntry={!showPassword}
               maxLength={20}
+              autoComplete="off"
               testID="input-password"
             />
             <Pressable
@@ -329,6 +334,7 @@ export default function AuthScreen() {
                   onChangeText={setConfirmPassword}
                   secureTextEntry={!showConfirmPassword}
                   maxLength={20}
+                  autoComplete="off"
                   testID="input-confirm-password"
                 />
                 <Pressable

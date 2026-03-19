@@ -90,7 +90,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/auth/apple", async (req: Request, res: Response) => {
     try {
-      const { identityToken, email, fullName } = req.body;
+      const { identityToken, email, fullName, mode } = req.body;
+      const isSignupMode = mode === "signup";
 
       if (!identityToken) {
         return res.status(400).json({ message: "Apple identity token is required" });
@@ -115,6 +116,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         const existingEmailUser = await storage.getUserByEmail(userEmail);
         if (existingEmailUser) {
+          if (isSignupMode) {
+            return res.status(409).json({ message: "You already have an account with this Apple account. Please sign in instead." });
+          }
           await storage.updateUser(existingEmailUser.id, {
             appleUserId,
             authProvider: existingEmailUser.authProvider === "email" ? "apple" : existingEmailUser.authProvider,
@@ -127,6 +131,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
           isNewUser = true;
         }
+      } else if (isSignupMode) {
+        return res.status(409).json({ message: "You already have an account with this Apple account. Please sign in instead." });
       }
 
       const token = generateToken(user.id);
@@ -149,7 +155,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/auth/google", async (req: Request, res: Response) => {
     try {
-      const { idToken } = req.body;
+      const { idToken, mode } = req.body;
+      const isSignupMode = mode === "signup";
 
       if (!idToken) {
         return res.status(400).json({ message: "Google ID token is required" });
@@ -167,7 +174,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const verifiedEmail = verifiedPayload.email;
       const emailVerified = verifiedPayload.email_verified === true;
 
-      console.log(`[Google Auth] sub=${googleUserId}, email=${verifiedEmail}, email_verified=${emailVerified}`);
+      console.log(`[Google Auth] sub=${googleUserId}, email=${verifiedEmail}, email_verified=${emailVerified}, mode=${mode}`);
 
       let user = await storage.getUserByGoogleId(googleUserId);
       let isNewUser = false;
@@ -177,6 +184,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         const existingEmailUser = (emailVerified && verifiedEmail) ? await storage.getUserByEmail(userEmail) : null;
         if (existingEmailUser) {
+          if (isSignupMode) {
+            return res.status(409).json({ message: "You already have an account with this Google account. Please sign in instead." });
+          }
           console.log(`[Google Auth] Linking to existing email user: ${existingEmailUser.id} (${existingEmailUser.email})`);
           await storage.updateUser(existingEmailUser.id, {
             googleUserId,
@@ -192,6 +202,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           isNewUser = true;
         }
       } else {
+        if (isSignupMode) {
+          return res.status(409).json({ message: "You already have an account with this Google account. Please sign in instead." });
+        }
         console.log(`[Google Auth] Found existing Google user: ${user.id} (${user.email})`);
       }
 

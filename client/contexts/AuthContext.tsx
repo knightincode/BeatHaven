@@ -30,8 +30,8 @@ interface AuthContextType {
   hasActiveSubscription: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string) => Promise<void>;
-  loginWithApple: () => Promise<void>;
-  loginWithGoogle: (idToken: string) => Promise<void>;
+  loginWithApple: (mode?: "login" | "signup") => Promise<void>;
+  loginWithGoogle: (idToken: string, mode?: "login" | "signup") => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
   showBiometricPrompt: boolean;
@@ -177,13 +177,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await handleAuthSuccess(data.token, data.user);
   }
 
-  async function loginWithApple() {
+  async function loginWithApple(mode?: "login" | "signup") {
     const appleResult = await signInWithApple();
     const res = await apiRequest("POST", "/api/auth/apple", {
       identityToken: appleResult.identityToken,
       email: appleResult.email,
       fullName: appleResult.fullName,
+      mode: mode ?? "login",
     });
+    if (!res.ok) {
+      const data = await res.json();
+      throw new Error(data.message || "Apple authentication failed");
+    }
     const data = await res.json();
     await handleAuthSuccess(data.token, data.user);
     if (data.isNewUser && data.user.subscriptionStatus !== "active") {
@@ -191,8 +196,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  async function loginWithGoogle(idToken: string) {
-    const res = await apiRequest("POST", "/api/auth/google", { idToken });
+  async function loginWithGoogle(idToken: string, mode?: "login" | "signup") {
+    const res = await apiRequest("POST", "/api/auth/google", { idToken, mode: mode ?? "login" });
+    if (!res.ok) {
+      const data = await res.json();
+      throw new Error(data.message || "Google authentication failed");
+    }
     const data = await res.json();
     await handleAuthSuccess(data.token, data.user);
     if (data.isNewUser && data.user.subscriptionStatus !== "active") {
