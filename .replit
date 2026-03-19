@@ -82,3 +82,7 @@ defaultBucketID = "replit-objstore-aed4f744-aab2-4e2d-8dfe-062d572c3fe9"
 [userenv.shared]
 EXPO_PUBLIC_GOOGLE_CLIENT_ID = "793408192278-rbno8ju44gflq2o7s6v9efjfpodf8tmi.apps.googleusercontent.com"
 GOOGLE_CLIENT_ID = "793408192278-rbno8ju44gflq2o7s6v9efjfpodf8tmi.apps.googleusercontent.com"
+EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID = "793408192278-ccf4lod5cfojfnf0lean2kgnv1n99ebg.apps.googleusercontent.com"
+EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID = "793408192278-1pqra370vnt03ramsp834lsi4jsmmjc2.apps.googleusercontent.com"
+GOOGLE_IOS_CLIENT_ID = "793408192278-ccf4lod5cfojfnf0lean2kgnv1n99ebg.apps.googleusercontent.com"
+GOOGLE_ANDROID_CLIENT_ID = "793408192278-1pqra370vnt03ramsp834lsi4jsmmjc2.apps.googleusercontent.com"
