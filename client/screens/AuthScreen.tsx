@@ -229,8 +229,8 @@ export default function AuthScreen() {
           <ThemedText type="h1" style={styles.title}>
             Beat Haven
           </ThemedText>
-          <ThemedText style={styles.subtitle}>
-            Your personal meditation sanctuary
+          <ThemedText type= "h2"style={styles.subtitle}>
+            Your personal meditation sanctuary :)
           </ThemedText>
         </View>
 

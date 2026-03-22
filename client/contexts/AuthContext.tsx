@@ -185,10 +185,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       fullName: appleResult.fullName,
       mode: mode ?? "login",
     });
-    if (!res.ok) {
-      const data = await res.json();
-      throw new Error(data.message || "Apple authentication failed");
-    }
     const data = await res.json();
     await handleAuthSuccess(data.token, data.user);
     if (data.isNewUser && data.user.subscriptionStatus !== "active") {
@@ -198,10 +194,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function loginWithGoogle(idToken: string, mode?: "login" | "signup") {
     const res = await apiRequest("POST", "/api/auth/google", { idToken, mode: mode ?? "login" });
-    if (!res.ok) {
-      const data = await res.json();
-      throw new Error(data.message || "Google authentication failed");
-    }
     const data = await res.json();
     await handleAuthSuccess(data.token, data.user);
     if (data.isNewUser && data.user.subscriptionStatus !== "active") {
