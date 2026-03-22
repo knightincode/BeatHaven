@@ -205,7 +205,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await removeStoredToken();
     try {
       await disableBiometric();
-    } catch {
+    } catch (err) {
+      console.warn("Failed to clear biometric data on logout:", err);
     }
     setToken(null);
     setUser(null);
