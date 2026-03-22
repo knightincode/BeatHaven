@@ -19,7 +19,7 @@ import { Button } from "@/components/Button";
 import { useAuth } from "@/contexts/AuthContext";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
-import { useGoogleAuth, getGoogleAuthSetupInfo } from "@/services/googleAuth";
+import { useGoogleAuth, getGoogleAuthSetupInfo, isRunningInExpoGo } from "@/services/googleAuth";
 
 const PASSWORD_RULES = [
   { label: "At least 8 characters", test: (p: string) => p.length >= 8 },
@@ -77,6 +77,7 @@ export default function AuthScreen() {
     appleAuthAvailable,
   } = useAuth();
   const { request: googleRequest, response: googleResponse, promptAsync: googlePromptAsync } = useGoogleAuth();
+  const googleUnavailableInExpoGo = Platform.OS !== "web" && isRunningInExpoGo();
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -254,8 +255,8 @@ export default function AuthScreen() {
                 setIsGoogleLoading(false);
               }
             }}
-            disabled={!googleRequest || isGoogleLoading}
-            style={[styles.googleButton, (!googleRequest || isGoogleLoading) ? styles.googleButtonDisabled : null]}
+            disabled={!googleRequest || isGoogleLoading || googleUnavailableInExpoGo}
+            style={[styles.googleButton, (!googleRequest || isGoogleLoading || googleUnavailableInExpoGo) ? styles.googleButtonDisabled : null]}
             testID="button-google-signin"
           >
             {isGoogleLoading ? (
@@ -272,6 +273,11 @@ export default function AuthScreen() {
               </>
             )}
           </Pressable>
+          {googleUnavailableInExpoGo ? (
+            <ThemedText style={styles.expoGoNote}>
+              Google Sign-In is available in the full app. Use email or Apple Sign-In to continue here.
+            </ThemedText>
+          ) : null}
 
           {appleAuthAvailable ? (
             <AppleAuthentication.AppleAuthenticationButton
@@ -532,6 +538,13 @@ const styles = StyleSheet.create({
     color: "#333333",
     fontSize: 16,
     fontWeight: "600" as const,
+  },
+  expoGoNote: {
+    fontSize: 12,
+    color: Colors.dark.textSecondary,
+    textAlign: "center",
+    marginTop: -Spacing.xs,
+    paddingHorizontal: Spacing.sm,
   },
   appleButton: {
     height: Spacing.inputHeight,

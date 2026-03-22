@@ -15,7 +15,7 @@ const discovery = {
   revocationEndpoint: "https://oauth2.googleapis.com/revoke",
 };
 
-function isRunningInExpoGo(): boolean {
+export function isRunningInExpoGo(): boolean {
   return Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
 }
 
