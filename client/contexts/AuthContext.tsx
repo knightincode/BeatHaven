@@ -203,7 +203,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function logout() {
     await removeStoredToken();
-    await disableBiometric();
+    try {
+      await disableBiometric();
+    } catch {
+    }
     setToken(null);
     setUser(null);
   }

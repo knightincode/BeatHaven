@@ -110,6 +110,13 @@ export default function AuthScreen() {
 
   async function handleGoogleSignIn(idToken: string) {
     setError("");
+    if (Platform.OS === "web" && typeof window !== "undefined") {
+      window.history.replaceState(
+        {},
+        document.title,
+        window.location.pathname + window.location.search
+      );
+    }
     try {
       await loginWithGoogle(idToken, isLogin ? "login" : "signup");
       if (Platform.OS !== "web") {

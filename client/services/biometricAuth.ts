@@ -62,6 +62,7 @@ export async function enableBiometric(token: string): Promise<void> {
 }
 
 export async function disableBiometric(): Promise<void> {
+  if (Platform.OS === "web") return;
   await SecureStore.deleteItemAsync(BIOMETRIC_ENABLED_KEY);
   await SecureStore.deleteItemAsync(BIOMETRIC_USER_TOKEN_KEY);
   await SecureStore.deleteItemAsync(BIOMETRIC_DECLINED_KEY);
