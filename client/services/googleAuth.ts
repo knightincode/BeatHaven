@@ -1,6 +1,7 @@
 import { useAuthRequest, makeRedirectUri } from "expo-auth-session";
 import * as WebBrowser from "expo-web-browser";
 import { Platform } from "react-native";
+import Constants, { ExecutionEnvironment } from "expo-constants";
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -14,7 +15,19 @@ const discovery = {
   revocationEndpoint: "https://oauth2.googleapis.com/revoke",
 };
 
+function isRunningInExpoGo(): boolean {
+  return Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
+}
+
 function getClientId(): string {
+  if (Platform.OS === "web") {
+    return WEB_CLIENT_ID;
+  }
+
+  if (isRunningInExpoGo()) {
+    return WEB_CLIENT_ID;
+  }
+
   if (Platform.OS === "ios" && IOS_CLIENT_ID) {
     return IOS_CLIENT_ID;
   }
@@ -28,6 +41,15 @@ function getRedirectUri(): string {
   if (Platform.OS === "web") {
     const origin = typeof window !== "undefined" ? window.location.origin : "";
     return origin;
+  }
+
+  if (isRunningInExpoGo()) {
+    const proxyUri = makeRedirectUri({ useProxy: true });
+    if (__DEV__) {
+      console.log("[GoogleAuth] Expo Go detected — using proxy redirect URI:", proxyUri);
+      console.log("[GoogleAuth] Register this URI in Google Cloud Console under Web client authorized redirect URIs.");
+    }
+    return proxyUri;
   }
 
   if (Platform.OS === "ios" && IOS_CLIENT_ID) {
@@ -62,6 +84,7 @@ export function useGoogleAuth() {
 
   if (__DEV__) {
     console.log("[GoogleAuth] Platform:", Platform.OS);
+    console.log("[GoogleAuth] Expo Go:", isRunningInExpoGo());
     console.log("[GoogleAuth] Client ID:", clientId.substring(0, 20) + "...");
     console.log("[GoogleAuth] Redirect URI:", redirectUri);
   }
