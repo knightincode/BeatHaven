@@ -277,14 +277,20 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignSelf: "flex-end",
   },
-  iconShadow: {
-    textShadowColor: "rgba(255, 255, 255, 0.4)",
-    textShadowOffset: { width: 0, height: -1 },
-    textShadowRadius: 2,
-  },
-  playIconShadow: {
-    textShadowColor: "rgba(0, 0, 0, 0.25)",
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
-  },
+  iconShadow: Platform.select({
+    android: {},
+    default: {
+      textShadowColor: "rgba(255, 255, 255, 0.4)",
+      textShadowOffset: { width: 0, height: -1 },
+      textShadowRadius: 2,
+    },
+  }) as object,
+  playIconShadow: Platform.select({
+    android: {},
+    default: {
+      textShadowColor: "rgba(0, 0, 0, 0.25)",
+      textShadowOffset: { width: 0, height: 1 },
+      textShadowRadius: 2,
+    },
+  }) as object,
 });
