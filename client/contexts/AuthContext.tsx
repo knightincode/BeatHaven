@@ -33,6 +33,7 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string) => Promise<void>;
   loginAsDemo: () => Promise<void>;
+  logoutToSignup: () => Promise<void>;
   loginWithApple: (mode?: "login" | "signup") => Promise<void>;
   loginWithGoogle: (idToken: string, mode?: "login" | "signup") => Promise<void>;
   logout: () => Promise<void>;
@@ -44,6 +45,8 @@ interface AuthContextType {
   appleAuthAvailable: boolean;
   showSubscriptionOffer: boolean;
   setShowSubscriptionOffer: (show: boolean) => void;
+  pendingAuthMode: "signin" | "signup" | null;
+  clearPendingAuthMode: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -80,6 +83,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [showBiometricPrompt, setShowBiometricPrompt] = useState(false);
   const [showSubscriptionOffer, setShowSubscriptionOffer] = useState(false);
   const [appleAuthAvailable, setAppleAuthAvailable] = useState(false);
+  const [pendingAuthMode, setPendingAuthMode] = useState<"signin" | "signup" | null>(null);
 
   useEffect(() => {
     loadStoredAuth();
@@ -223,6 +227,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   }
 
+  async function logoutToSignup() {
+    setPendingAuthMode("signup");
+    await logout();
+  }
+
+  function clearPendingAuthMode() {
+    setPendingAuthMode(null);
+  }
+
   async function refreshUser() {
     if (token) {
       await fetchUser(token);
@@ -262,6 +275,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         login,
         register,
         loginAsDemo,
+        logoutToSignup,
         loginWithApple,
         loginWithGoogle,
         logout,
@@ -273,6 +287,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         appleAuthAvailable,
         showSubscriptionOffer,
         setShowSubscriptionOffer,
+        pendingAuthMode,
+        clearPendingAuthMode,
       }}
     >
       {children}

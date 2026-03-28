@@ -87,7 +87,7 @@ export default function HomeScreen() {
   const tabBarHeight = useBottomTabBarHeight();
   const navigation = useNavigation<NavigationProp>();
   const { playTrack } = usePlayer();
-  const { isAuthenticated, hasActiveSubscription, isDemo, showSubscriptionOffer, setShowSubscriptionOffer, logout } = useAuth();
+  const { isAuthenticated, hasActiveSubscription, isDemo, showSubscriptionOffer, setShowSubscriptionOffer, logoutToSignup } = useAuth();
   const { isFavorite, toggleFavorite } = useFavorites();
   const [activeFilter, setActiveFilter] = useState("all");
   const [infoModalCategory, setInfoModalCategory] = useState<string | null>(null);
@@ -175,7 +175,7 @@ export default function HomeScreen() {
               You're in demo mode —{" "}
               <ThemedText
                 style={styles.demoBannerLink}
-                onPress={logout}
+                onPress={logoutToSignup}
                 testID="button-demo-sign-up"
               >
                 Sign up

@@ -76,11 +76,13 @@ export default function AuthScreen() {
     loginWithApple,
     loginWithGoogle,
     appleAuthAvailable,
+    pendingAuthMode,
+    clearPendingAuthMode,
   } = useAuth();
   const [isDemoLoading, setIsDemoLoading] = useState(false);
   const { request: googleRequest, response: googleResponse, promptAsync: googlePromptAsync } = useGoogleAuth();
   const googleUnavailableInExpoGo = Platform.OS !== "web" && isRunningInExpoGo();
-  const [isLogin, setIsLogin] = useState(true);
+  const [isLogin, setIsLogin] = useState(pendingAuthMode !== "signup");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -89,6 +91,12 @@ export default function AuthScreen() {
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  useEffect(() => {
+    if (pendingAuthMode) {
+      clearPendingAuthMode();
+    }
+  }, []);
 
   useEffect(() => {
     if (!googleResponse) return;
