@@ -239,11 +239,13 @@ export default function AuthScreen() {
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.logoContainer}>
-          <Image
-            source={require("../../assets/images/icon.png")}
-            style={styles.logo}
-            resizeMode="contain"
-          />
+          <View style={styles.logoWrapper}>
+            <Image
+              source={require("../../assets/images/icon.png")}
+              style={styles.logo}
+              resizeMode="cover"
+            />
+          </View>
           <ThemedText type="h1" style={styles.title}>
             Beat Haven
           </ThemedText>
@@ -474,10 +476,17 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: Spacing["4xl"],
   },
+  logoWrapper: {
+    width: 100,
+    height: 100,
+    borderRadius: 22,
+    overflow: "hidden",
+    marginBottom: Spacing.lg,
+  },
   logo: {
     width: 100,
     height: 100,
-    marginBottom: Spacing.lg,
+    borderRadius: 22,
   },
   title: {
     textAlign: "center",
