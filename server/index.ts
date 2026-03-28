@@ -200,6 +200,20 @@ function configureExpoAndLanding(app: express.Application) {
   const landingPageTemplate = fs.readFileSync(templatePath, "utf-8");
   const appName = getAppName();
 
+  const webIndexPath = path.resolve(
+    process.cwd(),
+    "static-build",
+    "web",
+    "index.html",
+  );
+  const hasWebBuild = fs.existsSync(webIndexPath);
+
+  if (hasWebBuild) {
+    log("Web build found — serving web app at /");
+  } else {
+    log("No web build found — serving Expo Go landing page at /");
+  }
+
   log("Serving static Expo files with dynamic manifest routing");
 
   app.use((req: Request, res: Response, next: NextFunction) => {
@@ -217,6 +231,9 @@ function configureExpoAndLanding(app: express.Application) {
     }
 
     if (req.path === "/") {
+      if (hasWebBuild) {
+        return res.sendFile(webIndexPath);
+      }
       return serveLandingPage({
         req,
         res,
@@ -229,7 +246,22 @@ function configureExpoAndLanding(app: express.Application) {
   });
 
   app.use("/assets", express.static(path.resolve(process.cwd(), "assets")));
+
+  if (hasWebBuild) {
+    app.use(
+      express.static(path.resolve(process.cwd(), "static-build", "web")),
+    );
+  }
+
   app.use(express.static(path.resolve(process.cwd(), "static-build")));
+
+  app.get("/{*path}", (req: Request, res: Response, next: NextFunction) => {
+    if (req.path.startsWith("/api")) return next();
+    if (hasWebBuild) {
+      return res.sendFile(webIndexPath);
+    }
+    next();
+  });
 
   log("Expo routing: Checking expo-platform header on / and /manifest");
 }

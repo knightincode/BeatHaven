@@ -545,12 +545,73 @@ async function main() {
   console.log("Updating manifests and creating landing page...");
   updateManifests(manifests, timestamp, baseUrl, assetsByHash);
 
-  console.log("Build complete! Deploy to:", baseUrl);
-
   if (metroProcess) {
+    console.log("Stopping Metro before web export...");
     metroProcess.kill();
+    metroProcess = null;
+    await new Promise((resolve) => setTimeout(resolve, 2000));
   }
+
+  await buildWebApp(domain, baseUrl);
+
+  console.log("Build complete! Deploy to:", baseUrl);
   process.exit(0);
+}
+
+async function buildWebApp(domain, baseUrl) {
+  console.log("Building Expo web app...");
+
+  const outputDir = path.join("static-build", "web");
+
+  return new Promise((resolve, reject) => {
+    const env = {
+      ...process.env,
+      EXPO_PUBLIC_DOMAIN: domain,
+      CI: "1",
+    };
+
+    const proc = spawn(
+      "npx",
+      [
+        "expo",
+        "export",
+        "--platform",
+        "web",
+        "--output-dir",
+        outputDir,
+      ],
+      {
+        stdio: ["ignore", "pipe", "pipe"],
+        env,
+      },
+    );
+
+    if (proc.stdout) {
+      proc.stdout.on("data", (d) => {
+        const s = d.toString().trim();
+        if (s) console.log(`[Web] ${s}`);
+      });
+    }
+    if (proc.stderr) {
+      proc.stderr.on("data", (d) => {
+        const s = d.toString().trim();
+        if (s) console.error(`[Web] ${s}`);
+      });
+    }
+
+    proc.on("close", (code) => {
+      if (code === 0) {
+        console.log("Web build complete →", baseUrl);
+        resolve();
+      } else {
+        reject(
+          new Error(`expo export --platform web failed with exit code ${code}`),
+        );
+      }
+    });
+
+    proc.on("error", (err) => reject(err));
+  });
 }
 
 main().catch((error) => {
