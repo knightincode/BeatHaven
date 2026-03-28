@@ -506,8 +506,15 @@ const TRACKS = [
 
 export async function seedTracks(): Promise<void> {
   try {
-    await db.insert(audioTracks).values(TRACKS).onConflictDoNothing();
-    console.log(`[Tracks] Seeded ${TRACKS.length} tracks`);
+    const inserted = await db
+      .insert(audioTracks)
+      .values(TRACKS)
+      .onConflictDoNothing({ target: audioTracks.id })
+      .returning({ id: audioTracks.id });
+    const skipped = TRACKS.length - inserted.length;
+    console.log(
+      `[Tracks] Seeded ${inserted.length} new tracks, ${skipped} already present`,
+    );
   } catch (err) {
     console.error("[Tracks] Failed to seed tracks:", err);
   }
