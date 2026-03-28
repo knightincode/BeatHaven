@@ -87,7 +87,7 @@ export default function HomeScreen() {
   const tabBarHeight = useBottomTabBarHeight();
   const navigation = useNavigation<NavigationProp>();
   const { playTrack } = usePlayer();
-  const { isAuthenticated, hasActiveSubscription, showSubscriptionOffer, setShowSubscriptionOffer } = useAuth();
+  const { isAuthenticated, hasActiveSubscription, isDemo, showSubscriptionOffer, setShowSubscriptionOffer, logout } = useAuth();
   const { isFavorite, toggleFavorite } = useFavorites();
   const [activeFilter, setActiveFilter] = useState("all");
   const [infoModalCategory, setInfoModalCategory] = useState<string | null>(null);
@@ -168,7 +168,22 @@ export default function HomeScreen() {
           Explore binaural beats designed to enhance your mental state
         </ThemedText>
 
-        {!hasActiveSubscription ? (
+        {isDemo ? (
+          <Pressable
+            style={styles.demoBanner}
+            onPress={logout}
+            testID="banner-demo-mode"
+          >
+            <Feather name="info" size={16} color={Colors.dark.accent} />
+            <ThemedText style={styles.demoBannerText}>
+              You're in demo mode —{" "}
+              <ThemedText style={styles.demoBannerLink}>Sign up</ThemedText>
+              {" "}for the full experience
+            </ThemedText>
+          </Pressable>
+        ) : null}
+
+        {!hasActiveSubscription && !isDemo ? (
           <Pressable
             style={styles.upgradeBanner}
             onPress={() => navigation.navigate("Subscription")}
@@ -525,5 +540,25 @@ const styles = StyleSheet.create({
   upgradeBannerSubtitle: {
     fontSize: 13,
     color: Colors.dark.textSecondary,
+  },
+  demoBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    backgroundColor: "rgba(123, 104, 238, 0.12)",
+    borderWidth: 1,
+    borderColor: "rgba(123, 104, 238, 0.35)",
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    marginBottom: Spacing.lg,
+  },
+  demoBannerText: {
+    flex: 1,
+    fontSize: 13,
+    color: Colors.dark.text,
+  },
+  demoBannerLink: {
+    color: Colors.dark.accent,
+    fontWeight: "600" as const,
   },
 });

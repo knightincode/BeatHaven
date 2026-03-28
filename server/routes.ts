@@ -15,6 +15,7 @@ import { uploadAudioFile, streamAudioFile, getAudioFileAsBuffer } from "./object
 import { User } from "../shared/schema";
 import { db } from "./db";
 import { sql } from "drizzle-orm";
+import { getDemoUserId } from "./demoUser";
 
 const upload = multer({ storage: multer.memoryStorage() });
 
@@ -226,6 +227,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post("/api/auth/demo", async (req: Request, res: Response) => {
+    try {
+      const demoId = getDemoUserId();
+      if (!demoId) {
+        return res.status(503).json({ message: "Demo mode is not available right now. Please try again shortly." });
+      }
+      const demoUser = await storage.getUser(demoId);
+      if (!demoUser) {
+        return res.status(503).json({ message: "Demo account not found. Please try again." });
+      }
+      const token = generateToken(demoUser.id);
+      res.json({
+        token,
+        user: {
+          id: demoUser.id,
+          email: demoUser.email,
+          isAdmin: demoUser.isAdmin,
+          isDemo: demoUser.isDemo,
+          subscriptionStatus: demoUser.subscriptionStatus,
+        },
+      });
+    } catch (error: any) {
+      console.error("Demo auth error:", error);
+      res.status(500).json({ message: "Demo login failed" });
+    }
+  });
+
   app.post("/api/auth/login", async (req: Request, res: Response) => {
     try {
       const { email, password } = req.body;
@@ -272,6 +300,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       id: user.id,
       email: user.email,
       isAdmin: user.isAdmin,
+      isDemo: user.isDemo,
       subscriptionStatus: user.subscriptionStatus,
     });
   });
@@ -413,6 +442,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (!name) {
         return res.status(400).json({ message: "Playlist name is required" });
+      }
+
+      if (user.isDemo) {
+        const existingPlaylists = await storage.getUserPlaylists(user.id);
+        if (existingPlaylists.length >= 1) {
+          return res.status(403).json({ message: "Demo accounts are limited to one playlist. Sign up for a full account to create unlimited playlists." });
+        }
       }
 
       const playlist = await storage.createPlaylist(user.id, name);

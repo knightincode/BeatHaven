@@ -18,6 +18,7 @@ interface User {
   id: string;
   email: string;
   isAdmin: boolean;
+  isDemo: boolean;
   subscriptionStatus: string;
 }
 
@@ -27,9 +28,11 @@ interface AuthContextType {
   isLoading: boolean;
   isAuthenticated: boolean;
   isAdmin: boolean;
+  isDemo: boolean;
   hasActiveSubscription: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string) => Promise<void>;
+  loginAsDemo: () => Promise<void>;
   loginWithApple: (mode?: "login" | "signup") => Promise<void>;
   loginWithGoogle: (idToken: string, mode?: "login" | "signup") => Promise<void>;
   logout: () => Promise<void>;
@@ -153,6 +156,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setToken(authToken);
     setUser(userData);
 
+    if (userData.isDemo) return;
+
     const biometricAvail = await isBiometricAvailable();
     const biometricAlreadyEnabled = await isBiometricEnabled();
     if (biometricAlreadyEnabled && biometricAvail) {
@@ -201,6 +206,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  async function loginAsDemo() {
+    const res = await apiRequest("POST", "/api/auth/demo", {});
+    const data = await res.json();
+    await handleAuthSuccess(data.token, data.user);
+  }
+
   async function logout() {
     await removeStoredToken();
     try {
@@ -235,6 +246,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const isAuthenticated = !!user;
   const isAdmin = user?.isAdmin === true;
+  const isDemo = user?.isDemo === true;
   const hasActiveSubscription = user?.subscriptionStatus === "active";
 
   return (
@@ -245,9 +257,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isLoading,
         isAuthenticated,
         isAdmin,
+        isDemo,
         hasActiveSubscription,
         login,
         register,
+        loginAsDemo,
         loginWithApple,
         loginWithGoogle,
         logout,

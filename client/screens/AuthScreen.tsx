@@ -72,10 +72,12 @@ export default function AuthScreen() {
   const {
     login,
     register,
+    loginAsDemo,
     loginWithApple,
     loginWithGoogle,
     appleAuthAvailable,
   } = useAuth();
+  const [isDemoLoading, setIsDemoLoading] = useState(false);
   const { request: googleRequest, response: googleResponse, promptAsync: googlePromptAsync } = useGoogleAuth();
   const googleUnavailableInExpoGo = Platform.OS !== "web" && isRunningInExpoGo();
   const [isLogin, setIsLogin] = useState(true);
@@ -394,6 +396,41 @@ export default function AuthScreen() {
           </Pressable>
         </View>
 
+        <View style={styles.demoSection}>
+          <View style={styles.demoDividerRow}>
+            <View style={styles.demoDividerLine} />
+            <ThemedText style={styles.demoDividerLabel}>or</ThemedText>
+            <View style={styles.demoDividerLine} />
+          </View>
+          <Pressable
+            onPress={async () => {
+              setIsDemoLoading(true);
+              try {
+                await loginAsDemo();
+              } catch (err: any) {
+                setError(err?.message || "Could not enter demo mode. Please try again.");
+              } finally {
+                setIsDemoLoading(false);
+              }
+            }}
+            disabled={isDemoLoading}
+            style={[styles.demoButton, isDemoLoading ? styles.demoButtonDisabled : null]}
+            testID="button-try-demo"
+          >
+            {isDemoLoading ? (
+              <ActivityIndicator color={Colors.dark.accent} size="small" />
+            ) : (
+              <>
+                <Feather name="play-circle" size={18} color={Colors.dark.accent} />
+                <ThemedText style={styles.demoButtonText}>Try the App — No sign-up needed</ThemedText>
+              </>
+            )}
+          </Pressable>
+          <ThemedText style={styles.demoNote}>
+            Demo mode: browse all tracks, create one playlist. Sign up for the full experience.
+          </ThemedText>
+        </View>
+
         <ThemedText style={styles.priceInfo}>
           Start your 7-day free trial, then $4.99/month
         </ThemedText>
@@ -565,5 +602,49 @@ const styles = StyleSheet.create({
     color: Colors.dark.textSecondary,
     marginTop: Spacing["4xl"],
     fontSize: 14,
+  },
+  demoSection: {
+    marginTop: Spacing["2xl"],
+    gap: Spacing.md,
+  },
+  demoDividerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+  },
+  demoDividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: Colors.dark.border,
+  },
+  demoDividerLabel: {
+    color: Colors.dark.textSecondary,
+    fontSize: 14,
+  },
+  demoButton: {
+    height: Spacing.inputHeight,
+    width: "100%",
+    borderRadius: BorderRadius.sm,
+    borderWidth: 1.5,
+    borderColor: Colors.dark.accent,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.md,
+    backgroundColor: "rgba(123, 104, 238, 0.08)",
+  },
+  demoButtonDisabled: {
+    opacity: 0.5,
+  },
+  demoButtonText: {
+    color: Colors.dark.accent,
+    fontSize: 15,
+    fontWeight: "600" as const,
+  },
+  demoNote: {
+    textAlign: "center",
+    color: Colors.dark.textSecondary,
+    fontSize: 12,
+    paddingHorizontal: Spacing.sm,
   },
 });

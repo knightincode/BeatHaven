@@ -13,6 +13,7 @@ export const users = pgTable("users", {
   appleUserId: text("apple_user_id").unique(),
   googleUserId: text("google_user_id").unique(),
   isAdmin: boolean("is_admin").default(false),
+  isDemo: boolean("is_demo").default(false),
   stripeCustomerId: text("stripe_customer_id"),
   stripeSubscriptionId: text("stripe_subscription_id"),
   subscriptionStatus: text("subscription_status").default("inactive"),
