@@ -3,6 +3,7 @@ import type { Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { WebhookHandlers } from "./webhookHandlers";
 import { seedDemoUser } from "./demoUser";
+import { seedTracks } from "./seedTracks";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -298,6 +299,7 @@ function setupErrorHandler(app: express.Application) {
   const server = await registerRoutes(app);
 
   await seedDemoUser();
+  await seedTracks();
 
   setupErrorHandler(app);
 
