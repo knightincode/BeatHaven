@@ -6,6 +6,7 @@ import { generateToken } from "./auth";
 const DEMO_EMAIL = "demo@beathaven.app";
 
 let demoUserId: string | null = null;
+let demoUserCache: { id: string; email: string; isAdmin: boolean; isDemo: boolean; subscriptionStatus: string } | null = null;
 
 export async function seedDemoUser(): Promise<void> {
   try {
@@ -27,6 +28,13 @@ export async function seedDemoUser(): Promise<void> {
         })
         .where(eq(users.email, DEMO_EMAIL));
       demoUserId = row.id;
+      demoUserCache = {
+        id: row.id,
+        email: row.email,
+        isAdmin: false,
+        isDemo: true,
+        subscriptionStatus: "active",
+      };
       console.log(`[Demo] Demo user ready: ${demoUserId}`);
       return;
     }
@@ -44,6 +52,13 @@ export async function seedDemoUser(): Promise<void> {
       .returning();
 
     demoUserId = created.id;
+    demoUserCache = {
+      id: created.id,
+      email: created.email,
+      isAdmin: false,
+      isDemo: true,
+      subscriptionStatus: "active",
+    };
     console.log(`[Demo] Demo user created: ${demoUserId}`);
   } catch (err) {
     console.error("[Demo] CRITICAL: Failed to seed demo user — demo mode will be unavailable:", err);
@@ -53,6 +68,10 @@ export async function seedDemoUser(): Promise<void> {
 
 export function getDemoUserId(): string | null {
   return demoUserId;
+}
+
+export function getDemoUser() {
+  return demoUserCache;
 }
 
 export function generateDemoToken(): string | null {

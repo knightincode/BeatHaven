@@ -15,7 +15,7 @@ import { uploadAudioFile, streamAudioFile, getAudioFileAsBuffer } from "./object
 import { User } from "../shared/schema";
 import { db } from "./db";
 import { sql } from "drizzle-orm";
-import { getDemoUserId } from "./demoUser";
+import { getDemoUserId, getDemoUser } from "./demoUser";
 
 const demoRateLimit = new Map<string, { count: number; resetAt: number }>();
 
@@ -257,13 +257,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(429).json({ message: "Too many demo login attempts. Please wait a minute and try again." });
       }
 
-      const demoId = getDemoUserId();
-      if (!demoId) {
-        return res.status(503).json({ message: "Demo mode is not available right now. Please try again shortly." });
-      }
-      const demoUser = await storage.getUser(demoId);
+      const demoUser = getDemoUser();
       if (!demoUser) {
-        return res.status(503).json({ message: "Demo account not found. Please try again." });
+        return res.status(503).json({ message: "Demo mode is not available right now. Please try again shortly." });
       }
       const token = generateToken(demoUser.id);
       res.json({
