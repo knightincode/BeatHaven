@@ -96,6 +96,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           id: user.id,
           email: user.email,
           isAdmin: user.isAdmin,
+          isDemo: user.isDemo ?? false,
           subscriptionStatus: user.subscriptionStatus,
         },
       });
@@ -161,6 +162,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           id: user.id,
           email: user.email,
           isAdmin: user.isAdmin,
+          isDemo: user.isDemo ?? false,
           subscriptionStatus: user.subscriptionStatus,
         },
       });
@@ -234,6 +236,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           id: user.id,
           email: user.email,
           isAdmin: user.isAdmin,
+          isDemo: user.isDemo ?? false,
           subscriptionStatus: user.subscriptionStatus,
         },
       });
@@ -310,6 +313,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           id: user.id,
           email: user.email,
           isAdmin: user.isAdmin,
+          isDemo: user.isDemo ?? false,
           subscriptionStatus: user.subscriptionStatus,
         },
       });
