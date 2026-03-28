@@ -1,6 +1,5 @@
 import { db } from "./db";
 import { users } from "../shared/schema";
-import { eq } from "drizzle-orm";
 import { generateToken } from "./auth";
 
 const DEMO_EMAIL = "demo@beathaven.app";
@@ -10,36 +9,7 @@ let demoUserCache: { id: string; email: string; isAdmin: boolean; isDemo: boolea
 
 export async function seedDemoUser(): Promise<void> {
   try {
-    const existing = await db
-      .select()
-      .from(users)
-      .where(eq(users.email, DEMO_EMAIL));
-
-    if (existing.length > 0) {
-      const row = existing[0];
-      await db
-        .update(users)
-        .set({
-          isDemo: true,
-          isAdmin: false,
-          password: null,
-          authProvider: "demo",
-          subscriptionStatus: "active",
-        })
-        .where(eq(users.email, DEMO_EMAIL));
-      demoUserId = row.id;
-      demoUserCache = {
-        id: row.id,
-        email: row.email,
-        isAdmin: false,
-        isDemo: true,
-        subscriptionStatus: "active",
-      };
-      console.log(`[Demo] Demo user ready: ${demoUserId}`);
-      return;
-    }
-
-    const [created] = await db
+    const [row] = await db
       .insert(users)
       .values({
         email: DEMO_EMAIL,
@@ -49,17 +19,27 @@ export async function seedDemoUser(): Promise<void> {
         isAdmin: false,
         subscriptionStatus: "active",
       })
+      .onConflictDoUpdate({
+        target: users.email,
+        set: {
+          isDemo: true,
+          isAdmin: false,
+          password: null,
+          authProvider: "demo",
+          subscriptionStatus: "active",
+        },
+      })
       .returning();
 
-    demoUserId = created.id;
+    demoUserId = row.id;
     demoUserCache = {
-      id: created.id,
-      email: created.email,
+      id: row.id,
+      email: row.email,
       isAdmin: false,
       isDemo: true,
       subscriptionStatus: "active",
     };
-    console.log(`[Demo] Demo user created: ${demoUserId}`);
+    console.log(`[Demo] Demo user ready: ${demoUserId}`);
   } catch (err) {
     console.error("[Demo] CRITICAL: Failed to seed demo user — demo mode will be unavailable:", err);
     console.error("[Demo] Check database connectivity and ensure the is_demo column exists (run migration 0001_add_is_demo.sql if needed).");
