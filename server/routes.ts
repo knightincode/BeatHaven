@@ -15,7 +15,7 @@ import { uploadAudioFile, streamAudioFile, getAudioFileAsBuffer } from "./object
 import { User } from "../shared/schema";
 import { db } from "./db";
 import { sql } from "drizzle-orm";
-import { getDemoUserId, getDemoUser } from "./demoUser";
+import { getDemoUser } from "./demoUser";
 
 const demoRateLimit = new Map<string, { count: number; resetAt: number }>();
 
