@@ -169,18 +169,20 @@ export default function HomeScreen() {
         </ThemedText>
 
         {isDemo ? (
-          <Pressable
-            style={styles.demoBanner}
-            onPress={logout}
-            testID="banner-demo-mode"
-          >
+          <View style={styles.demoBanner} testID="banner-demo-mode">
             <Feather name="info" size={16} color={Colors.dark.accent} />
             <ThemedText style={styles.demoBannerText}>
               You're in demo mode —{" "}
-              <ThemedText style={styles.demoBannerLink}>Sign up</ThemedText>
+              <ThemedText
+                style={styles.demoBannerLink}
+                onPress={logout}
+                testID="button-demo-sign-up"
+              >
+                Sign up
+              </ThemedText>
               {" "}for the full experience
             </ThemedText>
-          </Pressable>
+          </View>
         ) : null}
 
         {!hasActiveSubscription && !isDemo ? (

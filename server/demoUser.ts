@@ -46,7 +46,8 @@ export async function seedDemoUser(): Promise<void> {
     demoUserId = created.id;
     console.log(`[Demo] Demo user created: ${demoUserId}`);
   } catch (err) {
-    console.error("[Demo] Failed to seed demo user:", err);
+    console.error("[Demo] CRITICAL: Failed to seed demo user — demo mode will be unavailable:", err);
+    console.error("[Demo] Check database connectivity and ensure the is_demo column exists (run migration 0001_add_is_demo.sql if needed).");
   }
 }
 
