@@ -1,5 +1,5 @@
 import React from "react";
-import { View, StyleSheet, Pressable, Platform } from "react-native";
+import { View, StyleSheet, Pressable, Platform, TextStyle } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
@@ -284,7 +284,7 @@ const styles = StyleSheet.create({
       textShadowOffset: { width: 0, height: -1 },
       textShadowRadius: 2,
     },
-  }) as object,
+  }) as TextStyle,
   playIconShadow: Platform.select({
     android: {},
     default: {
@@ -292,5 +292,5 @@ const styles = StyleSheet.create({
       textShadowOffset: { width: 0, height: 1 },
       textShadowRadius: 2,
     },
-  }) as object,
+  }) as TextStyle,
 });
