@@ -16,15 +16,17 @@ export async function seedDemoUser(): Promise<void> {
 
     if (existing.length > 0) {
       const row = existing[0];
-      if (!row.isDemo || row.subscriptionStatus !== "active") {
-        await db
-          .update(users)
-          .set({ isDemo: true, subscriptionStatus: "active" })
-          .where(eq(users.email, DEMO_EMAIL));
-        demoUserId = row.id;
-      } else {
-        demoUserId = row.id;
-      }
+      await db
+        .update(users)
+        .set({
+          isDemo: true,
+          isAdmin: false,
+          password: null,
+          authProvider: "demo",
+          subscriptionStatus: "active",
+        })
+        .where(eq(users.email, DEMO_EMAIL));
+      demoUserId = row.id;
       console.log(`[Demo] Demo user ready: ${demoUserId}`);
       return;
     }
@@ -36,6 +38,7 @@ export async function seedDemoUser(): Promise<void> {
         password: null,
         authProvider: "demo",
         isDemo: true,
+        isAdmin: false,
         subscriptionStatus: "active",
       })
       .returning();

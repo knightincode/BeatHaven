@@ -17,6 +17,22 @@ import { db } from "./db";
 import { sql } from "drizzle-orm";
 import { getDemoUserId } from "./demoUser";
 
+const demoRateLimit = new Map<string, { count: number; resetAt: number }>();
+
+function checkDemoRateLimit(ip: string): boolean {
+  const now = Date.now();
+  const window = 60_000;
+  const limit = 60;
+  const entry = demoRateLimit.get(ip);
+  if (!entry || now > entry.resetAt) {
+    demoRateLimit.set(ip, { count: 1, resetAt: now + window });
+    return true;
+  }
+  if (entry.count >= limit) return false;
+  entry.count++;
+  return true;
+}
+
 const upload = multer({ storage: multer.memoryStorage() });
 
 interface AuthenticatedRequest extends Request {
@@ -229,6 +245,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/auth/demo", async (req: Request, res: Response) => {
     try {
+      const ip =
+        (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() ||
+        req.socket.remoteAddress ||
+        "unknown";
+
+      if (!checkDemoRateLimit(ip)) {
+        return res.status(429).json({ message: "Too many demo login attempts. Please wait a minute and try again." });
+      }
+
       const demoId = getDemoUserId();
       if (!demoId) {
         return res.status(503).json({ message: "Demo mode is not available right now. Please try again shortly." });
@@ -447,7 +472,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (user.isDemo) {
         const existingPlaylists = await storage.getUserPlaylists(user.id);
         if (existingPlaylists.length >= 1) {
-          return res.status(403).json({ message: "Demo accounts are limited to one playlist. Sign up for a full account to create unlimited playlists." });
+          return res.status(403).json({ message: "Demo accounts are limited to one playlist" });
         }
       }
 
