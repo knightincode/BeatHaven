@@ -365,6 +365,11 @@ export default function PlaylistsScreen() {
               autoFocus
               testID="input-playlist-name"
             />
+            {createPlaylistMutation.error ? (
+              <ThemedText style={styles.createError} testID="text-create-playlist-error">
+                {createPlaylistMutation.error.message}
+              </ThemedText>
+            ) : null}
             <View style={styles.modalButtons}>
               <Pressable
                 style={styles.modalCancelBtn}
@@ -644,8 +649,14 @@ const styles = StyleSheet.create({
     fontSize: 16,
     borderWidth: 1,
     borderColor: Colors.dark.border,
-    marginBottom: Spacing.xl,
+    marginBottom: Spacing.sm,
     textAlign: "center",
+  },
+  createError: {
+    color: "#F87171",
+    fontSize: 13,
+    textAlign: "center",
+    marginBottom: Spacing.md,
   },
   modalButtons: {
     flexDirection: "row",

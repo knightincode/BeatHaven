@@ -130,6 +130,7 @@ export function AddToPlaylistModal({ visible, onClose, trackId, trackTitle }: Ad
             </ThemedText>
 
             {showCreateInput ? (
+              <View>
               <View style={styles.createInputRow}>
                 <TextInput
                   style={styles.textInput}
@@ -165,6 +166,12 @@ export function AddToPlaylistModal({ visible, onClose, trackId, trackTitle }: Ad
                 >
                   <Feather name="x" size={20} color={Colors.dark.textSecondary} />
                 </Pressable>
+              </View>
+              {createPlaylist.error ? (
+                <ThemedText style={styles.createError} testID="text-create-playlist-modal-error">
+                  {createPlaylist.error.message}
+                </ThemedText>
+              ) : null}
               </View>
             ) : (
               <Pressable
@@ -319,6 +326,12 @@ const styles = StyleSheet.create({
     height: 44,
     alignItems: "center",
     justifyContent: "center",
+  },
+  createError: {
+    color: "#F87171",
+    fontSize: 13,
+    marginTop: Spacing.sm,
+    paddingHorizontal: Spacing.xs,
   },
   newPlaylistRow: {
     flexDirection: "row",
