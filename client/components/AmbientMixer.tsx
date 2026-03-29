@@ -349,7 +349,12 @@ export function AmbientMixer({ visible, onClose, isPlaying, accentColor = Colors
 
   function restartActiveLayers() {
     layersRef.current.forEach((layer) => {
-      if (layer.active) {
+      if (!layer.active) return;
+      const alreadyRunning =
+        Platform.OS === "web"
+          ? !!webNodesRef.current[layer.id]
+          : !!nativeSoundsRef.current[layer.id];
+      if (!alreadyRunning) {
         startLayer(layer.id, layer.volume);
       }
     });
