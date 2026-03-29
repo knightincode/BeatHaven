@@ -111,13 +111,6 @@ export function TrackCard({
           locations={[0, 0.6, 1]}
           style={styles.gradientOverlayBottom}
         />
-        {isLocked ? (
-          <View style={styles.lockedOverlay} pointerEvents="none">
-            <View style={styles.lockedIconContainer}>
-              <Feather name="lock" size={22} color="rgba(255,255,255,0.9)" />
-            </View>
-          </View>
-        ) : null}
         <View style={styles.cardContent}>
           <View style={styles.topRow}>
             <View
@@ -130,50 +123,52 @@ export function TrackCard({
                 style={styles.iconShadow}
               />
             </View>
-            <View style={styles.actionButtons}>
-              {onToggleFavorite ? (
-                <Pressable
-                  onPress={(e) => {
-                    e.stopPropagation();
-                    if (Platform.OS !== "web") {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    }
-                    onToggleFavorite();
-                  }}
-                  style={styles.heartButton}
-                  hitSlop={8}
-                  testID={`button-favorite-${track.id}`}
-                >
-                  <Feather
-                    name={isFavorite ? "heart" : "heart"}
-                    size={18}
-                    color={isFavorite ? "#FF6B8A" : STEEL_COLOR}
-                    style={styles.iconShadow}
-                  />
-                </Pressable>
-              ) : null}
-              {onAddToPlaylist ? (
-                <Pressable
-                  onPress={(e) => {
-                    e.stopPropagation();
-                    if (Platform.OS !== "web") {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    }
-                    onAddToPlaylist();
-                  }}
-                  style={styles.heartButton}
-                  hitSlop={8}
-                  testID={`button-add-playlist-${track.id}`}
-                >
-                  <Feather
-                    name="plus"
-                    size={18}
-                    color={STEEL_COLOR}
-                    style={styles.iconShadow}
-                  />
-                </Pressable>
-              ) : null}
-            </View>
+            {!isLocked ? (
+              <View style={styles.actionButtons}>
+                {onToggleFavorite ? (
+                  <Pressable
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      if (Platform.OS !== "web") {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      }
+                      onToggleFavorite();
+                    }}
+                    style={styles.heartButton}
+                    hitSlop={8}
+                    testID={`button-favorite-${track.id}`}
+                  >
+                    <Feather
+                      name={isFavorite ? "heart" : "heart"}
+                      size={18}
+                      color={isFavorite ? "#FF6B8A" : STEEL_COLOR}
+                      style={styles.iconShadow}
+                    />
+                  </Pressable>
+                ) : null}
+                {onAddToPlaylist ? (
+                  <Pressable
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      if (Platform.OS !== "web") {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      }
+                      onAddToPlaylist();
+                    }}
+                    style={styles.heartButton}
+                    hitSlop={8}
+                    testID={`button-add-playlist-${track.id}`}
+                  >
+                    <Feather
+                      name="plus"
+                      size={18}
+                      color={STEEL_COLOR}
+                      style={styles.iconShadow}
+                    />
+                  </Pressable>
+                ) : null}
+              </View>
+            ) : null}
           </View>
           <View style={styles.contentArea}>
             <View>
@@ -184,14 +179,20 @@ export function TrackCard({
                 </ThemedText>
               </View>
             </View>
-            <View style={[styles.playButton, { backgroundColor: color }]}>
-              <Feather
-                name="play"
-                size={16}
-                color="#000000"
-                style={[{ marginLeft: 2 }, styles.playIconShadow]}
-              />
-            </View>
+            {isLocked ? (
+              <View style={[styles.playButton, styles.playButtonLocked]}>
+                <Feather name="lock" size={15} color="rgba(255,255,255,0.75)" />
+              </View>
+            ) : (
+              <View style={[styles.playButton, { backgroundColor: color }]}>
+                <Feather
+                  name="play"
+                  size={16}
+                  color="#000000"
+                  style={[{ marginLeft: 2 }, styles.playIconShadow]}
+                />
+              </View>
+            )}
           </View>
         </View>
       </AnimatedPressable>
@@ -207,26 +208,6 @@ const styles = StyleSheet.create({
   },
   wrapperLocked: {
     opacity: 0.45,
-  },
-  lockedOverlay: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    zIndex: 10,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  lockedIconContainer: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: "rgba(0,0,0,0.55)",
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.2)",
   },
   container: {
     width: CARD_WIDTH,
@@ -311,6 +292,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     alignSelf: "flex-end",
+  },
+  playButtonLocked: {
+    backgroundColor: "rgba(255,255,255,0.12)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.2)",
   },
   iconShadow: Platform.select({
     android: {},
