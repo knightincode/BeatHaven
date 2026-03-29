@@ -85,6 +85,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const playedTrackIdsRef = useRef<Set<string>>(new Set());
   const currentTrackIdRef = useRef<string | null>(null);
   const userIdRef = useRef<string | null>(user?.id ?? null);
+  const previewEndedRef = useRef<boolean>(false);
 
   useEffect(() => {
     subscriptionRef.current = hasActiveSubscription;
@@ -255,10 +256,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       setDuration(status.durationMillis || 0);
       setIsPlaying(status.isPlaying);
 
-      if (!subscriptionRef.current && status.positionMillis >= FREE_PREVIEW_MS && status.isPlaying) {
-        if (soundRef.current) {
-          soundRef.current.pauseAsync();
-        }
+      if (!subscriptionRef.current && status.positionMillis >= FREE_PREVIEW_MS && status.isPlaying && !previewEndedRef.current) {
+        previewEndedRef.current = true;
         setIsPlaying(false);
         setPreviewEnded(true);
         const trackId = currentTrackIdRef.current;
@@ -270,6 +269,18 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
           if (userIdRef.current) {
             persistPlayedTracks(userIdRef.current, newSet);
           }
+        }
+        const soundToStop = soundRef.current;
+        if (soundToStop) {
+          (async () => {
+            try {
+              await soundToStop.stopAsync();
+              await soundToStop.unloadAsync();
+              soundRef.current = null;
+            } catch (err) {
+              console.warn("[Player] Failed to stop audio after preview ended:", err);
+            }
+          })();
         }
         return;
       }
@@ -314,6 +325,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       setIsPlayerVisible(true);
       setIsLoading(true);
       setPreviewEnded(false);
+      previewEndedRef.current = false;
       
       if (soundRef.current) {
         await soundRef.current.unloadAsync();
