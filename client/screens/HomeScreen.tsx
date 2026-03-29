@@ -106,16 +106,19 @@ export default function HomeScreen() {
 
   const activeFilterObj = MOOD_FILTERS.find((f) => f.id === activeFilter);
   const allVisibleCategories = activeFilterObj ? activeFilterObj.categories : CATEGORIES.map((c) => c.id);
-  const visibleCategories = hasActiveSubscription
-    ? allVisibleCategories
-    : allVisibleCategories.filter((c) => c === "gamma");
+  const visibleCategories = allVisibleCategories;
 
-  const availableMoodFilters = hasActiveSubscription
-    ? MOOD_FILTERS
-    : MOOD_FILTERS.filter((f) => f.categories.includes("gamma"));
+  const availableMoodFilters = MOOD_FILTERS;
 
   function getTracksByCategory(category: string) {
-    return tracks?.filter((t) => t.category.toLowerCase() === category) || [];
+    const categoryTracks = tracks?.filter((t) => t.category.toLowerCase() === category) || [];
+    if (hasActiveSubscription) {
+      return categoryTracks;
+    }
+    if (categoryTracks.length <= 2) {
+      return categoryTracks;
+    }
+    return [categoryTracks[0], categoryTracks[categoryTracks.length - 1]];
   }
 
   function handlePlayTrack(track: Track, trackQueue?: Track[]) {

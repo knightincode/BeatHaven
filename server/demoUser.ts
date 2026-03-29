@@ -17,7 +17,7 @@ export async function seedDemoUser(): Promise<void> {
         authProvider: "demo",
         isDemo: true,
         isAdmin: false,
-        subscriptionStatus: "active",
+        subscriptionStatus: "inactive",
       })
       .onConflictDoUpdate({
         target: users.email,
@@ -26,7 +26,7 @@ export async function seedDemoUser(): Promise<void> {
           isAdmin: false,
           password: null,
           authProvider: "demo",
-          subscriptionStatus: "active",
+          subscriptionStatus: "inactive",
         },
       })
       .returning();
@@ -37,7 +37,7 @@ export async function seedDemoUser(): Promise<void> {
       email: row.email,
       isAdmin: false,
       isDemo: true,
-      subscriptionStatus: "active",
+      subscriptionStatus: "inactive",
     };
     console.log(`[Demo] Demo user ready: ${demoUserId}`);
   } catch (err) {
