@@ -17,7 +17,7 @@ import { BlurView } from "expo-blur";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { Platform } from "react-native";
-import { Video, ResizeMode } from "expo-av";
+import { VideoView, useVideoPlayer } from "expo-video";
 
 const zenMotionVideo = require("../assets/videos/zen-motion.mp4");
 
@@ -33,27 +33,28 @@ import type { LoopMode, SleepTimerOption } from "@/contexts/PlayerContext";
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 function VideoBackground({ isPlaying }: { isPlaying: boolean }) {
-  const videoRef = React.useRef<Video>(null);
+  const player = useVideoPlayer(zenMotionVideo, (p) => {
+    p.loop = true;
+    p.muted = true;
+  });
 
   useEffect(() => {
-    if (!videoRef.current) return;
     if (isPlaying) {
-      videoRef.current.playAsync();
+      player.play();
     } else {
-      videoRef.current.pauseAsync();
+      player.pause();
     }
-  }, [isPlaying]);
+  }, [isPlaying, player]);
 
   return (
     <View style={bgStyles.container} pointerEvents="none">
-      <Video
-        ref={videoRef}
-        source={zenMotionVideo}
+      <VideoView
+        player={player}
         style={bgStyles.video}
-        resizeMode={ResizeMode.COVER}
-        isLooping
-        isMuted
-        shouldPlay={isPlaying}
+        contentFit="cover"
+        nativeControls={false}
+        allowsFullscreen={false}
+        allowsPictureInPicture={false}
       />
     </View>
   );
