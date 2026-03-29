@@ -173,7 +173,7 @@ export default function HomeScreen() {
 
         {isDemo ? (
           <View style={styles.demoBanner} testID="banner-demo-mode">
-            <Feather name="info" size={16} color={Colors.dark.accent} />
+            <Feather name="info" size={16} color="#F59E0B" />
             <ThemedText style={styles.demoBannerText}>
               You're in demo mode —{" "}
               <ThemedText
@@ -550,9 +550,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.md,
-    backgroundColor: "rgba(123, 104, 238, 0.12)",
+    backgroundColor: "rgba(245, 158, 11, 0.16)",
     borderWidth: 1,
-    borderColor: "rgba(123, 104, 238, 0.35)",
+    borderColor: "rgba(245, 158, 11, 0.4)",
     borderRadius: BorderRadius.md,
     padding: Spacing.md,
     marginBottom: Spacing.lg,
@@ -563,7 +563,7 @@ const styles = StyleSheet.create({
     color: Colors.dark.text,
   },
   demoBannerLink: {
-    color: Colors.dark.accent,
+    color: "#F59E0B",
     fontWeight: "600" as const,
   },
 });
