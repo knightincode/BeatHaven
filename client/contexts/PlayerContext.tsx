@@ -345,6 +345,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   }
 
   async function playTrack(track: Track, trackQueue?: Track[]) {
+    if (!subscriptionRef.current && playedTrackIdsRef.current.has(track.id)) return;
     const q = trackQueue || [track];
     const index = q.findIndex((t) => t.id === track.id);
     await playTrackInternal(track, q, index >= 0 ? index : 0);
@@ -362,7 +363,9 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         return;
       }
     }
-    await playTrackInternal(currentQueue[nextIdx], currentQueue, nextIdx);
+    const nextTrack = currentQueue[nextIdx];
+    if (!subscriptionRef.current && playedTrackIdsRef.current.has(nextTrack.id)) return;
+    await playTrackInternal(nextTrack, currentQueue, nextIdx);
   }
 
   async function playPrevious() {
@@ -382,7 +385,9 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         return;
       }
     }
-    await playTrackInternal(currentQueue[prevIdx], currentQueue, prevIdx);
+    const prevTrack = currentQueue[prevIdx];
+    if (!subscriptionRef.current && playedTrackIdsRef.current.has(prevTrack.id)) return;
+    await playTrackInternal(prevTrack, currentQueue, prevIdx);
   }
 
   async function pause() {
