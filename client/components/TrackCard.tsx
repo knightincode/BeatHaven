@@ -25,6 +25,7 @@ interface TrackCardProps {
   track: Track;
   onPress: () => void;
   color: string;
+  isLocked?: boolean;
   isFavorite?: boolean;
   onToggleFavorite?: () => void;
   onAddToPlaylist?: () => void;
@@ -36,6 +37,7 @@ export function TrackCard({
   track,
   onPress,
   color,
+  isLocked = false,
   isFavorite,
   onToggleFavorite,
   onAddToPlaylist,
@@ -81,7 +83,7 @@ export function TrackCard({
   }
 
   return (
-    <View style={styles.wrapper}>
+    <View style={[styles.wrapper, isLocked ? styles.wrapperLocked : null]}>
       <AnimatedPressable
         onPress={handlePress}
         onPressIn={handlePressIn}
@@ -106,6 +108,13 @@ export function TrackCard({
           locations={[0, 0.6, 1]}
           style={styles.gradientOverlayBottom}
         />
+        {isLocked ? (
+          <View style={styles.lockedOverlay} pointerEvents="none">
+            <View style={styles.lockedIconContainer}>
+              <Feather name="lock" size={22} color="rgba(255,255,255,0.9)" />
+            </View>
+          </View>
+        ) : null}
         <View style={styles.cardContent}>
           <View style={styles.topRow}>
             <View
@@ -192,6 +201,29 @@ const styles = StyleSheet.create({
     position: "relative",
     width: CARD_WIDTH,
     height: CARD_HEIGHT,
+  },
+  wrapperLocked: {
+    opacity: 0.45,
+  },
+  lockedOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  lockedIconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "rgba(0,0,0,0.55)",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.2)",
   },
   container: {
     width: CARD_WIDTH,

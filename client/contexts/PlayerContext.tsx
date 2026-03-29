@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useRef, ReactNode, useEffect, useCallback } from "react";
 import { Platform } from "react-native";
 import { Audio, AVPlaybackStatus } from "expo-av";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useAuth } from "@/contexts/AuthContext";
 
 export interface Track {
@@ -17,7 +18,7 @@ export interface Track {
 export type LoopMode = "none" | "one" | "all";
 export type SleepTimerOption = number | null;
 
-const FREE_PREVIEW_MS = 2 * 60 * 1000;
+const FREE_PREVIEW_MS = 5 * 60 * 1000;
 
 interface PlayerContextType {
   currentTrack: Track | null;
@@ -36,6 +37,8 @@ interface PlayerContextType {
   queueIndex: number;
   hasNext: boolean;
   hasPrevious: boolean;
+  playedTrackIds: Set<string>;
+  isTrackPlayed: (trackId: string) => boolean;
   playTrack: (track: Track, trackQueue?: Track[]) => Promise<void>;
   playNext: () => Promise<void>;
   playPrevious: () => Promise<void>;
@@ -56,7 +59,7 @@ const FADE_DURATION = 30000;
 const FADE_INTERVAL = 500;
 
 export function PlayerProvider({ children }: { children: ReactNode }) {
-  const { hasActiveSubscription } = useAuth();
+  const { hasActiveSubscription, user } = useAuth();
   const [currentTrack, setCurrentTrack] = useState<Track | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -70,6 +73,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const [previewEnded, setPreviewEnded] = useState(false);
   const [queue, setQueue] = useState<Track[]>([]);
   const [queueIndex, setQueueIndex] = useState(0);
+  const [playedTrackIds, setPlayedTrackIds] = useState<Set<string>>(new Set());
   const soundRef = useRef<Audio.Sound | null>(null);
   const sleepTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const fadeIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -78,10 +82,17 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const loopModeRef = useRef(loopMode);
   const queueRef = useRef<Track[]>([]);
   const queueIndexRef = useRef(0);
+  const playedTrackIdsRef = useRef<Set<string>>(new Set());
+  const currentTrackIdRef = useRef<string | null>(null);
+  const userIdRef = useRef<string | null>(user?.id ?? null);
 
   useEffect(() => {
     subscriptionRef.current = hasActiveSubscription;
   }, [hasActiveSubscription]);
+
+  useEffect(() => {
+    userIdRef.current = user?.id ?? null;
+  }, [user?.id]);
 
   useEffect(() => {
     loopModeRef.current = loopMode;
@@ -94,6 +105,60 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     queueIndexRef.current = queueIndex;
   }, [queueIndex]);
+
+  useEffect(() => {
+    if (user?.id) {
+      loadPlayedTracks(user.id);
+    } else {
+      const empty = new Set<string>();
+      playedTrackIdsRef.current = empty;
+      setPlayedTrackIds(empty);
+    }
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (hasActiveSubscription && user?.id) {
+      clearPlayedTracks(user.id);
+    }
+  }, [hasActiveSubscription]);
+
+  async function loadPlayedTracks(userId: string) {
+    try {
+      const stored = await AsyncStorage.getItem(`played_tracks_${userId}`);
+      if (stored) {
+        const ids: string[] = JSON.parse(stored);
+        const set = new Set(ids);
+        playedTrackIdsRef.current = set;
+        setPlayedTrackIds(new Set(set));
+      }
+    } catch (err) {
+      console.warn("[Player] Failed to load played tracks:", err);
+    }
+  }
+
+  async function persistPlayedTracks(userId: string, ids: Set<string>) {
+    try {
+      await AsyncStorage.setItem(`played_tracks_${userId}`, JSON.stringify([...ids]));
+    } catch (err) {
+      console.warn("[Player] Failed to persist played tracks:", err);
+    }
+  }
+
+  async function clearPlayedTracks(userId: string) {
+    try {
+      await AsyncStorage.removeItem(`played_tracks_${userId}`);
+      const empty = new Set<string>();
+      playedTrackIdsRef.current = empty;
+      setPlayedTrackIds(empty);
+    } catch (err) {
+      console.warn("[Player] Failed to clear played tracks:", err);
+    }
+  }
+
+  function isTrackPlayed(trackId: string): boolean {
+    if (subscriptionRef.current) return false;
+    return playedTrackIdsRef.current.has(trackId);
+  }
 
   useEffect(() => {
     return () => {
@@ -195,6 +260,16 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         }
         setIsPlaying(false);
         setPreviewEnded(true);
+        const trackId = currentTrackIdRef.current;
+        if (trackId) {
+          const newSet = new Set(playedTrackIdsRef.current);
+          newSet.add(trackId);
+          playedTrackIdsRef.current = newSet;
+          setPlayedTrackIds(new Set(newSet));
+          if (userIdRef.current) {
+            persistPlayedTracks(userIdRef.current, newSet);
+          }
+        }
         return;
       }
 
@@ -230,6 +305,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   async function playTrackInternal(track: Track, trackQueue: Track[], index: number) {
     try {
       setCurrentTrack(track);
+      currentTrackIdRef.current = track.id;
       setQueue(trackQueue);
       setQueueIndex(index);
       queueRef.current = trackQueue;
@@ -394,6 +470,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         queueIndex,
         hasNext,
         hasPrevious,
+        playedTrackIds,
+        isTrackPlayed,
         playTrack,
         playNext,
         playPrevious,

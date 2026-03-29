@@ -113,7 +113,7 @@ export default function AdminTestingScreen() {
           <View style={styles.infoItem}>
             <Feather name="toggle-left" size={16} color={Colors.dark.textSecondary} />
             <ThemedText style={styles.infoText}>
-              OFF: Gamma category only, 2-minute previews, no playlists
+              OFF: First+last track per category, 5-minute previews, no playlists
             </ThemedText>
           </View>
         </Card>

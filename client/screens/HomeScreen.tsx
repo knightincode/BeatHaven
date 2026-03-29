@@ -86,7 +86,7 @@ export default function HomeScreen() {
   const headerHeight = useHeaderHeight();
   const tabBarHeight = useBottomTabBarHeight();
   const navigation = useNavigation<NavigationProp>();
-  const { playTrack } = usePlayer();
+  const { playTrack, isTrackPlayed } = usePlayer();
   const { isAuthenticated, hasActiveSubscription, isDemo, showSubscriptionOffer, setShowSubscriptionOffer, logoutToSignup } = useAuth();
   const { isFavorite, toggleFavorite } = useFavorites();
   const [activeFilter, setActiveFilter] = useState("all");
@@ -283,6 +283,7 @@ export default function HomeScreen() {
                       track={item}
                       onPress={() => handlePlayTrack(item, categoryTracks)}
                       color={category.color}
+                      isLocked={!hasActiveSubscription && isTrackPlayed(item.id)}
                       isFavorite={isAuthenticated ? isFavorite(item.id) : undefined}
                       onToggleFavorite={isAuthenticated ? () => toggleFavorite(item.id) : undefined}
                       onAddToPlaylist={isAuthenticated && hasActiveSubscription ? () => setPlaylistModalTrack(item) : undefined}

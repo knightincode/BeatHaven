@@ -69,7 +69,7 @@ const bgStyles = StyleSheet.create({
   },
 });
 
-const FREE_PREVIEW_MS = 2 * 60 * 1000;
+const FREE_PREVIEW_MS = 5 * 60 * 1000;
 
 const SLEEP_TIMER_OPTIONS: { label: string; value: SleepTimerOption }[] = [
   { label: "15 min", value: 15 },
@@ -605,7 +605,7 @@ export default function PlayerScreen() {
               Preview Complete
             </ThemedText>
             <ThemedText style={styles.upgradeDescription}>
-              You've enjoyed a 2-minute preview. Start your free 7-day trial to unlock unlimited listening with seamless looping, all frequency categories, and playlist creation.
+              You've enjoyed a 5-minute preview. Start your free 7-day trial to unlock unlimited listening with seamless looping, all frequency categories, and playlist creation.
             </ThemedText>
             <Pressable
               style={[styles.upgradeButton, { backgroundColor: categoryColor }]}
