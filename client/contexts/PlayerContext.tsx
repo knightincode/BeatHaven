@@ -276,7 +276,9 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
             try {
               await soundToStop.stopAsync();
               await soundToStop.unloadAsync();
-              soundRef.current = null;
+              if (soundRef.current === soundToStop) {
+                soundRef.current = null;
+              }
             } catch (err) {
               console.warn("[Player] Failed to stop audio after preview ended:", err);
             }
