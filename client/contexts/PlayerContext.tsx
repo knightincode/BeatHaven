@@ -125,14 +125,15 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   async function loadPlayedTracks(userId: string) {
     try {
       const stored = await AsyncStorage.getItem(`played_tracks_${userId}`);
-      if (stored) {
-        const ids: string[] = JSON.parse(stored);
-        const set = new Set(ids);
-        playedTrackIdsRef.current = set;
-        setPlayedTrackIds(new Set(set));
-      }
+      const ids: string[] = stored ? JSON.parse(stored) : [];
+      const set = new Set(ids);
+      playedTrackIdsRef.current = set;
+      setPlayedTrackIds(new Set(set));
     } catch (err) {
       console.warn("[Player] Failed to load played tracks:", err);
+      const empty = new Set<string>();
+      playedTrackIdsRef.current = empty;
+      setPlayedTrackIds(empty);
     }
   }
 

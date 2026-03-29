@@ -122,6 +122,7 @@ export default function HomeScreen() {
   }
 
   function handlePlayTrack(track: Track, trackQueue?: Track[]) {
+    if (!hasActiveSubscription && isTrackPlayed(track.id)) return;
     if (Platform.OS !== "web") {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }

@@ -54,10 +54,12 @@ export function TrackCard({
   }));
 
   function handlePressIn() {
+    if (isLocked) return;
     scale.value = withSpring(0.96, { damping: 15, stiffness: 150 });
   }
 
   function handlePressOut() {
+    if (isLocked) return;
     scale.value = withSpring(1, { damping: 15, stiffness: 150 });
   }
 
@@ -68,6 +70,7 @@ export function TrackCard({
   }
 
   function handlePress() {
+    if (isLocked) return;
     triggerHaptic();
 
     glowShadowOpacity.value = withSequence(
