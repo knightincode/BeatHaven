@@ -578,6 +578,7 @@ export default function PlayerScreen() {
       <AmbientMixer
         visible={mixerVisible}
         onClose={() => setMixerVisible(false)}
+        isPlaying={isPlaying}
         accentColor={categoryColor}
       />
 

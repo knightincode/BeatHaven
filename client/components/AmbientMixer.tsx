@@ -45,15 +45,26 @@ const NOISE_COLORS: NoiseColor[] = [
 interface AmbientMixerProps {
   visible: boolean;
   onClose: () => void;
+  isPlaying: boolean;
   accentColor?: string;
 }
 
-export function AmbientMixer({ visible, onClose, accentColor = Colors.dark.link }: AmbientMixerProps) {
+export function AmbientMixer({ visible, onClose, isPlaying, accentColor = Colors.dark.link }: AmbientMixerProps) {
   const insets = useSafeAreaInsets();
   const [layers, setLayers] = useState<NoiseColor[]>(NOISE_COLORS);
   const audioContextRef = useRef<any>(null);
   const webNodesRef = useRef<Record<string, { source: any; gain: any }>>({});
   const nativeSoundsRef = useRef<Record<string, Audio.Sound>>({});
+  const layersRef = useRef<NoiseColor[]>(NOISE_COLORS);
+  const isPlayingRef = useRef(isPlaying);
+
+  useEffect(() => {
+    layersRef.current = layers;
+  }, [layers]);
+
+  useEffect(() => {
+    isPlayingRef.current = isPlaying;
+  }, [isPlaying]);
 
   const getAudioContext = useCallback(() => {
     if (Platform.OS !== "web") return null;
@@ -324,6 +335,47 @@ export function AmbientMixer({ visible, onClose, accentColor = Colors.dark.link 
     }
   }
 
+  function stopAllRunningAudio() {
+    Object.keys(webNodesRef.current).forEach((id) => stopWebLayer(id));
+    Object.keys(nativeSoundsRef.current).forEach((id) => {
+      const sound = nativeSoundsRef.current[id];
+      if (sound) {
+        sound.stopAsync().catch(() => {});
+        sound.unloadAsync().catch(() => {});
+        delete nativeSoundsRef.current[id];
+      }
+    });
+  }
+
+  function restartActiveLayers() {
+    layersRef.current.forEach((layer) => {
+      if (layer.active) {
+        startLayer(layer.id, layer.volume);
+      }
+    });
+  }
+
+  useEffect(() => {
+    if (!isPlaying) {
+      stopAllRunningAudio();
+    } else {
+      restartActiveLayers();
+    }
+  }, [isPlaying]);
+
+  useEffect(() => {
+    if (visible && isPlayingRef.current) {
+      restartActiveLayers();
+    }
+  }, [visible]);
+
+  useEffect(() => {
+    return () => {
+      Object.keys(webNodesRef.current).forEach((id) => stopWebLayer(id));
+      Object.keys(nativeSoundsRef.current).forEach((id) => stopNativeLayer(id));
+    };
+  }, []);
+
   function toggleLayer(layerId: string) {
     if (Platform.OS !== "web") {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -334,7 +386,9 @@ export function AmbientMixer({ visible, onClose, accentColor = Colors.dark.link 
         if (l.id === layerId) {
           const newActive = !l.active;
           if (newActive) {
-            startLayer(layerId, l.volume);
+            if (isPlayingRef.current) {
+              startLayer(layerId, l.volume);
+            }
           } else {
             stopLayer(layerId);
           }
@@ -366,13 +420,6 @@ export function AmbientMixer({ visible, onClose, accentColor = Colors.dark.link 
       })
     );
   }
-
-  useEffect(() => {
-    return () => {
-      Object.keys(webNodesRef.current).forEach((id) => stopWebLayer(id));
-      Object.keys(nativeSoundsRef.current).forEach((id) => stopNativeLayer(id));
-    };
-  }, []);
 
   const activeLayers = layers.filter((l) => l.active).length;
 
