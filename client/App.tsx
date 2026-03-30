@@ -12,6 +12,7 @@ import {
   Nunito_600SemiBold,
   Nunito_700Bold,
 } from "@expo-google-fonts/nunito";
+import { Feather } from "@expo/vector-icons";
 
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "@/lib/query-client";
@@ -29,6 +30,7 @@ export default function App() {
     Nunito_400Regular,
     Nunito_600SemiBold,
     Nunito_700Bold,
+    ...Feather.font,
   });
 
   useEffect(() => {
