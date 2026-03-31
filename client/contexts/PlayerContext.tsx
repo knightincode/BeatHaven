@@ -1,4 +1,12 @@
-import React, { createContext, useContext, useState, useRef, ReactNode, useEffect, useCallback } from "react";
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useRef,
+  ReactNode,
+  useEffect,
+  useCallback,
+} from "react";
 import { Platform } from "react-native";
 import { Audio, AVPlaybackStatus } from "expo-av";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -219,7 +227,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const startFadeOut = useCallback(async () => {
-    const hasAudio = Platform.OS === "web" ? !!webAudioRef.current : !!soundRef.current;
+    const hasAudio =
+      Platform.OS === "web" ? !!webAudioRef.current : !!soundRef.current;
     if (!hasAudio) return;
     setIsFadingOut(true);
 
@@ -315,7 +324,12 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       setDuration(status.durationMillis || 0);
       setIsPlaying(status.isPlaying);
 
-      if (!subscriptionRef.current && status.positionMillis >= FREE_PREVIEW_MS && status.isPlaying && !previewEndedRef.current) {
+      if (
+        !subscriptionRef.current &&
+        status.positionMillis >= FREE_PREVIEW_MS &&
+        status.isPlaying &&
+        !previewEndedRef.current
+      ) {
         previewEndedRef.current = true;
         setIsPlaying(false);
         setPreviewEnded(true);
@@ -339,7 +353,10 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
                 soundRef.current = null;
               }
             } catch (err) {
-              console.warn("[Player] Failed to stop audio after preview ended:", err);
+              console.warn(
+                "[Player] Failed to stop audio after preview ended:",
+                err,
+              );
             }
           })();
         }
@@ -355,7 +372,11 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
           } else if (queueRef.current.length > 1) {
             const nextIdx = queueIndexRef.current + 1;
             if (nextIdx < queueRef.current.length) {
-              playTrackInternal(queueRef.current[nextIdx], queueRef.current, nextIdx);
+              playTrackInternal(
+                queueRef.current[nextIdx],
+                queueRef.current,
+                nextIdx,
+              );
             } else if (loopModeRef.current === "all") {
               playTrackInternal(queueRef.current[0], queueRef.current, 0);
             } else {
@@ -375,7 +396,11 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  async function playTrackInternal(track: Track, trackQueue: Track[], index: number) {
+  async function playTrackInternal(
+    track: Track,
+    trackQueue: Track[],
+    index: number,
+  ) {
     try {
       setCurrentTrack(track);
       currentTrackIdRef.current = track.id;
@@ -408,7 +433,12 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
           setProgress(posMs);
           if (durMs > 0) setDuration(durMs);
 
-          if (!subscriptionRef.current && posMs >= FREE_PREVIEW_MS && !audio.paused && !previewEndedRef.current) {
+          if (
+            !subscriptionRef.current &&
+            posMs >= FREE_PREVIEW_MS &&
+            !audio.paused &&
+            !previewEndedRef.current
+          ) {
             previewEndedRef.current = true;
             setIsPlaying(false);
             setPreviewEnded(true);
@@ -435,7 +465,11 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
             } else {
               const nextIdx = queueIndexRef.current + 1;
               if (nextIdx < queueRef.current.length) {
-                playTrackInternal(queueRef.current[nextIdx], queueRef.current, nextIdx);
+                playTrackInternal(
+                  queueRef.current[nextIdx],
+                  queueRef.current,
+                  nextIdx,
+                );
               } else if (loopModeRef.current === "all") {
                 playTrackInternal(queueRef.current[0], queueRef.current, 0);
               } else {
@@ -453,7 +487,12 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
           if (webAudioRef.current !== audio) return;
           const err = audio.error;
           const msg = err ? `code=${err.code} msg=${err.message}` : "unknown";
-          console.error("[Player] Web audio load error:", msg, "src:", audio.src);
+          console.error(
+            "[Player] Web audio load error:",
+            msg,
+            "src:",
+            audio.src,
+          );
           setIsPlaying(false);
           setIsLoading(false);
         });
@@ -472,12 +511,14 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
           staysActiveInBackground: true,
         });
 
-        const shouldLoopSingle = hasActiveSubscription && (loopModeRef.current === "one" || trackQueue.length <= 1);
+        const shouldLoopSingle =
+          hasActiveSubscription &&
+          (loopModeRef.current === "one" || trackQueue.length <= 1);
 
         const { sound } = await Audio.Sound.createAsync(
           { uri: resolveAudioUrl(track.fileUrl) },
           { shouldPlay: true, isLooping: shouldLoopSingle },
-          onPlaybackStatusUpdate
+          onPlaybackStatusUpdate,
         );
 
         soundRef.current = sound;
@@ -492,7 +533,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   }
 
   async function playTrack(track: Track, trackQueue?: Track[]) {
-    if (!subscriptionRef.current && playedTrackIdsRef.current.has(track.id)) return;
+    if (!subscriptionRef.current && playedTrackIdsRef.current.has(track.id))
+      return;
     const q = trackQueue || [track];
     const index = q.findIndex((t) => t.id === track.id);
     await playTrackInternal(track, q, index >= 0 ? index : 0);
@@ -511,7 +553,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       }
     }
     const nextTrack = currentQueue[nextIdx];
-    if (!subscriptionRef.current && playedTrackIdsRef.current.has(nextTrack.id)) return;
+    if (!subscriptionRef.current && playedTrackIdsRef.current.has(nextTrack.id))
+      return;
     await playTrackInternal(nextTrack, currentQueue, nextIdx);
   }
 
@@ -533,7 +576,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       }
     }
     const prevTrack = currentQueue[prevIdx];
-    if (!subscriptionRef.current && playedTrackIdsRef.current.has(prevTrack.id)) return;
+    if (!subscriptionRef.current && playedTrackIdsRef.current.has(prevTrack.id))
+      return;
     await playTrackInternal(prevTrack, currentQueue, prevIdx);
   }
 
@@ -633,7 +677,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     setPreviewEnded(false);
   }
 
-  const hasNext = queue.length > 1 && (queueIndex < queue.length - 1 || loopMode === "all");
+  const hasNext =
+    queue.length > 1 && (queueIndex < queue.length - 1 || loopMode === "all");
   const hasPrevious = queue.length > 1;
 
   return (
