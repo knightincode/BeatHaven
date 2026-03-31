@@ -369,11 +369,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  function getBaseUrl(req: Request): string {
+    const proto = (req.headers["x-forwarded-proto"] as string) || req.protocol || "https";
+    const host = (req.headers["x-forwarded-host"] as string) || (req.headers.host as string) || "";
+    return `${proto}://${host}`;
+  }
+
   app.get("/api/tracks", async (req: Request, res: Response) => {
     try {
       const tracks = await storage.getAllTracks();
-      const domain = process.env.REPLIT_DOMAINS?.split(",")[0] || process.env.REPLIT_DEV_DOMAIN;
-      const baseUrl = `https://${domain}:5000`;
+      const baseUrl = getBaseUrl(req);
       
       const tracksWithUrls = tracks.map(track => ({
         ...track,
@@ -513,8 +518,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const tracks = await storage.getPlaylistTracks(id);
-      const domain = process.env.REPLIT_DOMAINS?.split(",")[0] || process.env.REPLIT_DEV_DOMAIN;
-      const baseUrl = `https://${domain}:5000`;
+      const baseUrl = getBaseUrl(req);
       const tracksWithUrls = tracks.map((track: any) => ({
         ...track,
         fileUrl: track.fileUrl && !track.fileUrl.startsWith("http") ? `${baseUrl}/api/audio/${track.fileUrl}` : track.fileUrl,
@@ -567,8 +571,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const user = req.user!;
       const favorites = await storage.getUserFavorites(user.id);
-      const domain = process.env.REPLIT_DOMAINS?.split(",")[0] || process.env.REPLIT_DEV_DOMAIN;
-      const baseUrl = `https://${domain}:5000`;
+      const baseUrl = getBaseUrl(req);
       const favoritesWithUrls = favorites.map((track: any) => ({
         ...track,
         fileUrl: track.fileUrl && !track.fileUrl.startsWith("http") ? `${baseUrl}/api/audio/${track.fileUrl}` : track.fileUrl,

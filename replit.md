@@ -41,7 +41,7 @@ Preferred communication style: Simple, everyday language.
 - **Biometric Login**: Face ID/Touch ID via expo-local-authentication. Users prompted after first successful login (once only — declined choice is remembered). Biometric preference stored in SecureStore. On app launch, biometric auth is attempted before showing login screen.
 - **Schema**: `users.auth_provider` (email/apple/google), `users.apple_user_id` (nullable, unique), `users.google_user_id` (nullable, unique), `users.password` (nullable for Apple/Google-only users)
 
-**File Storage**: Replit Object Storage for audio file uploads. Generates signed download URLs for secure streaming.
+**File Storage**: Replit Object Storage for audio file hosting. All 50 binaural beat WAV files (30 min each) and 13 ambient color noise WAV files are stored in object storage. Two tracks ("The Zone" and "Brain Performance") are auto-generated and uploaded on server startup if missing. Audio URLs are derived from request headers (not hardcoded domain:port) so they work correctly in both dev and production.
 
 ### Data Storage
 
