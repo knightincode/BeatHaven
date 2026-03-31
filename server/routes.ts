@@ -11,7 +11,7 @@ import {
 import { verifyAppleIdentityToken } from "./appleAuth";
 import { verifyGoogleIdToken } from "./googleAuth";
 import { getUncachableStripeClient, getStripePublishableKey } from "./stripeClient";
-import { uploadAudioFile, streamAudioFile, getAudioFileAsBuffer } from "./objectStorage";
+import { uploadAudioFile, getAudioFileAsBuffer, getAudioFileSize, openAudioStream } from "./objectStorage";
 import { User } from "../shared/schema";
 import { db } from "./db";
 import { sql } from "drizzle-orm";
@@ -378,11 +378,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/tracks", async (req: Request, res: Response) => {
     try {
       const tracks = await storage.getAllTracks();
-      const baseUrl = getBaseUrl(req);
       
       const tracksWithUrls = tracks.map(track => ({
         ...track,
-        fileUrl: `${baseUrl}/api/audio/${track.fileUrl}`,
+        fileUrl: `/api/audio/${track.fileUrl}`,
       }));
       
       tracksWithUrls.sort((a, b) => {
@@ -401,41 +400,97 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/audio/:folder/:filename", async (req: Request, res: Response) => {
     try {
       const objectPath = decodeURIComponent(`${req.params.folder}/${req.params.filename}`);
-      
-      const fileData = await getAudioFileAsBuffer(objectPath);
-      if (!fileData) {
+
+      const totalSize = await getAudioFileSize(objectPath);
+      if (!totalSize) {
         return res.status(404).json({ message: "Audio file not found" });
       }
-      
-      const { buffer, size } = fileData;
+
       const range = req.headers.range;
-      
+      const corsOrigin = (req.headers.origin as string) || "*";
+
+      let start = 0;
+      let end = totalSize - 1;
+
       if (range) {
         const parts = range.replace(/bytes=/, "").split("-");
-        const start = parseInt(parts[0], 10);
-        const end = parts[1] ? parseInt(parts[1], 10) : size - 1;
-        const chunkSize = end - start + 1;
-        
-        res.writeHead(206, {
-          "Content-Range": `bytes ${start}-${end}/${size}`,
-          "Accept-Ranges": "bytes",
-          "Content-Length": chunkSize,
-          "Content-Type": "audio/wav",
-        });
-        
-        res.end(buffer.slice(start, end + 1));
-      } else {
-        res.writeHead(200, {
-          "Content-Length": size,
-          "Content-Type": "audio/wav",
-          "Accept-Ranges": "bytes",
-        });
-        
-        res.end(buffer);
+        start = parseInt(parts[0], 10) || 0;
+        end = parts[1] ? parseInt(parts[1], 10) : totalSize - 1;
+        if (end >= totalSize) end = totalSize - 1;
       }
+
+      const chunkSize = end - start + 1;
+
+      const headers: Record<string, string | number> = {
+        "Content-Type": "audio/wav",
+        "Content-Length": chunkSize,
+        "Accept-Ranges": "bytes",
+        "Access-Control-Allow-Origin": corsOrigin,
+        "Access-Control-Allow-Methods": "GET, OPTIONS",
+        "Cache-Control": "no-cache",
+      };
+
+      if (range) {
+        headers["Content-Range"] = `bytes ${start}-${end}/${totalSize}`;
+        res.writeHead(206, headers);
+      } else {
+        res.writeHead(200, headers);
+      }
+
+      const stream = openAudioStream(objectPath);
+      let bytesSkipped = 0;
+      let bytesSent = 0;
+
+      stream.on("data", (chunk: Buffer) => {
+        if (res.writableEnded || bytesSent >= chunkSize) {
+          stream.destroy();
+          return;
+        }
+
+        let data = chunk;
+
+        if (bytesSkipped < start) {
+          const toSkip = Math.min(start - bytesSkipped, chunk.length);
+          data = chunk.subarray(toSkip);
+          bytesSkipped += toSkip;
+        } else {
+          bytesSkipped += chunk.length - data.length;
+        }
+
+        if (data.length === 0) return;
+
+        const remaining = chunkSize - bytesSent;
+        if (data.length > remaining) {
+          data = data.subarray(0, remaining);
+        }
+
+        res.write(data);
+        bytesSent += data.length;
+
+        if (bytesSent >= chunkSize) {
+          stream.destroy();
+          if (!res.writableEnded) res.end();
+        }
+      });
+
+      stream.on("error", (err: Error) => {
+        console.error("[Audio] Stream error:", err.message);
+        if (!res.writableEnded) res.end();
+      });
+
+      stream.on("end", () => {
+        if (!res.writableEnded) res.end();
+      });
+
+      stream.on("close", () => {
+        if (!res.writableEnded) res.end();
+      });
+
     } catch (error: any) {
       console.error("Audio stream error:", error);
-      res.status(500).json({ message: "Failed to stream audio" });
+      if (!res.headersSent) {
+        res.status(500).json({ message: "Failed to stream audio" });
+      }
     }
   });
 
@@ -518,10 +573,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const tracks = await storage.getPlaylistTracks(id);
-      const baseUrl = getBaseUrl(req);
       const tracksWithUrls = tracks.map((track: any) => ({
         ...track,
-        fileUrl: track.fileUrl && !track.fileUrl.startsWith("http") ? `${baseUrl}/api/audio/${track.fileUrl}` : track.fileUrl,
+        fileUrl: track.fileUrl && !track.fileUrl.startsWith("/api/audio/") ? `/api/audio/${track.fileUrl}` : track.fileUrl,
       }));
       res.json(tracksWithUrls);
     } catch (error: any) {
@@ -571,10 +625,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const user = req.user!;
       const favorites = await storage.getUserFavorites(user.id);
-      const baseUrl = getBaseUrl(req);
       const favoritesWithUrls = favorites.map((track: any) => ({
         ...track,
-        fileUrl: track.fileUrl && !track.fileUrl.startsWith("http") ? `${baseUrl}/api/audio/${track.fileUrl}` : track.fileUrl,
+        fileUrl: track.fileUrl && !track.fileUrl.startsWith("/api/audio/") ? `/api/audio/${track.fileUrl}` : track.fileUrl,
       }));
       res.json(favoritesWithUrls);
     } catch (error: any) {

@@ -1,6 +1,9 @@
 import { Client } from "@replit/object-storage";
+import type { Readable } from "stream";
 
 const client = new Client();
+
+const fileSizeCache = new Map<string, number>();
 
 export async function uploadAudioFile(
   fileName: string,
@@ -25,14 +28,68 @@ export async function downloadAudioFile(objectName: string): Promise<Buffer | nu
   return null;
 }
 
-export function streamAudioFile(objectName: string) {
-  return client.downloadAsStream(objectName);
+export function openAudioStream(objectName: string): Readable {
+  return client.downloadAsStream(objectName) as Readable;
+}
+
+export async function getAudioFileSize(objectName: string): Promise<number | null> {
+  if (fileSizeCache.has(objectName)) {
+    return fileSizeCache.get(objectName)!;
+  }
+
+  return new Promise((resolve, reject) => {
+    const stream = client.downloadAsStream(objectName) as Readable;
+    const chunks: Buffer[] = [];
+    let totalBytes = 0;
+    let resolved = false;
+
+    function tryResolve() {
+      if (resolved) return;
+      if (totalBytes < 8) return;
+      resolved = true;
+      stream.destroy();
+      const header = Buffer.concat(chunks);
+      const riffSize = header.readUInt32LE(4);
+      const fileSize = riffSize + 8;
+      fileSizeCache.set(objectName, fileSize);
+      resolve(fileSize);
+    }
+
+    stream.on("data", (chunk: Buffer) => {
+      chunks.push(chunk);
+      totalBytes += chunk.length;
+      tryResolve();
+    });
+
+    stream.on("error", (err) => {
+      if (!resolved) {
+        resolved = true;
+        reject(err);
+      }
+    });
+
+    stream.on("end", () => {
+      if (!resolved) {
+        resolved = true;
+        if (totalBytes >= 8) {
+          tryResolve();
+        } else {
+          reject(new Error("File too small to read WAV header"));
+        }
+      }
+    });
+  });
+}
+
+export function preCacheFileSize(objectName: string, size: number): void {
+  fileSizeCache.set(objectName, size);
 }
 
 export async function getAudioFileAsBuffer(objectName: string): Promise<{ buffer: Buffer; size: number } | null> {
   const result = await client.downloadAsBytes(objectName);
   if (result.ok) {
     const buffer = result.value[0];
+    fileSizeCache.set(objectName, buffer.length);
     return { buffer, size: buffer.length };
   }
   return null;

@@ -3,6 +3,18 @@ import { Platform } from "react-native";
 import { Audio, AVPlaybackStatus } from "expo-av";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useAuth } from "@/contexts/AuthContext";
+import { getApiUrl } from "@/lib/query-client";
+
+function resolveAudioUrl(fileUrl: string): string {
+  if (fileUrl.startsWith("http://") || fileUrl.startsWith("https://")) {
+    return fileUrl;
+  }
+  try {
+    return new URL(fileUrl, getApiUrl()).href;
+  } catch {
+    return fileUrl;
+  }
+}
 
 export interface Track {
   id: string;
@@ -74,7 +86,9 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const [queue, setQueue] = useState<Track[]>([]);
   const [queueIndex, setQueueIndex] = useState(0);
   const [playedTrackIds, setPlayedTrackIds] = useState<Set<string>>(new Set());
+
   const soundRef = useRef<Audio.Sound | null>(null);
+  const webAudioRef = useRef<HTMLAudioElement | null>(null);
   const sleepTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const fadeIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const sleepTimerEndRef = useRef<number>(0);
@@ -164,8 +178,16 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     return () => {
-      if (soundRef.current) {
-        soundRef.current.unloadAsync();
+      if (Platform.OS === "web") {
+        if (webAudioRef.current) {
+          webAudioRef.current.pause();
+          webAudioRef.current.src = "";
+          webAudioRef.current = null;
+        }
+      } else {
+        if (soundRef.current) {
+          soundRef.current.unloadAsync();
+        }
       }
       if (sleepTimerRef.current) {
         clearInterval(sleepTimerRef.current);
@@ -177,7 +199,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const startFadeOut = useCallback(async () => {
-    if (!soundRef.current) return;
+    const hasAudio = Platform.OS === "web" ? !!webAudioRef.current : !!soundRef.current;
+    if (!hasAudio) return;
     setIsFadingOut(true);
 
     let currentVolume = 1.0;
@@ -190,16 +213,28 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
           clearInterval(fadeIntervalRef.current);
           fadeIntervalRef.current = null;
         }
-        if (soundRef.current) {
-          await soundRef.current.pauseAsync();
-          await soundRef.current.setVolumeAsync(1.0);
+        if (Platform.OS === "web") {
+          if (webAudioRef.current) {
+            webAudioRef.current.pause();
+            webAudioRef.current.volume = 1.0;
+          }
+        } else {
+          if (soundRef.current) {
+            await soundRef.current.pauseAsync();
+            await soundRef.current.setVolumeAsync(1.0);
+          }
         }
         setIsPlaying(false);
         setIsFadingOut(false);
         setSleepTimerState(null);
         setSleepTimerRemaining(0);
-      } else if (soundRef.current) {
-        await soundRef.current.setVolumeAsync(Math.max(0, currentVolume));
+      } else {
+        const vol = Math.max(0, currentVolume);
+        if (Platform.OS === "web") {
+          if (webAudioRef.current) webAudioRef.current.volume = vol;
+        } else {
+          if (soundRef.current) await soundRef.current.setVolumeAsync(vol);
+        }
       }
     }, FADE_INTERVAL);
   }, []);
@@ -218,8 +253,12 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     if (minutes === null) {
       setSleepTimerState(null);
       setSleepTimerRemaining(0);
-      if (soundRef.current) {
-        soundRef.current.setVolumeAsync(1.0);
+      if (Platform.OS === "web") {
+        if (webAudioRef.current) webAudioRef.current.volume = 1.0;
+      } else {
+        if (soundRef.current) {
+          soundRef.current.setVolumeAsync(1.0);
+        }
       }
       return;
     }
@@ -328,29 +367,103 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       setIsLoading(true);
       setPreviewEnded(false);
       previewEndedRef.current = false;
-      
-      if (soundRef.current) {
-        await soundRef.current.unloadAsync();
+
+      if (Platform.OS === "web") {
+        if (webAudioRef.current) {
+          webAudioRef.current.pause();
+          webAudioRef.current.src = "";
+          webAudioRef.current = null;
+        }
+
+        const audioUrl = resolveAudioUrl(track.fileUrl);
+        const audio = document.createElement("audio") as HTMLAudioElement;
+        audio.preload = "auto";
+        audio.src = audioUrl;
+        webAudioRef.current = audio;
+
+        audio.addEventListener("timeupdate", () => {
+          if (webAudioRef.current !== audio) return;
+          const posMs = audio.currentTime * 1000;
+          const durMs = isFinite(audio.duration) ? audio.duration * 1000 : 0;
+          setProgress(posMs);
+          if (durMs > 0) setDuration(durMs);
+
+          if (!subscriptionRef.current && posMs >= FREE_PREVIEW_MS && !audio.paused && !previewEndedRef.current) {
+            previewEndedRef.current = true;
+            setIsPlaying(false);
+            setPreviewEnded(true);
+            const trackId = currentTrackIdRef.current;
+            if (trackId) {
+              const newSet = new Set(playedTrackIdsRef.current);
+              newSet.add(trackId);
+              playedTrackIdsRef.current = newSet;
+              setPlayedTrackIds(new Set(newSet));
+              if (userIdRef.current) {
+                persistPlayedTracks(userIdRef.current, newSet);
+              }
+            }
+            audio.pause();
+          }
+        });
+
+        audio.addEventListener("ended", () => {
+          if (webAudioRef.current !== audio) return;
+          if (subscriptionRef.current) {
+            if (loopModeRef.current === "one" || queueRef.current.length <= 1) {
+              audio.currentTime = 0;
+              audio.play().catch(() => {});
+            } else {
+              const nextIdx = queueIndexRef.current + 1;
+              if (nextIdx < queueRef.current.length) {
+                playTrackInternal(queueRef.current[nextIdx], queueRef.current, nextIdx);
+              } else if (loopModeRef.current === "all") {
+                playTrackInternal(queueRef.current[0], queueRef.current, 0);
+              } else {
+                setIsPlaying(false);
+                setProgress(0);
+              }
+            }
+          } else {
+            setIsPlaying(false);
+            setProgress(0);
+          }
+        });
+
+        audio.addEventListener("error", () => {
+          if (webAudioRef.current !== audio) return;
+          const err = audio.error;
+          const msg = err ? `code=${err.code} msg=${err.message}` : "unknown";
+          console.error("[Player] Web audio load error:", msg, "src:", audio.src);
+          setIsPlaying(false);
+          setIsLoading(false);
+        });
+
+        await audio.play();
+        setIsPlaying(true);
+        setIsLoading(false);
+      } else {
+        if (soundRef.current) {
+          await soundRef.current.unloadAsync();
+          soundRef.current = null;
+        }
+
+        await Audio.setAudioModeAsync({
+          playsInSilentModeIOS: true,
+          staysActiveInBackground: true,
+        });
+
+        const shouldLoopSingle = hasActiveSubscription && (loopModeRef.current === "one" || trackQueue.length <= 1);
+
+        const { sound } = await Audio.Sound.createAsync(
+          { uri: resolveAudioUrl(track.fileUrl) },
+          { shouldPlay: true, isLooping: shouldLoopSingle },
+          onPlaybackStatusUpdate
+        );
+
+        soundRef.current = sound;
+        setIsPlaying(true);
+        setIsLoading(false);
       }
-
-      await Audio.setAudioModeAsync({
-        playsInSilentModeIOS: true,
-        staysActiveInBackground: true,
-      });
-
-      let audioUri = track.fileUrl;
-
-      const shouldLoopSingle = hasActiveSubscription && (loopModeRef.current === "one" || trackQueue.length <= 1);
-
-      const { sound } = await Audio.Sound.createAsync(
-        { uri: audioUri },
-        { shouldPlay: true, isLooping: shouldLoopSingle },
-        onPlaybackStatusUpdate
-      );
-
-      soundRef.current = sound;
-      setIsPlaying(true);
-      setIsLoading(false);
     } catch (error) {
       console.error("Error playing track:", error);
       setIsPlaying(false);
@@ -405,9 +518,16 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   }
 
   async function pause() {
-    if (soundRef.current) {
-      await soundRef.current.pauseAsync();
-      setIsPlaying(false);
+    if (Platform.OS === "web") {
+      if (webAudioRef.current) {
+        webAudioRef.current.pause();
+        setIsPlaying(false);
+      }
+    } else {
+      if (soundRef.current) {
+        await soundRef.current.pauseAsync();
+        setIsPlaying(false);
+      }
     }
   }
 
@@ -415,9 +535,20 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     if (previewEnded && !subscriptionRef.current) {
       return;
     }
-    if (soundRef.current) {
-      await soundRef.current.playAsync();
-      setIsPlaying(true);
+    if (Platform.OS === "web") {
+      if (webAudioRef.current) {
+        try {
+          await webAudioRef.current.play();
+          setIsPlaying(true);
+        } catch (err) {
+          console.warn("[Player] Web resume failed:", err);
+        }
+      }
+    } else {
+      if (soundRef.current) {
+        await soundRef.current.playAsync();
+        setIsPlaying(true);
+      }
     }
   }
 
@@ -435,10 +566,18 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     setIsFadingOut(false);
     setPreviewEnded(false);
 
-    if (soundRef.current) {
-      await soundRef.current.stopAsync();
-      await soundRef.current.unloadAsync();
-      soundRef.current = null;
+    if (Platform.OS === "web") {
+      if (webAudioRef.current) {
+        webAudioRef.current.pause();
+        webAudioRef.current.src = "";
+        webAudioRef.current = null;
+      }
+    } else {
+      if (soundRef.current) {
+        await soundRef.current.stopAsync();
+        await soundRef.current.unloadAsync();
+        soundRef.current = null;
+      }
     }
     setCurrentTrack(null);
     setIsPlaying(false);
@@ -451,8 +590,14 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     if (!subscriptionRef.current && position >= FREE_PREVIEW_MS) {
       return;
     }
-    if (soundRef.current) {
-      await soundRef.current.setPositionAsync(position);
+    if (Platform.OS === "web") {
+      if (webAudioRef.current) {
+        webAudioRef.current.currentTime = position / 1000;
+      }
+    } else {
+      if (soundRef.current) {
+        await soundRef.current.setPositionAsync(position);
+      }
     }
   }
 

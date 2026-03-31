@@ -41,7 +41,11 @@ Preferred communication style: Simple, everyday language.
 - **Biometric Login**: Face ID/Touch ID via expo-local-authentication. Users prompted after first successful login (once only — declined choice is remembered). Biometric preference stored in SecureStore. On app launch, biometric auth is attempted before showing login screen.
 - **Schema**: `users.auth_provider` (email/apple/google), `users.apple_user_id` (nullable, unique), `users.google_user_id` (nullable, unique), `users.password` (nullable for Apple/Google-only users)
 
-**File Storage**: Replit Object Storage for audio file hosting. All 50 binaural beat WAV files (30 min each) and 13 ambient color noise WAV files are stored in object storage. Two tracks ("The Zone" and "Brain Performance") are auto-generated and uploaded on server startup if missing. Audio URLs are derived from request headers (not hardcoded domain:port) so they work correctly in both dev and production.
+**File Storage**: Replit Object Storage for audio file hosting. All 50 binaural beat WAV files (30 min each) and 13 ambient color noise WAV files are stored in object storage. Two tracks ("The Zone" and "Brain Performance") are auto-generated and uploaded on server startup if missing.
+
+**Audio URL Architecture**: The server returns relative paths (e.g. `/api/audio/Delta/...`) from all track API endpoints. The client resolves these to full URLs using `getApiUrl()` (which includes the correct port 5000). This ensures audio requests always reach the Express backend on port 5000, not the Expo frontend on port 80. The `resolveAudioUrl()` helper in `PlayerContext.tsx` handles this conversion using `new URL(fileUrl, getApiUrl())`.
+
+**Audio Streaming**: The `/api/audio/:folder/:filename` route streams audio directly from Replit Object Storage without buffering the full file in memory. File sizes are read from the WAV RIFF header (8 bytes) and cached in-memory. Range requests (for audio scrubbing) are handled by streaming from object storage and skipping/limiting bytes as needed. First-byte latency is ~200-300ms for cached sizes (vs. 3+ seconds with the old full-download approach).
 
 ### Data Storage
 
