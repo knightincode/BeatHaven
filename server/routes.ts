@@ -401,7 +401,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const range = req.headers.range;
-      const corsOrigin = (req.headers.origin as string) || "*";
 
       let start = 0;
       let end = totalSize - 1;
@@ -431,7 +430,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         "Content-Type": "audio/wav",
         "Content-Length": chunkSize,
         "Accept-Ranges": "bytes",
-        "Access-Control-Allow-Origin": corsOrigin,
+        "Access-Control-Allow-Origin": "*",
         "Access-Control-Allow-Methods": "GET, OPTIONS",
         "Cache-Control": "no-cache",
       };
