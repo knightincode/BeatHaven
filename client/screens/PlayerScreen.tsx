@@ -87,6 +87,7 @@ function VideoBackgroundWeb({ isPlaying }: { isPlaying: boolean }) {
       <video
         ref={videoRef}
         src={zenMotionVideo}
+        autoPlay
         loop
         muted
         playsInline
