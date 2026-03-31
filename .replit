@@ -75,7 +75,7 @@ waitForPort = 8081
 ensurePreviewReachable = "/status"
 
 [objectStorage]
-defaultBucketID = "replit-objstore-aed4f744-aab2-4e2d-8dfe-062d572c3fe9"
+defaultBucketID = "replit-objstore-ddf76df7-f3a8-4de2-9598-83fe9d3257ae"
 
 [userenv]
 
