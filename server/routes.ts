@@ -11,7 +11,7 @@ import {
 import { verifyAppleIdentityToken } from "./appleAuth";
 import { verifyGoogleIdToken } from "./googleAuth";
 import { getUncachableStripeClient, getStripePublishableKey } from "./stripeClient";
-import { uploadAudioFile, getAudioFileAsBuffer, getAudioFileSize, openAudioStream } from "./objectStorage";
+import { uploadAudioFile, getAudioFileSize, openAudioStream } from "./objectStorage";
 import { User } from "../shared/schema";
 import { db } from "./db";
 import { sql } from "drizzle-orm";
@@ -369,12 +369,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  function getBaseUrl(req: Request): string {
-    const proto = (req.headers["x-forwarded-proto"] as string) || req.protocol || "https";
-    const host = (req.headers["x-forwarded-host"] as string) || (req.headers.host as string) || "";
-    return `${proto}://${host}`;
-  }
-
   app.get("/api/tracks", async (req: Request, res: Response) => {
     try {
       const tracks = await storage.getAllTracks();
@@ -414,9 +408,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (range) {
         const parts = range.replace(/bytes=/, "").split("-");
-        start = parseInt(parts[0], 10) || 0;
-        end = parts[1] ? parseInt(parts[1], 10) : totalSize - 1;
-        if (end >= totalSize) end = totalSize - 1;
+        const rawStart = parseInt(parts[0], 10);
+        const rawEnd = parts[1] ? parseInt(parts[1], 10) : totalSize - 1;
+
+        if (isNaN(rawStart) || rawStart < 0 || rawStart >= totalSize) {
+          res.setHeader("Content-Range", `bytes */${totalSize}`);
+          return res.status(416).json({ message: "Range Not Satisfiable" });
+        }
+
+        start = rawStart;
+        end = Math.min(isNaN(rawEnd) || rawEnd < 0 ? totalSize - 1 : rawEnd, totalSize - 1);
+      }
+
+      if (start > end) {
+        res.setHeader("Content-Range", `bytes */${totalSize}`);
+        return res.status(416).json({ message: "Range Not Satisfiable" });
       }
 
       const chunkSize = end - start + 1;

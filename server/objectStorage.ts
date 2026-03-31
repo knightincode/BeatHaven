@@ -34,10 +34,10 @@ export function openAudioStream(objectName: string): Readable {
 
 export async function getAudioFileSize(objectName: string): Promise<number | null> {
   if (fileSizeCache.has(objectName)) {
-    return fileSizeCache.get(objectName)!;
+    return fileSizeCache.get(objectName) ?? null;
   }
 
-  return new Promise((resolve, reject) => {
+  return new Promise<number | null>((resolve) => {
     const stream = client.downloadAsStream(objectName) as Readable;
     const chunks: Buffer[] = [];
     let totalBytes = 0;
@@ -61,10 +61,10 @@ export async function getAudioFileSize(objectName: string): Promise<number | nul
       tryResolve();
     });
 
-    stream.on("error", (err) => {
+    stream.on("error", () => {
       if (!resolved) {
         resolved = true;
-        reject(err);
+        resolve(null);
       }
     });
 
@@ -74,7 +74,7 @@ export async function getAudioFileSize(objectName: string): Promise<number | nul
         if (totalBytes >= 8) {
           tryResolve();
         } else {
-          reject(new Error("File too small to read WAV header"));
+          resolve(null);
         }
       }
     });
