@@ -32,7 +32,7 @@ import type { LoopMode, SleepTimerOption } from "@/contexts/PlayerContext";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
-function VideoBackground({ isPlaying }: { isPlaying: boolean }) {
+function VideoBackgroundNative({ isPlaying }: { isPlaying: boolean }) {
   const player = useVideoPlayer(zenMotionVideo, (p) => {
     p.loop = true;
     p.muted = true;
@@ -59,6 +59,53 @@ function VideoBackground({ isPlaying }: { isPlaying: boolean }) {
     </View>
   );
 }
+
+function VideoBackgroundWeb({ isPlaying }: { isPlaying: boolean }) {
+  const videoRef = React.useRef<HTMLVideoElement | null>(null);
+  const isPlayingRef = React.useRef(isPlaying);
+
+  useEffect(() => {
+    isPlayingRef.current = isPlaying;
+    const vid = videoRef.current;
+    if (!vid) return;
+    if (isPlaying) {
+      vid.play().catch(() => {});
+    } else {
+      vid.pause();
+    }
+  }, [isPlaying]);
+
+  const handleCanPlay = React.useCallback(() => {
+    if (isPlayingRef.current && videoRef.current) {
+      videoRef.current.play().catch(() => {});
+    }
+  }, []);
+
+  return (
+    <View style={bgStyles.container} pointerEvents="none">
+      {/* @ts-ignore - video is a valid JSX element on web */}
+      <video
+        ref={videoRef}
+        src={zenMotionVideo}
+        loop
+        muted
+        playsInline
+        onCanPlay={handleCanPlay}
+        data-testid="video-background"
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          width: "100%",
+          height: "100%",
+          objectFit: "cover",
+        }}
+      />
+    </View>
+  );
+}
+
+const VideoBackground = Platform.OS === "web" ? VideoBackgroundWeb : VideoBackgroundNative;
 
 const bgStyles = StyleSheet.create({
   container: {
