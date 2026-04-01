@@ -509,7 +509,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
           setIsLoading(false);
         } catch (playErr: unknown) {
           if (
-            playErr instanceof DOMException &&
+            playErr instanceof Error &&
             playErr.name === "NotAllowedError"
           ) {
             setAudioBlocked(true);
@@ -623,6 +623,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         try {
           await webAudioRef.current.play();
           setIsPlaying(true);
+          setAudioBlocked(false);
         } catch (err) {
           console.warn("[Player] Web resume failed:", err);
         }
