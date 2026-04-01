@@ -153,6 +153,8 @@ export default function PlayerScreen() {
     setSleepTimer,
     hidePlayer,
     dismissPreviewEnded,
+    audioBlocked,
+    resumeBlockedAudio,
   } = usePlayer();
 
   const { isAuthenticated, token } = useAuth();
@@ -421,6 +423,19 @@ export default function PlayerScreen() {
             <View style={styles.loadingMessage}>
               <ThemedText style={styles.loadingText}>Loading audio...</ThemedText>
             </View>
+          ) : null}
+
+          {audioBlocked ? (
+            <Pressable
+              style={styles.audioBlockedBanner}
+              onPress={resumeBlockedAudio}
+              testID="button-resume-audio"
+            >
+              <Feather name="volume-2" size={16} color={categoryColor} style={{ marginRight: Spacing.xs }} />
+              <ThemedText style={[styles.audioBlockedText, { color: categoryColor }]}>
+                Tap to start audio
+              </ThemedText>
+            </Pressable>
           ) : null}
         </View>
       </View>
@@ -812,6 +827,20 @@ const styles = StyleSheet.create({
   loadingText: {
     color: "rgba(255,255,255,0.5)",
     fontSize: 13,
+  },
+  audioBlockedBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: Spacing.md,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.lg,
+    borderRadius: BorderRadius.lg,
+    backgroundColor: "rgba(255,255,255,0.08)",
+  },
+  audioBlockedText: {
+    fontSize: 14,
+    fontWeight: "600",
   },
   timerDot: {
     position: "absolute",

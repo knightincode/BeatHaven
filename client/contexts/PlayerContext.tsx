@@ -12,6 +12,7 @@ import { Audio, AVPlaybackStatus } from "expo-av";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useAuth } from "@/contexts/AuthContext";
 import { getApiUrl } from "@/lib/query-client";
+import { useWebAudioUnlock } from "@/hooks/useWebAudioUnlock";
 
 function resolveAudioUrl(fileUrl: string): string {
   if (fileUrl.startsWith("http://") || fileUrl.startsWith("https://")) {
@@ -71,6 +72,8 @@ interface PlayerContextType {
   showPlayer: () => void;
   hidePlayer: () => void;
   dismissPreviewEnded: () => void;
+  audioBlocked: boolean;
+  resumeBlockedAudio: () => Promise<void>;
 }
 
 const PlayerContext = createContext<PlayerContextType | undefined>(undefined);
@@ -80,9 +83,11 @@ const FADE_INTERVAL = 500;
 
 export function PlayerProvider({ children }: { children: ReactNode }) {
   const { hasActiveSubscription, user, isDemo, demoSessionId } = useAuth();
+  useWebAudioUnlock();
   const [currentTrack, setCurrentTrack] = useState<Track | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [audioBlocked, setAudioBlocked] = useState(false);
   const [progress, setProgress] = useState(0);
   const [duration, setDuration] = useState(0);
   const [loopMode, setLoopMode] = useState<LoopMode>("none");
@@ -497,9 +502,20 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
           setIsLoading(false);
         });
 
-        await audio.play();
-        setIsPlaying(true);
-        setIsLoading(false);
+        try {
+          await audio.play();
+          setAudioBlocked(false);
+          setIsPlaying(true);
+          setIsLoading(false);
+        } catch (playErr: any) {
+          if (playErr?.name === "NotAllowedError") {
+            setAudioBlocked(true);
+            setIsLoading(false);
+            setIsPlaying(false);
+          } else {
+            throw playErr;
+          }
+        }
       } else {
         if (soundRef.current) {
           await soundRef.current.unloadAsync();
@@ -677,6 +693,16 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     setPreviewEnded(false);
   }
 
+  async function resumeBlockedAudio() {
+    if (Platform.OS === "web" && webAudioRef.current) {
+      try {
+        await webAudioRef.current.play();
+        setAudioBlocked(false);
+        setIsPlaying(true);
+      } catch {}
+    }
+  }
+
   const hasNext =
     queue.length > 1 && (queueIndex < queue.length - 1 || loopMode === "all");
   const hasPrevious = queue.length > 1;
@@ -714,6 +740,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         showPlayer,
         hidePlayer,
         dismissPreviewEnded,
+        audioBlocked,
+        resumeBlockedAudio,
       }}
     >
       {children}
