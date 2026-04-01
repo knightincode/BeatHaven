@@ -507,8 +507,11 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
           setAudioBlocked(false);
           setIsPlaying(true);
           setIsLoading(false);
-        } catch (playErr: any) {
-          if (playErr?.name === "NotAllowedError") {
+        } catch (playErr: unknown) {
+          if (
+            playErr instanceof DOMException &&
+            playErr.name === "NotAllowedError"
+          ) {
             setAudioBlocked(true);
             setIsLoading(false);
             setIsPlaying(false);
