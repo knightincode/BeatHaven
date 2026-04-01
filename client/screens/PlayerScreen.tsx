@@ -28,7 +28,7 @@ import { useFavorites } from "@/hooks/useFavorites";
 import { AmbientMixer } from "@/components/AmbientMixer";
 import { AddToPlaylistModal } from "@/components/AddToPlaylistModal";
 import { Colors, Spacing, BorderRadius, FrequencyColors } from "@/constants/theme";
-import type { LoopMode, SleepTimerOption } from "@/contexts/PlayerContext";
+import type { SleepTimerOption } from "@/contexts/PlayerContext";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -136,7 +136,6 @@ export default function PlayerScreen() {
     isLoading,
     progress,
     duration,
-    loopMode,
     sleepTimer,
     sleepTimerRemaining,
     isFadingOut,
@@ -151,7 +150,6 @@ export default function PlayerScreen() {
     resume,
     stop,
     seek,
-    setLoopMode,
     setSleepTimer,
     hidePlayer,
     dismissPreviewEnded,
@@ -224,16 +222,6 @@ export default function PlayerScreen() {
     return `${mins}:${secs.toString().padStart(2, "0")}`;
   }
 
-  function cycleLoopMode() {
-    if (Platform.OS !== "web") {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }
-    const modes: LoopMode[] = ["none", "one", "all"];
-    const currentIndex = modes.indexOf(loopMode);
-    const nextIndex = (currentIndex + 1) % modes.length;
-    setLoopMode(modes[nextIndex]);
-  }
-
   function handleTimerSelect(value: SleepTimerOption) {
     if (Platform.OS !== "web") {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -255,8 +243,6 @@ export default function PlayerScreen() {
     ? FrequencyColors[currentTrack.category.toLowerCase()] || Colors.dark.link
     : Colors.dark.link;
 
-  const loopIconColor =
-    loopMode === "none" ? "rgba(255,255,255,0.4)" : categoryColor;
 
   const timerIconColor =
     sleepTimer !== null ? categoryColor : "rgba(255,255,255,0.6)";
@@ -282,9 +268,7 @@ export default function PlayerScreen() {
             {currentTrack.title}
           </ThemedText>
         </View>
-        <Pressable style={styles.topBarButton} testID="button-settings">
-          <Feather name="more-vertical" size={24} color={Colors.dark.text} />
-        </Pressable>
+        <View style={styles.topBarButton} />
       </View>
 
       <View style={styles.trackInfoSection}>
@@ -396,19 +380,6 @@ export default function PlayerScreen() {
           </View>
 
           <View style={styles.controlsRow}>
-            <Pressable onPress={cycleLoopMode} style={styles.sideControl} testID="button-loop">
-              <Feather
-                name="repeat"
-                size={20}
-                color={loopIconColor}
-              />
-              {loopMode === "one" ? (
-                <View style={[styles.loopBadge, { backgroundColor: categoryColor }]}>
-                  <ThemedText style={styles.loopBadgeText}>1</ThemedText>
-                </View>
-              ) : null}
-            </Pressable>
-
             <Pressable
               style={[styles.transportControl, !hasPrevious && styles.transportDisabled]}
               onPress={handleSkipPrevious}
@@ -443,10 +414,6 @@ export default function PlayerScreen() {
               testID="button-skip-forward"
             >
               <Feather name="skip-forward" size={26} color={hasNext ? Colors.dark.text : "rgba(255,255,255,0.3)"} />
-            </Pressable>
-
-            <Pressable style={styles.sideControl} testID="button-shuffle">
-              <Feather name="shuffle" size={20} color="rgba(255,255,255,0.4)" />
             </Pressable>
           </View>
 
@@ -822,13 +789,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: Spacing.xl,
   },
-  sideControl: {
-    width: 40,
-    height: 40,
-    alignItems: "center",
-    justifyContent: "center",
-    position: "relative",
-  },
   transportControl: {
     width: 48,
     height: 48,
@@ -844,21 +804,6 @@ const styles = StyleSheet.create({
     borderRadius: 32,
     alignItems: "center",
     justifyContent: "center",
-  },
-  loopBadge: {
-    position: "absolute",
-    top: 2,
-    right: 2,
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  loopBadgeText: {
-    color: "#FFFFFF",
-    fontSize: 9,
-    fontWeight: "700",
   },
   loadingMessage: {
     alignItems: "center",
