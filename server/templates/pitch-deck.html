@@ -1,0 +1,615 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Beat Haven — Investor Pitch Deck 2026</title>
+    <style>
+      *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+      :root {
+        --bg: #080810;
+        --surface: #10101e;
+        --border: #1e1e38;
+        --accent: #a855f7;
+        --accent-dim: #7c3aed;
+        --accent-glow: rgba(168, 85, 247, 0.18);
+        --text: #e8e8f0;
+        --text-secondary: #8888aa;
+        --text-muted: #55556a;
+      }
+
+      html, body {
+        height: 100%;
+        background: var(--bg);
+        color: var(--text);
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+        overflow: hidden;
+      }
+
+      /* ── Layout ── */
+      .deck {
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+      }
+
+      /* ── Top bar ── */
+      .topbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 14px 28px;
+        border-bottom: 1px solid var(--border);
+        flex-shrink: 0;
+        background: rgba(8, 8, 16, 0.95);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        position: relative;
+        z-index: 10;
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .brand-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: var(--accent);
+        box-shadow: 0 0 10px var(--accent);
+      }
+
+      .brand-name {
+        font-size: 15px;
+        font-weight: 700;
+        color: var(--text);
+        letter-spacing: -0.3px;
+      }
+
+      .slide-counter {
+        font-size: 13px;
+        color: var(--text-muted);
+        letter-spacing: 0.5px;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .slide-counter span {
+        color: var(--accent);
+        font-weight: 600;
+      }
+
+      .topbar-right {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      /* ── Progress bar ── */
+      .progress-bar {
+        height: 2px;
+        background: var(--border);
+        flex-shrink: 0;
+      }
+
+      .progress-fill {
+        height: 100%;
+        background: linear-gradient(90deg, var(--accent-dim), var(--accent));
+        transition: width 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+
+      /* ── Slide stage ── */
+      .stage {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 40px 24px;
+        overflow: hidden;
+        position: relative;
+      }
+
+      .slides-wrapper {
+        width: 100%;
+        max-width: 860px;
+        height: 100%;
+        max-height: 520px;
+        position: relative;
+      }
+
+      .slide {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        padding: 52px 60px;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.3s ease, transform 0.3s ease;
+        transform: translateX(40px);
+        overflow: hidden;
+      }
+
+      .slide.active {
+        opacity: 1;
+        pointer-events: auto;
+        transform: translateX(0);
+      }
+
+      .slide.prev {
+        transform: translateX(-40px);
+      }
+
+      /* Subtle purple glow in top-left */
+      .slide::before {
+        content: "";
+        position: absolute;
+        top: -60px;
+        left: -60px;
+        width: 220px;
+        height: 220px;
+        background: radial-gradient(circle, var(--accent-glow) 0%, transparent 70%);
+        pointer-events: none;
+      }
+
+      /* ── Slide content ── */
+      .slide-number {
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 1.5px;
+        text-transform: uppercase;
+        color: var(--accent);
+        margin-bottom: 18px;
+        opacity: 0.7;
+      }
+
+      .slide h1 {
+        font-size: clamp(26px, 4vw, 38px);
+        font-weight: 800;
+        letter-spacing: -1px;
+        line-height: 1.1;
+        color: var(--text);
+        margin-bottom: 28px;
+      }
+
+      /* Cover slide special heading */
+      .slide.cover h1 {
+        font-size: clamp(36px, 5.5vw, 56px);
+        background: linear-gradient(135deg, #e8e8f0 0%, var(--accent) 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        margin-bottom: 20px;
+      }
+
+      .slide-body {
+        flex: 1;
+        color: var(--text-secondary);
+        font-size: clamp(14px, 1.8vw, 17px);
+        line-height: 1.75;
+        white-space: pre-line;
+      }
+
+      .slide-body.cover-body {
+        font-size: clamp(16px, 2vw, 20px);
+        color: var(--text);
+        line-height: 1.6;
+      }
+
+      .tag-line {
+        font-size: clamp(16px, 2.2vw, 22px);
+        font-weight: 500;
+        color: var(--text);
+        margin-bottom: 16px;
+        line-height: 1.4;
+      }
+
+      .price-badge {
+        display: inline-block;
+        background: var(--accent-glow);
+        border: 1px solid rgba(168, 85, 247, 0.3);
+        border-radius: 999px;
+        padding: 6px 18px;
+        font-size: 15px;
+        font-weight: 600;
+        color: var(--accent);
+        margin-bottom: 20px;
+      }
+
+      .cover-sub {
+        color: var(--text-secondary);
+        font-size: 15px;
+        line-height: 1.6;
+      }
+
+      /* Highlight label (LIVE NOW, ROADMAP) */
+      .label {
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 1.8px;
+        text-transform: uppercase;
+        color: var(--accent);
+        margin-top: 20px;
+        margin-bottom: 4px;
+      }
+
+      /* Frequency table style */
+      .freq-row {
+        display: grid;
+        grid-template-columns: 80px 120px 1fr;
+        gap: 0;
+        padding: 5px 0;
+        border-bottom: 1px solid rgba(255,255,255,0.04);
+        font-size: clamp(13px, 1.6vw, 15px);
+        color: var(--text-secondary);
+      }
+
+      .freq-name {
+        color: var(--accent);
+        font-weight: 600;
+      }
+
+      .freq-hz {
+        color: var(--text-muted);
+        font-variant-numeric: tabular-nums;
+      }
+
+      /* Feature list */
+      .feature-item {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        padding: 5px 0;
+        font-size: clamp(13px, 1.6vw, 16px);
+        color: var(--text-secondary);
+        line-height: 1.5;
+      }
+
+      .feature-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--accent);
+        margin-top: 8px;
+        flex-shrink: 0;
+      }
+
+      /* Market stats */
+      .stat-row {
+        padding: 6px 0;
+        font-size: clamp(14px, 1.8vw, 17px);
+        color: var(--text-secondary);
+        border-bottom: 1px solid rgba(255,255,255,0.04);
+        line-height: 1.5;
+      }
+
+      .stat-row strong {
+        color: var(--text);
+      }
+
+      /* ── Navigation ── */
+      .nav-bar {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 20px;
+        padding: 18px 28px;
+        border-top: 1px solid var(--border);
+        flex-shrink: 0;
+      }
+
+      .nav-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 42px;
+        height: 42px;
+        border-radius: 50%;
+        border: 1px solid var(--border);
+        background: var(--surface);
+        color: var(--text);
+        cursor: pointer;
+        transition: background 0.15s, border-color 0.15s;
+        font-size: 16px;
+        user-select: none;
+        -webkit-user-select: none;
+      }
+
+      .nav-btn:hover:not(:disabled) {
+        background: var(--accent-glow);
+        border-color: rgba(168, 85, 247, 0.4);
+      }
+
+      .nav-btn:disabled {
+        opacity: 0.25;
+        cursor: not-allowed;
+      }
+
+      /* Dot indicators */
+      .dots {
+        display: flex;
+        gap: 7px;
+        align-items: center;
+      }
+
+      .dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--border);
+        cursor: pointer;
+        transition: background 0.2s, transform 0.2s;
+      }
+
+      .dot.active {
+        background: var(--accent);
+        transform: scale(1.4);
+      }
+
+      /* ── Keyboard hint ── */
+      .kbd-hint {
+        font-size: 11px;
+        color: var(--text-muted);
+        letter-spacing: 0.3px;
+      }
+
+      .kbd {
+        display: inline-block;
+        background: var(--border);
+        border-radius: 4px;
+        padding: 1px 5px;
+        font-size: 10px;
+        font-family: monospace;
+      }
+
+      /* ── Responsive ── */
+      @media (max-width: 640px) {
+        .stage { padding: 16px 12px; }
+        .slide { padding: 32px 28px; border-radius: 16px; }
+        .kbd-hint { display: none; }
+        .topbar { padding: 12px 16px; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="deck">
+
+      <!-- Top bar -->
+      <div class="topbar">
+        <div class="brand">
+          <div class="brand-dot"></div>
+          <span class="brand-name">Beat Haven</span>
+        </div>
+        <div class="slide-counter">
+          Slide <span id="current-num">1</span> of <span id="total-num">10</span>
+        </div>
+        <div class="topbar-right">
+          <span class="kbd-hint"><span class="kbd">&larr;</span> <span class="kbd">&rarr;</span> to navigate</span>
+        </div>
+      </div>
+
+      <!-- Progress -->
+      <div class="progress-bar">
+        <div class="progress-fill" id="progress" style="width: 10%"></div>
+      </div>
+
+      <!-- Slides -->
+      <div class="stage">
+        <div class="slides-wrapper" id="slides-wrapper">
+
+          <!-- Slide 1: Cover -->
+          <div class="slide cover active" data-index="0">
+            <div class="slide-number">01 &mdash; Introduction</div>
+            <h1>Beat Haven</h1>
+            <div class="tag-line">Tune Your Mind. Transform Your Life.</div>
+            <div class="price-badge">$4.99 / month &nbsp;&middot;&nbsp; iOS &nbsp;&middot;&nbsp; Android &nbsp;&middot;&nbsp; Web</div>
+            <div class="cover-sub">Therapeutic binaural beats &amp; ambient sound studio &mdash; on demand, in your pocket.</div>
+          </div>
+
+          <!-- Slide 2: Problem -->
+          <div class="slide" data-index="1">
+            <div class="slide-number">02 &mdash; Problem</div>
+            <h1>The Problem</h1>
+            <div class="slide-body">
+              <div class="stat-row"><strong>1 in 3 adults</strong> suffer from chronic poor sleep</div>
+              <div class="stat-row"><strong>$1 trillion</strong> lost annually to workplace stress</div>
+              <div class="stat-row"><strong>284 million people</strong> worldwide live with anxiety disorders</div>
+              <div class="stat-row" style="border:none; padding-top:18px; color: var(--text-muted); font-style: italic;">Existing solutions are expensive, habit-forming,<br>or simply don&rsquo;t stick.</div>
+            </div>
+          </div>
+
+          <!-- Slide 3: Solution -->
+          <div class="slide" data-index="2">
+            <div class="slide-number">03 &mdash; Solution</div>
+            <h1>Our Solution</h1>
+            <div class="slide-body">
+              <div class="feature-item"><div class="feature-dot"></div><div>Binaural beats guide brainwaves into target states &mdash; proven by neuroscience</div></div>
+              <div class="feature-item"><div class="feature-dot"></div><div>30-minute sessions &nbsp;&middot;&nbsp; One tap to start</div></div>
+              <div class="feature-item"><div class="feature-dot"></div><div>13 ambient noise colors, mixable in real time over any track</div></div>
+              <div class="feature-item"><div class="feature-dot"></div><div>No prescription. No side effects. No habit-forming compounds.</div></div>
+            </div>
+          </div>
+
+          <!-- Slide 4: Product -->
+          <div class="slide" data-index="3">
+            <div class="slide-number">04 &mdash; Product</div>
+            <h1>The Product</h1>
+            <div class="slide-body">
+              <div class="feature-item"><div class="feature-dot"></div><div>50 curated binaural tracks (30 min each, 5 frequency categories)</div></div>
+              <div class="feature-item"><div class="feature-dot"></div><div>13 ambient noise colors with independent per-channel volume</div></div>
+              <div class="feature-item"><div class="feature-dot"></div><div>Resonant Orb visualization with 4-7-8 breathing guide</div></div>
+              <div class="feature-item"><div class="feature-dot"></div><div>Sleep timer: 15, 30, 45, 60 min with 30-second volume fade</div></div>
+              <div class="feature-item"><div class="feature-dot"></div><div>Mood filters: Focus &nbsp;&middot;&nbsp; Sleep &nbsp;&middot;&nbsp; Calm &nbsp;&middot;&nbsp; Creativity &nbsp;&middot;&nbsp; Lucid Dreaming</div></div>
+              <div class="feature-item"><div class="feature-dot"></div><div>Favorites, unlimited playlists &amp; queue management</div></div>
+            </div>
+          </div>
+
+          <!-- Slide 5: How It Works -->
+          <div class="slide" data-index="4">
+            <div class="slide-number">05 &mdash; Science</div>
+            <h1>How It Works</h1>
+            <div class="slide-body">
+              <div class="freq-row"><span class="freq-name">Delta</span><span class="freq-hz">0.5&ndash;4.0 Hz</span><span>Deep sleep &amp; recovery</span></div>
+              <div class="freq-row"><span class="freq-name">Theta</span><span class="freq-hz">4.5&ndash;8.0 Hz</span><span>Creativity &amp; meditation</span></div>
+              <div class="freq-row"><span class="freq-name">Alpha</span><span class="freq-hz">8.5&ndash;12.0 Hz</span><span>Calm focus &amp; relaxation</span></div>
+              <div class="freq-row"><span class="freq-name">Beta</span><span class="freq-hz">13.0&ndash;30.0 Hz</span><span>Alertness &amp; concentration</span></div>
+              <div class="freq-row" style="border:none;"><span class="freq-name">Gamma</span><span class="freq-hz">32.0&ndash;50.0 Hz</span><span>Cognition &amp; peak performance</span></div>
+              <div style="margin-top: 22px; color: var(--text-muted); font-size: 13px;">Headphones required for full binaural effect.</div>
+            </div>
+          </div>
+
+          <!-- Slide 6: Market -->
+          <div class="slide" data-index="5">
+            <div class="slide-number">06 &mdash; Market</div>
+            <h1>Market Opportunity</h1>
+            <div class="slide-body">
+              <div class="stat-row"><strong>$5.6B</strong> &mdash; mental wellness app market in 2024</div>
+              <div class="stat-row"><strong>17% CAGR</strong> &mdash; projected growth through 2030</div>
+              <div class="stat-row"><strong>300M+</strong> adults seeking drug-free sleep &amp; stress relief</div>
+              <div class="stat-row" style="border:none; padding-top: 16px;">
+                Beat Haven: <strong>$4.99/month</strong> with a 7-day free trial<br>
+                <span style="color: var(--text-muted); font-size: 14px;">Lowest sustainable price point in the premium wellness category.</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Slide 7: Business Model -->
+          <div class="slide" data-index="6">
+            <div class="slide-number">07 &mdash; Business Model</div>
+            <h1>Business Model</h1>
+            <div class="slide-body">
+              <div class="stat-row"><strong>Free tier:</strong> 2 tracks per category &middot; 5-min preview &middot; one play each (10 tracks total)</div>
+              <div class="stat-row"><strong>Premium:</strong> $4.99/month &mdash; all 50 tracks, full 30-min sessions, no limits</div>
+              <div class="stat-row"><strong>7-day free trial</strong> &mdash; no credit card risk for new subscribers</div>
+              <div class="stat-row">Unlimited playlists &amp; favorites (premium only)</div>
+              <div class="stat-row" style="border:none;">Cancel anytime &middot; Daily listening habit = low churn</div>
+            </div>
+          </div>
+
+          <!-- Slide 8: Traction -->
+          <div class="slide" data-index="7">
+            <div class="slide-number">08 &mdash; Traction &amp; Roadmap</div>
+            <h1>Traction &amp; Roadmap</h1>
+            <div class="slide-body">
+              <div class="label">Live Now</div>
+              <div class="feature-item"><div class="feature-dot"></div><div>Full app on iOS, Android &amp; Web</div></div>
+              <div class="feature-item"><div class="feature-dot"></div><div>Stripe subscriptions &middot; Apple Sign-In &middot; Google OAuth</div></div>
+              <div class="feature-item"><div class="feature-dot"></div><div>Biometric login (Face ID / Touch ID)</div></div>
+              <div class="label">Roadmap</div>
+              <div class="feature-item"><div class="feature-dot"></div><div><strong>Q3 2026</strong> &mdash; Offline downloads</div></div>
+              <div class="feature-item"><div class="feature-dot"></div><div><strong>Q4 2026</strong> &mdash; Guided meditation overlay</div></div>
+              <div class="feature-item"><div class="feature-dot"></div><div><strong>2027</strong> &mdash; Apple Watch app &middot; Enterprise wellness</div></div>
+            </div>
+          </div>
+
+          <!-- Slide 9: Technology -->
+          <div class="slide" data-index="8">
+            <div class="slide-number">09 &mdash; Technology</div>
+            <h1>Technology &amp; Platform</h1>
+            <div class="slide-body">
+              <div class="feature-item"><div class="feature-dot"></div><div>React Native + Expo &mdash; one codebase, 3 platforms (iOS, Android, Web)</div></div>
+              <div class="feature-item"><div class="feature-dot"></div><div>Express.js + PostgreSQL backend with Drizzle ORM</div></div>
+              <div class="feature-item"><div class="feature-dot"></div><div>50+ WAV files streamed on demand from object storage</div></div>
+              <div class="feature-item"><div class="feature-dot"></div><div>Stripe payments &middot; Apple IAP &middot; Google Pay</div></div>
+              <div class="feature-item"><div class="feature-dot"></div><div>Apple Sign-In + Google OAuth + Biometric login</div></div>
+              <div class="feature-item"><div class="feature-dot"></div><div>Scalable architecture &mdash; no native dev silos</div></div>
+            </div>
+          </div>
+
+          <!-- Slide 10: The Ask -->
+          <div class="slide" data-index="9">
+            <div class="slide-number">10 &mdash; The Ask</div>
+            <h1>The Ask</h1>
+            <div class="slide-body">
+              <div style="margin-bottom: 16px; color: var(--text-secondary);">Seeking seed investment to:</div>
+              <div class="feature-item"><div class="feature-dot"></div><div>Scale content library to 200+ curated tracks</div></div>
+              <div class="feature-item"><div class="feature-dot"></div><div>Acquire first 100,000 paid subscribers</div></div>
+              <div class="feature-item"><div class="feature-dot"></div><div>Build offline downloads &amp; Apple Watch app</div></div>
+              <div class="feature-item"><div class="feature-dot"></div><div>Establish enterprise wellness partnerships</div></div>
+              <div class="feature-item"><div class="feature-dot"></div><div>Expand team: content curation &amp; growth</div></div>
+              <div style="margin-top: 22px; padding-top: 16px; border-top: 1px solid var(--border); color: var(--accent); font-weight: 600;">
+                BeatHavenAdmin@gmail.com
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Navigation -->
+      <div class="nav-bar">
+        <button class="nav-btn" id="prev-btn" disabled aria-label="Previous slide">&#8592;</button>
+        <div class="dots" id="dots-container"></div>
+        <button class="nav-btn" id="next-btn" aria-label="Next slide">&#8594;</button>
+      </div>
+
+    </div>
+
+    <script>
+      const slides = document.querySelectorAll('.slide');
+      const totalSlides = slides.length;
+      let current = 0;
+
+      document.getElementById('total-num').textContent = totalSlides;
+
+      // Build dots
+      const dotsContainer = document.getElementById('dots-container');
+      slides.forEach((_, i) => {
+        const dot = document.createElement('div');
+        dot.className = 'dot' + (i === 0 ? ' active' : '');
+        dot.addEventListener('click', () => goTo(i));
+        dotsContainer.appendChild(dot);
+      });
+
+      function goTo(index) {
+        if (index < 0 || index >= totalSlides) return;
+
+        const prevSlide = slides[current];
+        prevSlide.classList.remove('active');
+        prevSlide.classList.add('prev');
+
+        // Remove 'prev' after transition so it doesn't linger
+        setTimeout(() => prevSlide.classList.remove('prev'), 350);
+
+        current = index;
+        slides[current].classList.add('active');
+
+        // Update counter & progress
+        document.getElementById('current-num').textContent = current + 1;
+        document.getElementById('progress').style.width =
+          ((current + 1) / totalSlides * 100) + '%';
+
+        // Update dots
+        document.querySelectorAll('.dot').forEach((d, i) => {
+          d.classList.toggle('active', i === current);
+        });
+
+        // Update buttons
+        document.getElementById('prev-btn').disabled = current === 0;
+        document.getElementById('next-btn').disabled = current === totalSlides - 1;
+      }
+
+      document.getElementById('prev-btn').addEventListener('click', () => goTo(current - 1));
+      document.getElementById('next-btn').addEventListener('click', () => goTo(current + 1));
+
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'ArrowRight' || e.key === 'ArrowDown') goTo(current + 1);
+        if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') goTo(current - 1);
+      });
+
+      // Touch/swipe support
+      let touchStartX = 0;
+      document.addEventListener('touchstart', e => { touchStartX = e.touches[0].clientX; }, { passive: true });
+      document.addEventListener('touchend', e => {
+        const dx = e.changedTouches[0].clientX - touchStartX;
+        if (Math.abs(dx) > 50) dx < 0 ? goTo(current + 1) : goTo(current - 1);
+      }, { passive: true });
+    </script>
+  </body>
+</html>
