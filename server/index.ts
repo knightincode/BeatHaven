@@ -295,13 +295,6 @@ function setupErrorHandler(app: express.Application) {
   setupBodyParsing(app);
   setupRequestLogging(app);
 
-  // Pitch deck — served before the catch-all so it works with or without a web build
-  const pitchDeckPath = path.resolve(process.cwd(), "server", "templates", "pitch-deck.html");
-  app.get("/pitch", (_req: Request, res: Response) => {
-    res.setHeader("Content-Type", "text/html; charset=utf-8");
-    res.sendFile(pitchDeckPath);
-  });
-
   configureExpoAndLanding(app);
 
   const server = await registerRoutes(app);
