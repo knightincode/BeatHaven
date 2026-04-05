@@ -12,14 +12,6 @@ async function getStoredToken(): Promise<string | null> {
 }
 
 export function getApiUrl(): string {
-  // On web, use the current page's host so API calls always go to the same
-  // origin the app is served from — regardless of which custom domain is active.
-  // On native (iOS/Android), fall back to the build-time EXPO_PUBLIC_DOMAIN.
-  if (Platform.OS === "web" && typeof window !== "undefined" && window.location?.host) {
-    const proto = window.location.protocol || "https:";
-    return `${proto}//${window.location.host}/`;
-  }
-
   const host = process.env.EXPO_PUBLIC_DOMAIN;
   if (!host) {
     throw new Error("EXPO_PUBLIC_DOMAIN is not set");

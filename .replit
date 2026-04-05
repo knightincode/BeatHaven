@@ -86,3 +86,6 @@ EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID = "793408192278-ccf4lod5cfojfnf0lean2kgnv1n99eb
 EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID = "793408192278-1pqra370vnt03ramsp834lsi4jsmmjc2.apps.googleusercontent.com"
 GOOGLE_IOS_CLIENT_ID = "793408192278-ccf4lod5cfojfnf0lean2kgnv1n99ebg.apps.googleusercontent.com"
 GOOGLE_ANDROID_CLIENT_ID = "793408192278-1pqra370vnt03ramsp834lsi4jsmmjc2.apps.googleusercontent.com"
+
+[userenv.production]
+EXPO_PUBLIC_DOMAIN = "recursionlabs.org"
