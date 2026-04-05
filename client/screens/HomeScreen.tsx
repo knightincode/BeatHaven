@@ -111,15 +111,17 @@ export default function HomeScreen() {
   const availableMoodFilters = MOOD_FILTERS;
 
   function getTracksByCategory(category: string) {
-    return tracks?.filter((t) => t.category.toLowerCase() === category) || [];
+    const all = tracks?.filter((t) => t.category.toLowerCase() === category) || [];
+    if (hasActiveSubscription || all.length <= 2) return all;
+    const [first, ...rest] = all;
+    const last = rest.pop()!;
+    return [first, last, ...rest];
   }
 
   function isTrackPremiumLocked(track: Track, categoryTracks: Track[]): boolean {
     if (hasActiveSubscription) return false;
     if (categoryTracks.length <= 2) return false;
-    const first = categoryTracks[0];
-    const last = categoryTracks[categoryTracks.length - 1];
-    return track.id !== first.id && track.id !== last.id;
+    return track.id !== categoryTracks[0].id && track.id !== categoryTracks[1].id;
   }
 
   function handlePlayTrack(track: Track, trackQueue?: Track[]) {
