@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   View,
   StyleSheet,
@@ -164,6 +165,11 @@ export default function AccountScreen() {
       if (!res.ok) {
         const data = await res.json();
         throw new Error(data.message || "Failed to delete account");
+      }
+      if (user?.id) {
+        try {
+          await AsyncStorage.removeItem(`played_tracks_${user.id}`);
+        } catch (e) {}
       }
       closeDeleteModal();
       await logout();

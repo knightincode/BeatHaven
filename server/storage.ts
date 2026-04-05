@@ -224,13 +224,15 @@ export class Storage {
     return !!favorite;
   }
   async deleteUser(userId: string): Promise<void> {
-    const userPlaylists = await db.select().from(playlists).where(eq(playlists.userId, userId));
-    for (const playlist of userPlaylists) {
-      await db.delete(playlistTracks).where(eq(playlistTracks.playlistId, playlist.id));
-    }
-    await db.delete(playlists).where(eq(playlists.userId, userId));
-    await db.delete(favorites).where(eq(favorites.userId, userId));
-    await db.delete(users).where(eq(users.id, userId));
+    await db.transaction(async (tx) => {
+      const userPlaylists = await tx.select().from(playlists).where(eq(playlists.userId, userId));
+      for (const playlist of userPlaylists) {
+        await tx.delete(playlistTracks).where(eq(playlistTracks.playlistId, playlist.id));
+      }
+      await tx.delete(playlists).where(eq(playlists.userId, userId));
+      await tx.delete(favorites).where(eq(favorites.userId, userId));
+      await tx.delete(users).where(eq(users.id, userId));
+    });
   }
 }
 

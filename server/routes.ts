@@ -378,32 +378,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       if (user.stripeCustomerId) {
-        try {
-          const stripe = await getUncachableStripeClient();
+        const stripe = await getUncachableStripeClient();
 
-          const subscriptions = await stripe.subscriptions.list({
-            customer: user.stripeCustomerId,
-            status: "active",
-          });
-          for (const sub of subscriptions.data) {
-            await stripe.subscriptions.cancel(sub.id);
-            console.log("[Delete] Cancelled subscription:", sub.id);
-          }
-
-          const trialingSubs = await stripe.subscriptions.list({
-            customer: user.stripeCustomerId,
-            status: "trialing",
-          });
-          for (const sub of trialingSubs.data) {
-            await stripe.subscriptions.cancel(sub.id);
-            console.log("[Delete] Cancelled trialing subscription:", sub.id);
-          }
-
-          await stripe.customers.del(user.stripeCustomerId);
-          console.log("[Delete] Deleted Stripe customer:", user.stripeCustomerId);
-        } catch (stripeErr: any) {
-          console.warn("[Delete] Stripe cleanup error (continuing):", stripeErr.message);
+        const subscriptions = await stripe.subscriptions.list({
+          customer: user.stripeCustomerId,
+          status: "active",
+        });
+        for (const sub of subscriptions.data) {
+          await stripe.subscriptions.cancel(sub.id);
+          console.log("[Delete] Cancelled subscription:", sub.id);
         }
+
+        const trialingSubs = await stripe.subscriptions.list({
+          customer: user.stripeCustomerId,
+          status: "trialing",
+        });
+        for (const sub of trialingSubs.data) {
+          await stripe.subscriptions.cancel(sub.id);
+          console.log("[Delete] Cancelled trialing subscription:", sub.id);
+        }
+
+        await stripe.customers.del(user.stripeCustomerId);
+        console.log("[Delete] Deleted Stripe customer:", user.stripeCustomerId);
       }
 
       await storage.deleteUser(user.id);
