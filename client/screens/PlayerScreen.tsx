@@ -154,6 +154,7 @@ export default function PlayerScreen() {
     hidePlayer,
     dismissPreviewEnded,
     audioBlocked,
+    audioError,
     resumeBlockedAudio,
   } = usePlayer();
 
@@ -436,6 +437,18 @@ export default function PlayerScreen() {
                 Tap to start audio
               </ThemedText>
             </Pressable>
+          ) : null}
+
+          {audioError ? (
+            <View
+              style={styles.audioBlockedBanner}
+              testID="text-audio-error"
+            >
+              <Feather name="alert-circle" size={16} color="#FF6B8A" style={{ marginRight: Spacing.xs }} />
+              <ThemedText style={[styles.audioBlockedText, { color: "#FF6B8A" }]}>
+                {audioError}
+              </ThemedText>
+            </View>
           ) : null}
         </View>
       </View>

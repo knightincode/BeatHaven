@@ -82,7 +82,7 @@ export function TrackCard({
       withTiming(0, { duration: 350, easing: Easing.out(Easing.ease) }),
     );
 
-    setTimeout(onPress, 100);
+    onPress();
   }
 
   return (

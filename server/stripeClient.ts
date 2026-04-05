@@ -39,7 +39,38 @@ async function getCredentials() {
     !connectionSettings.settings.publishable ||
     !connectionSettings.settings.secret
   ) {
-    throw new Error(`Stripe ${targetEnvironment} connection not found`);
+    if (isProduction) {
+      console.warn(
+        "[Stripe] WARNING: No production Stripe connection found. Falling back to development connection. " +
+        "Configure a production Stripe connection to use live keys.",
+      );
+      const devUrl = new URL(`https://${hostname}/api/v2/connection`);
+      devUrl.searchParams.set("include_secrets", "true");
+      devUrl.searchParams.set("connector_names", connectorName);
+      devUrl.searchParams.set("environment", "development");
+
+      const devResponse = await fetch(devUrl.toString(), {
+        headers: {
+          Accept: "application/json",
+          X_REPLIT_TOKEN: xReplitToken,
+        },
+      });
+
+      const devData = await devResponse.json();
+      connectionSettings = devData.items?.[0];
+
+      if (
+        !connectionSettings ||
+        !connectionSettings.settings.publishable ||
+        !connectionSettings.settings.secret
+      ) {
+        throw new Error(
+          "Stripe connection not found in either production or development",
+        );
+      }
+    } else {
+      throw new Error(`Stripe ${targetEnvironment} connection not found`);
+    }
   }
 
   return {

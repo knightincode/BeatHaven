@@ -1,10 +1,12 @@
 import { useEffect } from "react";
 import { Platform } from "react-native";
 
-const SILENT_WAV =
-  "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=";
-
 let unlocked = false;
+let audioContext: AudioContext | null = null;
+
+export function getSharedAudioContext(): AudioContext | null {
+  return audioContext;
+}
 
 export function useWebAudioUnlock() {
   useEffect(() => {
@@ -12,32 +14,41 @@ export function useWebAudioUnlock() {
       return;
     }
 
-    const unlock = () => {
-      if (unlocked) return;
-      unlocked = true;
-      try {
-        const audio = new Audio(SILENT_WAV);
-        audio.volume = 0;
-        const p = audio.play();
-        if (p) {
-          p.then(() => {
-            audio.pause();
-            audio.src = "";
-          }).catch(() => {});
-        }
-      } catch {
-      }
-    };
-
-    document.addEventListener("click", unlock, { once: true, capture: true });
-    document.addEventListener("touchstart", unlock, {
-      once: true,
-      capture: true,
-    });
-
-    return () => {
+    const cleanup = () => {
       document.removeEventListener("click", unlock, { capture: true });
       document.removeEventListener("touchstart", unlock, { capture: true });
     };
+
+    const unlock = async () => {
+      if (unlocked) return;
+      unlocked = true;
+      cleanup();
+      try {
+        const AC =
+          window.AudioContext ||
+          (window as any).webkitAudioContext;
+        if (AC) {
+          if (!audioContext) {
+            audioContext = new AC();
+          }
+          if (audioContext.state === "suspended") {
+            await audioContext.resume();
+          }
+        }
+
+        const audio = new Audio(
+          "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=",
+        );
+        audio.volume = 0;
+        await audio.play().catch(() => {});
+        audio.pause();
+        audio.src = "";
+      } catch {}
+    };
+
+    document.addEventListener("click", unlock, { capture: true });
+    document.addEventListener("touchstart", unlock, { capture: true });
+
+    return cleanup;
   }, []);
 }

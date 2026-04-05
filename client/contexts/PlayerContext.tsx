@@ -12,7 +12,7 @@ import { Audio, AVPlaybackStatus } from "expo-av";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useAuth } from "@/contexts/AuthContext";
 import { getApiUrl } from "@/lib/query-client";
-import { useWebAudioUnlock } from "@/hooks/useWebAudioUnlock";
+import { useWebAudioUnlock, getSharedAudioContext } from "@/hooks/useWebAudioUnlock";
 
 function resolveAudioUrl(fileUrl: string): string {
   if (fileUrl.startsWith("http://") || fileUrl.startsWith("https://")) {
@@ -73,6 +73,7 @@ interface PlayerContextType {
   hidePlayer: () => void;
   dismissPreviewEnded: () => void;
   audioBlocked: boolean;
+  audioError: string | null;
   resumeBlockedAudio: () => Promise<void>;
 }
 
@@ -88,6 +89,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [audioBlocked, setAudioBlocked] = useState(false);
+  const [audioError, setAudioError] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
   const [duration, setDuration] = useState(0);
   const [loopMode, setLoopMode] = useState<LoopMode>("none");
@@ -416,6 +418,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       setIsPlayerVisible(true);
       setIsLoading(true);
       setPreviewEnded(false);
+      setAudioError(null);
       previewEndedRef.current = false;
 
       if (Platform.OS === "web") {
@@ -428,6 +431,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         const audioUrl = resolveAudioUrl(track.fileUrl);
         const audio = document.createElement("audio") as HTMLAudioElement;
         audio.preload = "auto";
+        audio.crossOrigin = "anonymous";
         audio.src = audioUrl;
         webAudioRef.current = audio;
 
@@ -498,11 +502,16 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
             "src:",
             audio.src,
           );
+          setAudioError("Unable to load audio. Please try again.");
           setIsPlaying(false);
           setIsLoading(false);
         });
 
         try {
+          const ctx = getSharedAudioContext();
+          if (ctx && ctx.state === "suspended") {
+            await ctx.resume();
+          }
           await audio.play();
           setAudioBlocked(false);
           setIsPlaying(true);
@@ -516,7 +525,10 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
             setIsLoading(false);
             setIsPlaying(false);
           } else {
-            throw playErr;
+            console.error("[Player] Web audio play error:", playErr);
+            setAudioError("Failed to play audio. Please try again.");
+            setIsPlaying(false);
+            setIsLoading(false);
           }
         }
       } else {
@@ -621,10 +633,20 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     if (Platform.OS === "web") {
       if (webAudioRef.current) {
         try {
+          const ctx = getSharedAudioContext();
+          if (ctx && ctx.state === "suspended") {
+            await ctx.resume();
+          }
           await webAudioRef.current.play();
           setIsPlaying(true);
           setAudioBlocked(false);
-        } catch (err) {
+          setAudioError(null);
+        } catch (err: unknown) {
+          if (err instanceof Error && err.name === "NotAllowedError") {
+            setAudioBlocked(true);
+          } else {
+            setAudioError("Failed to resume audio. Please try again.");
+          }
           console.warn("[Player] Web resume failed:", err);
         }
       }
@@ -700,10 +722,21 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   async function resumeBlockedAudio() {
     if (Platform.OS === "web" && webAudioRef.current) {
       try {
+        const ctx = getSharedAudioContext();
+        if (ctx && ctx.state === "suspended") {
+          await ctx.resume();
+        }
         await webAudioRef.current.play();
         setAudioBlocked(false);
+        setAudioError(null);
         setIsPlaying(true);
-      } catch {}
+        setIsLoading(false);
+      } catch (err: unknown) {
+        if (err instanceof Error && err.name !== "NotAllowedError") {
+          setAudioError("Failed to play audio. Please try again.");
+        }
+        console.error("[Player] resumeBlockedAudio failed:", err);
+      }
     }
   }
 
@@ -745,6 +778,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         hidePlayer,
         dismissPreviewEnded,
         audioBlocked,
+        audioError,
         resumeBlockedAudio,
       }}
     >
