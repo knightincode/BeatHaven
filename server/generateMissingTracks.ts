@@ -1,4 +1,5 @@
 import { Client } from "@replit/object-storage";
+import { preCacheFileSize } from "./objectStorage";
 
 const client = new Client();
 
@@ -91,6 +92,7 @@ export async function ensureMissingTracksExist(): Promise<void> {
     try {
       const check = await client.downloadAsBytes(track.objectPath);
       if (check.ok && check.value[0].length >= MIN_VALID_SIZE) {
+        preCacheFileSize(track.objectPath, check.value[0].length);
         console.log(`[Audio] ${track.label} already present (${(check.value[0].length / 1024 / 1024).toFixed(0)} MB), skipping`);
         continue;
       }

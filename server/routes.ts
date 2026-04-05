@@ -11,7 +11,7 @@ import {
 import { verifyAppleIdentityToken } from "./appleAuth";
 import { verifyGoogleIdToken } from "./googleAuth";
 import { getUncachableStripeClient, getStripePublishableKey } from "./stripeClient";
-import { uploadAudioFile, getAudioFileSize, openAudioStream } from "./objectStorage";
+import { uploadAudioFile, getAudioFileAsBuffer, testStorageConnectivity } from "./objectStorage";
 import { User } from "../shared/schema";
 import { db } from "./db";
 import { sql } from "drizzle-orm";
@@ -435,14 +435,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.get("/api/audio/:folder/:filename", async (req: Request, res: Response) => {
+    let objectPath = "";
     try {
-      const objectPath = decodeURIComponent(`${req.params.folder}/${req.params.filename}`);
+      objectPath = decodeURIComponent(`${req.params.folder}/${req.params.filename}`);
+      console.log(`[Audio] Request: ${objectPath} range=${req.headers.range || "none"}`);
 
-      const totalSize = await getAudioFileSize(objectPath);
-      if (!totalSize) {
+      const fileData = await getAudioFileAsBuffer(objectPath);
+      if (!fileData) {
+        console.error(`[Audio] File not found in Object Storage: ${objectPath}`);
         return res.status(404).json({ message: "Audio file not found" });
       }
 
+      const { buffer, size: totalSize } = fileData;
       const range = req.headers.range;
 
       let start = 0;
@@ -475,7 +479,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         "Accept-Ranges": "bytes",
         "Access-Control-Allow-Origin": "*",
         "Access-Control-Allow-Methods": "GET, OPTIONS",
-        "Cache-Control": "no-cache",
+        "Cache-Control": "public, max-age=86400",
       };
 
       if (range) {
@@ -485,57 +489,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         res.writeHead(200, headers);
       }
 
-      const stream = openAudioStream(objectPath);
-      let bytesSkipped = 0;
-      let bytesSent = 0;
-
-      stream.on("data", (chunk: Buffer) => {
-        if (res.writableEnded || bytesSent >= chunkSize) {
-          stream.destroy();
-          return;
-        }
-
-        let data = chunk;
-
-        if (bytesSkipped < start) {
-          const toSkip = Math.min(start - bytesSkipped, chunk.length);
-          data = chunk.subarray(toSkip);
-          bytesSkipped += toSkip;
-        } else {
-          bytesSkipped += chunk.length - data.length;
-        }
-
-        if (data.length === 0) return;
-
-        const remaining = chunkSize - bytesSent;
-        if (data.length > remaining) {
-          data = data.subarray(0, remaining);
-        }
-
-        res.write(data);
-        bytesSent += data.length;
-
-        if (bytesSent >= chunkSize) {
-          stream.destroy();
-          if (!res.writableEnded) res.end();
-        }
-      });
-
-      stream.on("error", (err: Error) => {
-        console.error("[Audio] Stream error:", err.message);
-        if (!res.writableEnded) res.end();
-      });
-
-      stream.on("end", () => {
-        if (!res.writableEnded) res.end();
-      });
-
-      stream.on("close", () => {
-        if (!res.writableEnded) res.end();
-      });
+      const slice = buffer.subarray(start, end + 1);
+      res.end(slice);
 
     } catch (error: any) {
-      console.error("Audio stream error:", error);
+      console.error(`[Audio] Error serving ${objectPath}:`, error?.message || error, error?.stack);
       if (!res.headersSent) {
         res.status(500).json({ message: "Failed to stream audio" });
       }
@@ -961,6 +919,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Random quote error:", error);
       res.json({ text: "Find your inner peace.", author: null });
+    }
+  });
+
+  app.get("/api/health/storage", async (_req: Request, res: Response) => {
+    try {
+      const result = await testStorageConnectivity();
+      res.json({
+        status: result.bytesOk ? "ok" : "degraded",
+        bytesAccess: result.bytesOk,
+        streamAccess: result.streamOk,
+        error: result.error || null,
+      });
+    } catch (error: any) {
+      console.error("[Health] Storage check error:", error);
+      res.status(500).json({ status: "error", error: error.message });
     }
   });
 

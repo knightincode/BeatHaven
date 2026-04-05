@@ -45,7 +45,7 @@ Preferred communication style: Simple, everyday language.
 
 **Audio URL Architecture**: The server returns relative paths (e.g. `/api/audio/Delta/...`) from all track API endpoints. The client resolves these to full URLs using `getApiUrl()` (which includes the correct port 5000). This ensures audio requests always reach the Express backend on port 5000, not the Expo frontend on port 80. The `resolveAudioUrl()` helper in `PlayerContext.tsx` handles this conversion using `new URL(fileUrl, getApiUrl())`.
 
-**Audio Streaming**: The `/api/audio/:folder/:filename` route streams audio directly from Replit Object Storage without buffering the full file in memory. File sizes are read from the WAV RIFF header (8 bytes) and cached in-memory. Range requests (for audio scrubbing) are handled by streaming from object storage and skipping/limiting bytes as needed. First-byte latency is ~200-300ms for cached sizes (vs. 3+ seconds with the old full-download approach).
+**Audio Serving**: The `/api/audio/:folder/:filename` route uses `downloadAsBytes` from Replit Object Storage to load audio files into an in-memory LRU cache (max 10 entries). This replaces the previous `downloadAsStream` approach which failed in production deployments. Range requests are handled by slicing the buffer. File sizes are cached in a separate map. A storage health endpoint at `/api/health/storage` verifies both bytes and stream access to Object Storage.
 
 ### Data Storage
 
