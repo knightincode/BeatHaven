@@ -525,20 +525,19 @@ export async function seedTracks(): Promise<void> {
 }
 
 export async function preCacheAllTrackSizes(): Promise<void> {
-  let cached = 0;
+  let verified = 0;
   let missing = 0;
   let errors = 0;
-  const batchSize = 5;
+  const batchSize = 10;
 
   for (let i = 0; i < TRACKS.length; i += batchSize) {
     const batch = TRACKS.slice(i, i + batchSize);
     await Promise.allSettled(
       batch.map(async (track) => {
         try {
-          const result = await storageClient.downloadAsBytes(track.fileUrl);
-          if (result.ok) {
-            preCacheFileSize(track.fileUrl, result.value[0].length);
-            cached++;
+          const result = await storageClient.exists(track.fileUrl);
+          if (result.ok && result.value) {
+            verified++;
           } else {
             missing++;
             console.error(`[Tracks] Missing in Object Storage: ${track.fileUrl}`);
@@ -551,5 +550,5 @@ export async function preCacheAllTrackSizes(): Promise<void> {
     );
   }
 
-  console.log(`[Tracks] Pre-cached ${cached} track sizes, ${missing} missing, ${errors} errors`);
+  console.log(`[Tracks] Verified ${verified} tracks in storage, ${missing} missing, ${errors} errors`);
 }

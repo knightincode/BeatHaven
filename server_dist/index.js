@@ -479,19 +479,27 @@ async function getStripeSync() {
 import { Client } from "@replit/object-storage";
 var client = new Client();
 var fileSizeCache = /* @__PURE__ */ new Map();
-var MAX_BUFFER_CACHE_ENTRIES = 10;
+var MAX_BUFFER_CACHE_BYTES = 500 * 1024 * 1024;
+var currentCacheBytes = 0;
 var audioBufferCache = /* @__PURE__ */ new Map();
 function evictBufferCache() {
-  if (audioBufferCache.size <= MAX_BUFFER_CACHE_ENTRIES) return;
-  let oldestKey = null;
-  let oldestTime = Infinity;
-  for (const [key, entry] of audioBufferCache) {
-    if (entry.lastAccess < oldestTime) {
-      oldestTime = entry.lastAccess;
-      oldestKey = key;
+  while (currentCacheBytes > MAX_BUFFER_CACHE_BYTES && audioBufferCache.size > 0) {
+    let oldestKey = null;
+    let oldestTime = Infinity;
+    for (const [key, entry] of audioBufferCache) {
+      if (entry.lastAccess < oldestTime) {
+        oldestTime = entry.lastAccess;
+        oldestKey = key;
+      }
+    }
+    if (oldestKey) {
+      const evicted = audioBufferCache.get(oldestKey);
+      if (evicted) currentCacheBytes -= evicted.buffer.length;
+      audioBufferCache.delete(oldestKey);
+    } else {
+      break;
     }
   }
-  if (oldestKey) audioBufferCache.delete(oldestKey);
 }
 async function uploadAudioFile(fileName, fileBuffer) {
   const objectName = `audio/${Date.now()}-${fileName}`;
@@ -500,6 +508,38 @@ async function uploadAudioFile(fileName, fileBuffer) {
 }
 function preCacheFileSize(objectName, size) {
   fileSizeCache.set(objectName, size);
+}
+async function tryStreamFallback(objectName) {
+  return new Promise((resolve2) => {
+    try {
+      const stream = client.downloadAsStream(objectName);
+      const chunks = [];
+      let totalLength = 0;
+      const timeout = setTimeout(() => {
+        stream.destroy();
+        resolve2({ status: "error", message: "Stream fallback timed out after 60s" });
+      }, 6e4);
+      stream.on("data", (chunk) => {
+        chunks.push(chunk);
+        totalLength += chunk.length;
+      });
+      stream.on("end", () => {
+        clearTimeout(timeout);
+        const buffer = Buffer.concat(chunks, totalLength);
+        fileSizeCache.set(objectName, buffer.length);
+        audioBufferCache.set(objectName, { buffer, lastAccess: Date.now() });
+        currentCacheBytes += buffer.length;
+        evictBufferCache();
+        resolve2({ status: "ok", buffer, size: buffer.length });
+      });
+      stream.on("error", (err) => {
+        clearTimeout(timeout);
+        resolve2({ status: "error", message: `Stream fallback failed: ${err?.message || err}` });
+      });
+    } catch (err) {
+      resolve2({ status: "error", message: `Stream fallback exception: ${err?.message || err}` });
+    }
+  });
 }
 async function getAudioFileAsBuffer(objectName) {
   const cached = audioBufferCache.get(objectName);
@@ -513,15 +553,16 @@ async function getAudioFileAsBuffer(objectName) {
       const buffer = result.value[0];
       fileSizeCache.set(objectName, buffer.length);
       audioBufferCache.set(objectName, { buffer, lastAccess: Date.now() });
+      currentCacheBytes += buffer.length;
       evictBufferCache();
       return { status: "ok", buffer, size: buffer.length };
     }
-    console.error(`[Audio] downloadAsBytes returned not-ok for ${objectName}`);
-    return { status: "not_found" };
+    console.warn(`[Audio] downloadAsBytes not-ok for ${objectName}, trying stream fallback`);
+    return await tryStreamFallback(objectName);
   } catch (err) {
     const message = err?.message || String(err);
-    console.error(`[Audio] getAudioFileAsBuffer error for ${objectName}:`, message);
-    return { status: "error", message };
+    console.warn(`[Audio] downloadAsBytes error for ${objectName}: ${message}, trying stream fallback`);
+    return await tryStreamFallback(objectName);
   }
 }
 async function testStorageConnectivity() {
@@ -1912,19 +1953,18 @@ async function seedTracks() {
   }
 }
 async function preCacheAllTrackSizes() {
-  let cached = 0;
+  let verified = 0;
   let missing = 0;
   let errors = 0;
-  const batchSize = 5;
+  const batchSize = 10;
   for (let i = 0; i < TRACKS.length; i += batchSize) {
     const batch = TRACKS.slice(i, i + batchSize);
     await Promise.allSettled(
       batch.map(async (track) => {
         try {
-          const result = await storageClient.downloadAsBytes(track.fileUrl);
-          if (result.ok) {
-            preCacheFileSize(track.fileUrl, result.value[0].length);
-            cached++;
+          const result = await storageClient.exists(track.fileUrl);
+          if (result.ok && result.value) {
+            verified++;
           } else {
             missing++;
             console.error(`[Tracks] Missing in Object Storage: ${track.fileUrl}`);
@@ -1936,7 +1976,7 @@ async function preCacheAllTrackSizes() {
       })
     );
   }
-  console.log(`[Tracks] Pre-cached ${cached} track sizes, ${missing} missing, ${errors} errors`);
+  console.log(`[Tracks] Verified ${verified} tracks in storage, ${missing} missing, ${errors} errors`);
 }
 
 // server/generateMissingTracks.ts

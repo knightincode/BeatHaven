@@ -5,20 +5,28 @@ const client = new Client();
 
 const fileSizeCache = new Map<string, number>();
 
-const MAX_BUFFER_CACHE_ENTRIES = 10;
+const MAX_BUFFER_CACHE_BYTES = 500 * 1024 * 1024;
+let currentCacheBytes = 0;
 const audioBufferCache = new Map<string, { buffer: Buffer; lastAccess: number }>();
 
 function evictBufferCache(): void {
-  if (audioBufferCache.size <= MAX_BUFFER_CACHE_ENTRIES) return;
-  let oldestKey: string | null = null;
-  let oldestTime = Infinity;
-  for (const [key, entry] of audioBufferCache) {
-    if (entry.lastAccess < oldestTime) {
-      oldestTime = entry.lastAccess;
-      oldestKey = key;
+  while (currentCacheBytes > MAX_BUFFER_CACHE_BYTES && audioBufferCache.size > 0) {
+    let oldestKey: string | null = null;
+    let oldestTime = Infinity;
+    for (const [key, entry] of audioBufferCache) {
+      if (entry.lastAccess < oldestTime) {
+        oldestTime = entry.lastAccess;
+        oldestKey = key;
+      }
+    }
+    if (oldestKey) {
+      const evicted = audioBufferCache.get(oldestKey);
+      if (evicted) currentCacheBytes -= evicted.buffer.length;
+      audioBufferCache.delete(oldestKey);
+    } else {
+      break;
     }
   }
-  if (oldestKey) audioBufferCache.delete(oldestKey);
 }
 
 export async function uploadAudioFile(
@@ -59,6 +67,7 @@ export async function getAudioFileSize(objectName: string): Promise<number | nul
       const buffer = result.value[0];
       fileSizeCache.set(objectName, buffer.length);
       audioBufferCache.set(objectName, { buffer, lastAccess: Date.now() });
+      currentCacheBytes += buffer.length;
       evictBufferCache();
       return buffer.length;
     }
@@ -79,6 +88,41 @@ export type AudioBufferResult =
   | { status: "not_found" }
   | { status: "error"; message: string };
 
+async function tryStreamFallback(objectName: string): Promise<AudioBufferResult> {
+  return new Promise((resolve) => {
+    try {
+      const stream = client.downloadAsStream(objectName) as Readable;
+      const chunks: Buffer[] = [];
+      let totalLength = 0;
+
+      const timeout = setTimeout(() => {
+        stream.destroy();
+        resolve({ status: "error", message: "Stream fallback timed out after 60s" });
+      }, 60000);
+
+      stream.on("data", (chunk: Buffer) => {
+        chunks.push(chunk);
+        totalLength += chunk.length;
+      });
+      stream.on("end", () => {
+        clearTimeout(timeout);
+        const buffer = Buffer.concat(chunks, totalLength);
+        fileSizeCache.set(objectName, buffer.length);
+        audioBufferCache.set(objectName, { buffer, lastAccess: Date.now() });
+        currentCacheBytes += buffer.length;
+        evictBufferCache();
+        resolve({ status: "ok", buffer, size: buffer.length });
+      });
+      stream.on("error", (err: any) => {
+        clearTimeout(timeout);
+        resolve({ status: "error", message: `Stream fallback failed: ${err?.message || err}` });
+      });
+    } catch (err: any) {
+      resolve({ status: "error", message: `Stream fallback exception: ${err?.message || err}` });
+    }
+  });
+}
+
 export async function getAudioFileAsBuffer(objectName: string): Promise<AudioBufferResult> {
   const cached = audioBufferCache.get(objectName);
   if (cached) {
@@ -92,15 +136,16 @@ export async function getAudioFileAsBuffer(objectName: string): Promise<AudioBuf
       const buffer = result.value[0];
       fileSizeCache.set(objectName, buffer.length);
       audioBufferCache.set(objectName, { buffer, lastAccess: Date.now() });
+      currentCacheBytes += buffer.length;
       evictBufferCache();
       return { status: "ok", buffer, size: buffer.length };
     }
-    console.error(`[Audio] downloadAsBytes returned not-ok for ${objectName}`);
-    return { status: "not_found" };
+    console.warn(`[Audio] downloadAsBytes not-ok for ${objectName}, trying stream fallback`);
+    return await tryStreamFallback(objectName);
   } catch (err: any) {
     const message = err?.message || String(err);
-    console.error(`[Audio] getAudioFileAsBuffer error for ${objectName}:`, message);
-    return { status: "error", message };
+    console.warn(`[Audio] downloadAsBytes error for ${objectName}: ${message}, trying stream fallback`);
+    return await tryStreamFallback(objectName);
   }
 }
 
