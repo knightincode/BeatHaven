@@ -19,6 +19,7 @@ import RootStackNavigator from "@/navigation/RootStackNavigator";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { PlayerProvider } from "@/contexts/PlayerContext";
+import { HeadphonesTipProvider } from "@/contexts/HeadphonesTipContext";
 import { OfflineIndicator } from "@/components/OfflineIndicator";
 
 SplashScreen.preventAutoHideAsync();
@@ -46,17 +47,19 @@ export default function App() {
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
           <PlayerProvider>
-            <SafeAreaProvider>
-              <GestureHandlerRootView style={styles.root}>
-                <KeyboardProvider>
-                  <NavigationContainer>
-                    <RootStackNavigator />
-                  </NavigationContainer>
-                  <OfflineIndicator />
-                  <StatusBar style="light" />
-                </KeyboardProvider>
-              </GestureHandlerRootView>
-            </SafeAreaProvider>
+            <HeadphonesTipProvider>
+              <SafeAreaProvider>
+                <GestureHandlerRootView style={styles.root}>
+                  <KeyboardProvider>
+                    <NavigationContainer>
+                      <RootStackNavigator />
+                    </NavigationContainer>
+                    <OfflineIndicator />
+                    <StatusBar style="light" />
+                  </KeyboardProvider>
+                </GestureHandlerRootView>
+              </SafeAreaProvider>
+            </HeadphonesTipProvider>
           </PlayerProvider>
         </AuthProvider>
       </QueryClientProvider>

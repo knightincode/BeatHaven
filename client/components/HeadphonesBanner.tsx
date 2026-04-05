@@ -1,31 +1,18 @@
-import React, { useState, useEffect } from "react";
+import React from "react";
 import { View, StyleSheet, Pressable } from "react-native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Feather } from "@expo/vector-icons";
 import { ThemedText } from "@/components/ThemedText";
 import { Spacing, BorderRadius } from "@/constants/theme";
-
-const STORAGE_KEY = "headphones_tip_dismissed";
+import { useHeadphonesTip } from "@/contexts/HeadphonesTipContext";
 
 interface HeadphonesBannerProps {
   variant?: "default" | "overlay";
 }
 
 export function HeadphonesBanner({ variant = "default" }: HeadphonesBannerProps) {
-  const [visible, setVisible] = useState(false);
+  const { dismissed, dismiss } = useHeadphonesTip();
 
-  useEffect(() => {
-    AsyncStorage.getItem(STORAGE_KEY).then((val) => {
-      if (val !== "true") setVisible(true);
-    });
-  }, []);
-
-  async function handleDismiss() {
-    await AsyncStorage.setItem(STORAGE_KEY, "true");
-    setVisible(false);
-  }
-
-  if (!visible) return null;
+  if (dismissed) return null;
 
   const isOverlay = variant === "overlay";
 
@@ -40,7 +27,7 @@ export function HeadphonesBanner({ variant = "default" }: HeadphonesBannerProps)
           Use a comfortable, low volume for best results
         </ThemedText>
       </View>
-      <Pressable onPress={handleDismiss} hitSlop={10} testID="button-dismiss-headphones-tip">
+      <Pressable onPress={dismiss} hitSlop={10} testID="button-dismiss-headphones-tip">
         <Feather name="x" size={16} color="rgba(255,255,255,0.5)" />
       </Pressable>
     </View>
