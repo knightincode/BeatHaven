@@ -1,5 +1,4 @@
 import { Client } from "@replit/object-storage";
-import { preCacheFileSize } from "./objectStorage";
 
 const client = new Client();
 
@@ -90,18 +89,22 @@ const MISSING_TRACKS = [
 export async function ensureMissingTracksExist(): Promise<void> {
   for (const track of MISSING_TRACKS) {
     try {
-      const check = await client.downloadAsBytes(track.objectPath);
-      if (check.ok && check.value[0].length >= MIN_VALID_SIZE) {
-        preCacheFileSize(track.objectPath, check.value[0].length);
-        console.log(`[Audio] ${track.label} already present (${(check.value[0].length / 1024 / 1024).toFixed(0)} MB), skipping`);
+      const existsResult = await client.exists(track.objectPath);
+      if (existsResult.ok && existsResult.value === true) {
+        console.log(`[Audio] ${track.label} already present in storage, skipping`);
         continue;
       }
 
       console.log(`[Audio] Generating ${track.label} (30 min, 22050 Hz)...`);
       const wav = createBinauralWav(track.baseHz, track.beatHz);
       console.log(`[Audio] Uploading ${track.objectPath} (${(wav.length / 1024 / 1024).toFixed(0)} MB)...`);
-      await client.uploadFromBytes(track.objectPath, wav);
-      console.log(`[Audio] Done: ${track.objectPath}`);
+
+      const uploadResult = await client.uploadFromBytes(track.objectPath, wav);
+      if (uploadResult.ok) {
+        console.log(`[Audio] Done: ${track.objectPath} (${(wav.length / 1024 / 1024).toFixed(0)} MB)`);
+      } else {
+        console.error(`[Audio] Upload failed for ${track.objectPath}`);
+      }
     } catch (err) {
       console.error(`[Audio] Failed to ensure ${track.label}:`, err);
     }

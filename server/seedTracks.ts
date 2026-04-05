@@ -1,6 +1,11 @@
 import { db } from "./db";
 import { audioTracks } from "../shared/schema";
-import { getFileSizeFromStorage } from "./objectStorage";
+import { preCacheFileSize, WAV_MAIN_SIZE, WAV_GENERATED_SIZE } from "./objectStorage";
+
+const GENERATED_TRACK_PATHS = new Set([
+  "Alpha/AlphaBinauralBeat_200_9-5_TheZone.wav",
+  "Beta/BetaBinauralBeat_296_27-0_BrainPerformance.wav",
+]);
 
 const TRACKS = [
   {
@@ -521,25 +526,12 @@ export async function seedTracks(): Promise<void> {
   }
 }
 
-export async function preCacheAllTrackSizes(): Promise<void> {
+export function preCacheAllTrackSizes(): void {
   let cached = 0;
-  let missing = 0;
-  let errors = 0;
-
   for (const track of TRACKS) {
-    try {
-      const size = await getFileSizeFromStorage(track.fileUrl);
-      if (size !== null) {
-        cached++;
-      } else {
-        missing++;
-        console.error(`[Tracks] Could not determine size for: ${track.fileUrl}`);
-      }
-    } catch (err: any) {
-      errors++;
-      console.error(`[Tracks] Error pre-caching ${track.fileUrl}: ${err?.message || err}`);
-    }
+    const size = GENERATED_TRACK_PATHS.has(track.fileUrl) ? WAV_GENERATED_SIZE : WAV_MAIN_SIZE;
+    preCacheFileSize(track.fileUrl, size);
+    cached++;
   }
-
-  console.log(`[Tracks] Pre-cached ${cached} track sizes, ${missing} missing, ${errors} errors`);
+  console.log(`[Tracks] Pre-cached ${cached} track sizes from constants (no network calls)`);
 }

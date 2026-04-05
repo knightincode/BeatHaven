@@ -12,7 +12,13 @@ import {
 import { verifyAppleIdentityToken } from "./appleAuth";
 import { verifyGoogleIdToken } from "./googleAuth";
 import { getUncachableStripeClient, getStripePublishableKey } from "./stripeClient";
-import { uploadAudioFile, getAudioFilePath, testStorageConnectivity } from "./objectStorage";
+import {
+  uploadAudioFile,
+  getAudioFilePath,
+  getAudioStreamOrDisk,
+  getCachedFileSize,
+  testStorageConnectivity,
+} from "./objectStorage";
 import { User } from "../shared/schema";
 import { db } from "./db";
 import { sql } from "drizzle-orm";
@@ -439,7 +445,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
     let objectPath = "";
     try {
       objectPath = decodeURIComponent(`${req.params.folder}/${req.params.filename}`);
-      console.log(`[Audio] Request: ${objectPath} range=${req.headers.range || "none"}`);
+
+      const rawRange = req.headers.range;
+      let rangeStart = 0;
+      if (rawRange) {
+        const firstPart = rawRange.replace(/bytes=/, "").split("-")[0];
+        rangeStart = parseInt(firstPart, 10) || 0;
+      }
+
+      console.log(`[Audio] Request: ${objectPath} range=${rawRange || "none"} start=${rangeStart}`);
+
+      const knownSize = getCachedFileSize(objectPath);
+
+      if (rangeStart === 0 && knownSize !== undefined) {
+        const serveResult = await getAudioStreamOrDisk(objectPath, knownSize);
+
+        if (serveResult.status === "not_found") {
+          return res.status(404).json({ message: "Audio file not found" });
+        }
+        if (serveResult.status === "error") {
+          console.error(`[Audio] Error for ${objectPath}:`, (serveResult as any).message);
+          return res.status(500).json({ message: "Failed to retrieve audio file" });
+        }
+
+        const totalSize = serveResult.size;
+
+        res.setHeader("Content-Type", "audio/wav");
+        res.setHeader("Accept-Ranges", "bytes");
+        res.setHeader("Access-Control-Allow-Origin", "*");
+        res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+        res.setHeader("Cache-Control", "public, max-age=86400");
+        res.setHeader("Content-Range", `bytes 0-${totalSize - 1}/${totalSize}`);
+        res.setHeader("Content-Length", totalSize);
+        res.writeHead(206);
+
+        if (serveResult.mode === "disk") {
+          const readStream = fs.createReadStream(serveResult.filePath);
+          readStream.on("error", (err: any) => {
+            console.error(`[Audio] Disk read error for ${objectPath}:`, err?.message);
+          });
+          readStream.pipe(res);
+        } else {
+          console.log(`[Audio] Streaming ${objectPath} (${(totalSize / 1024 / 1024).toFixed(1)} MB) directly to client`);
+          serveResult.stream.on("error", (err: any) => {
+            console.error(`[Audio] Storage stream error for ${objectPath}:`, err?.message || err);
+          });
+          serveResult.stream.pipe(res);
+        }
+        return;
+      }
 
       const fileResult = await getAudioFilePath(objectPath);
       if (fileResult.status === "error") {
@@ -484,12 +538,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         res.writeHead(206);
 
         const readStream = fs.createReadStream(filePath, { start, end });
+        readStream.on("error", (err: any) => {
+          console.error(`[Audio] Disk read error for ${objectPath}:`, err?.message);
+        });
         readStream.pipe(res);
       } else {
         res.setHeader("Content-Length", totalSize);
         res.writeHead(200);
 
         const readStream = fs.createReadStream(filePath);
+        readStream.on("error", (err: any) => {
+          console.error(`[Audio] Disk read error for ${objectPath}:`, err?.message);
+        });
         readStream.pipe(res);
       }
 

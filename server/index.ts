@@ -311,8 +311,8 @@ function setupErrorHandler(app: express.Application) {
 
   await seedDemoUser();
   await seedTracks();
-  await ensureMissingTracksExist();
-  preCacheAllTrackSizes().catch((err) => console.error("[Tracks] Pre-cache error:", err));
+  preCacheAllTrackSizes();
+  ensureMissingTracksExist().catch((err) => console.error("[Tracks] Missing track error:", err));
 
   setupErrorHandler(app);
 
