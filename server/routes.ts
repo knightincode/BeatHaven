@@ -694,22 +694,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const baseUrl = `https://${process.env.REPLIT_DOMAINS?.split(",")[0]}`;
 
+      const STRIPE_PRODUCT_ID = "prod_UHEEX07B2s2U5m";
+      const prices = await stripe.prices.list({
+        product: STRIPE_PRODUCT_ID,
+        active: true,
+        limit: 1,
+      });
+
+      if (!prices.data.length) {
+        return res.status(500).json({ message: "No active price found for subscription product" });
+      }
+
+      const priceId = prices.data[0].id;
+
       const session = await stripe.checkout.sessions.create({
         customer: customerId,
         payment_method_types: ["card"],
         line_items: [
           {
-            price_data: {
-              currency: "usd",
-              product_data: {
-                name: "Beat Haven Premium",
-                description: "Unlimited access to all binaural beats",
-              },
-              unit_amount: 99,
-              recurring: {
-                interval: "month",
-              },
-            },
+            price: priceId,
             quantity: 1,
           },
         ],
