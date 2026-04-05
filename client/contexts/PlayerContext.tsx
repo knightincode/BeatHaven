@@ -548,11 +548,11 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
     if (!preflight.ok) {
       if (preflight.retryable && !isRetry) {
-        console.warn(`[Player] Pre-flight failed for '${track.title}', retrying in ${RETRY_DELAY_MS}ms: ${preflight.message}`);
+        console.warn(`[Player] Pre-flight failed for '${track.title}' (url=${audioUrl}), retrying in ${RETRY_DELAY_MS}ms: ${preflight.message}`);
         await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
         return attemptWebPlay(track, audioUrl, gen, true);
       }
-      console.error(`[Player] Pre-flight failed for '${track.title}': ${preflight.message}`);
+      console.error(`[Player] Pre-flight failed for '${track.title}' (url=${audioUrl}): ${preflight.message}`);
       setAudioError(preflight.message);
       setIsPlaying(false);
       setIsLoading(false);
@@ -581,7 +581,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       } else {
         const errName = playErr instanceof Error ? playErr.name : "Unknown";
         const errMsg = playErr instanceof Error ? playErr.message : String(playErr);
-        console.error(`[Player] play() failed for '${track.title}': ${errName}: ${errMsg}`);
+        console.error(`[Player] play() failed for '${track.title}' (url=${audioUrl}): ${errName}: ${errMsg}`);
 
         if (!isRetry) {
           console.warn(`[Player] Retrying '${track.title}' in ${RETRY_DELAY_MS}ms`);
