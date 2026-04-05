@@ -425,11 +425,10 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   }
 
   async function preflightAudioUrl(url: string, trackTitle: string): Promise<{ ok: true } | { ok: false; message: string; retryable: boolean }> {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10_000);
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10_000);
       const resp = await fetch(url, { method: "HEAD", signal: controller.signal });
-      clearTimeout(timeoutId);
       if (!resp.ok) {
         const retryable = isRetryableStatus(resp.status);
         return { ok: false, message: `Server returned ${resp.status} for '${trackTitle}'`, retryable };
@@ -441,6 +440,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       }
       const msg = err instanceof Error ? err.message : String(err);
       return { ok: false, message: `Network error loading '${trackTitle}': ${msg}`, retryable: true };
+    } finally {
+      clearTimeout(timeoutId);
     }
   }
 
