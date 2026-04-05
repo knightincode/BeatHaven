@@ -698,6 +698,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const EXPECTED_AMOUNT = 499;
       const EXPECTED_CURRENCY = "usd";
       const EXPECTED_INTERVAL = "month";
+      const isProduction = process.env.REPLIT_DEPLOYMENT === "1";
 
       let priceId: string | undefined;
 
@@ -715,11 +716,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         );
         priceId = match?.id;
       } catch (lookupErr: any) {
-        console.warn("Stripe product lookup failed (may not exist in this environment):", lookupErr.message);
+        console.warn("Stripe product lookup failed:", lookupErr.message);
+        if (isProduction) {
+          return res.status(500).json({ message: "Subscription product not configured" });
+        }
+      }
+
+      if (!priceId && isProduction) {
+        return res.status(500).json({ message: "No matching subscription price found" });
       }
 
       if (!priceId) {
-        console.log("Primary product not found; searching by name as fallback");
+        console.log("[Dev] Primary product not found; searching by name as fallback");
         const products = await stripe.products.list({ active: true });
         const existing = products.data.find(
           (p) => p.name === "Beat Haven Premium Subscription"
@@ -740,7 +748,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
 
         if (!priceId) {
-          console.log("No matching price found; creating product and price for this Stripe environment");
+          console.log("[Dev] No matching price found; creating product and price for test environment");
           const product = existing ?? await stripe.products.create({
             name: "Beat Haven Premium Subscription",
             description: "Your personal meditation sanctuary. Immerse yourself in programmatically-tuned binaural beats to sleep deeper, focus sharper, and find your calm.",
@@ -752,9 +760,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
             recurring: { interval: EXPECTED_INTERVAL },
           });
           priceId = price.id;
-          console.log("Created Stripe price:", priceId, "for product:", product.id);
+          console.log("[Dev] Created Stripe price:", priceId, "for product:", product.id);
         }
       }
+
+      console.log("Checkout using price:", priceId);
 
       const session = await stripe.checkout.sessions.create({
         customer: customerId,
