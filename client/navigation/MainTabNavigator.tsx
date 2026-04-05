@@ -8,7 +8,6 @@ import HomeStackNavigator from "@/navigation/HomeStackNavigator";
 import PlaylistsStackNavigator from "@/navigation/PlaylistsStackNavigator";
 import AccountStackNavigator from "@/navigation/AccountStackNavigator";
 import { MiniPlayer } from "@/components/MiniPlayer";
-import { HeadphonesBanner } from "@/components/HeadphonesBanner";
 import { useTheme } from "@/hooks/useTheme";
 
 export type MainTabParamList = {
@@ -81,7 +80,6 @@ export default function MainTabNavigator() {
           }}
         />
       </Tab.Navigator>
-      <HeadphonesBanner />
       <MiniPlayer />
     </View>
   );

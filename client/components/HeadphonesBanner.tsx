@@ -1,5 +1,5 @@
 import React from "react";
-import { View, StyleSheet, Pressable } from "react-native";
+import { View, StyleSheet, Pressable, Platform } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { ThemedText } from "@/components/ThemedText";
 import { Spacing, BorderRadius } from "@/constants/theme";
@@ -10,6 +10,7 @@ interface HeadphonesBannerProps {
 }
 
 export function HeadphonesBanner({ variant = "default" }: HeadphonesBannerProps) {
+  "use no memo";
   const { dismissed, dismiss } = useHeadphonesTip();
 
   if (dismissed) return null;
@@ -27,7 +28,13 @@ export function HeadphonesBanner({ variant = "default" }: HeadphonesBannerProps)
           Use a comfortable, low volume for best results
         </ThemedText>
       </View>
-      <Pressable onPress={dismiss} hitSlop={10} testID="button-dismiss-headphones-tip">
+      <Pressable
+        onPress={dismiss}
+        style={styles.dismissButton}
+        testID="button-dismiss-headphones-tip"
+        accessibilityRole="button"
+        accessibilityLabel="Dismiss headphones tip"
+      >
         <Feather name="x" size={16} color="rgba(255,255,255,0.5)" />
       </Pressable>
     </View>
@@ -72,5 +79,13 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: "rgba(255,255,255,0.50)",
     lineHeight: 15,
+  },
+  dismissButton: {
+    padding: Spacing.sm,
+    margin: -Spacing.sm,
+    minWidth: 32,
+    minHeight: 32,
+    alignItems: "center",
+    justifyContent: "center",
   },
 });

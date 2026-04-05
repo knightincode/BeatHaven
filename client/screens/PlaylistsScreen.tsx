@@ -29,6 +29,7 @@ import { useFavorites } from "@/hooks/useFavorites";
 import { apiRequest } from "@/lib/query-client";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
+import { HeadphonesBanner } from "@/components/HeadphonesBanner";
 
 const THUMB_COLORS: [string, string][] = [
   ["#6366F1", "#4F46E5"],
@@ -208,6 +209,7 @@ export default function PlaylistsScreen() {
   function renderHeader() {
     return (
       <View>
+        <HeadphonesBanner />
         <Pressable
           style={styles.likedCard}
           onPress={() => {

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, ReactNode } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const STORAGE_KEY = "headphones_tip_dismissed";
@@ -14,26 +14,43 @@ const HeadphonesTipContext = createContext<HeadphonesTipContextType>({
 });
 
 export function HeadphonesTipProvider({ children }: { children: ReactNode }) {
-  const [dismissed, setDismissed] = useState(true);
+  "use no memo";
+  const [hydrated, setHydrated] = useState(false);
+  const [dismissed, setDismissed] = useState(false);
 
   useEffect(() => {
-    AsyncStorage.getItem(STORAGE_KEY).then((val) => {
-      if (val !== "true") setDismissed(false);
-    });
+    AsyncStorage.getItem(STORAGE_KEY)
+      .then((val) => {
+        setDismissed(val === "true");
+      })
+      .catch(() => {
+        setDismissed(false);
+      })
+      .finally(() => {
+        setHydrated(true);
+      });
   }, []);
 
-  async function dismiss() {
-    await AsyncStorage.setItem(STORAGE_KEY, "true");
+  const dismiss = useCallback(() => {
     setDismissed(true);
-  }
+    AsyncStorage.setItem(STORAGE_KEY, "true").catch(() => {});
+  }, []);
+
+  const effectiveDismissed = !hydrated || dismissed;
+
+  const value = useMemo(
+    () => ({ dismissed: effectiveDismissed, dismiss }),
+    [effectiveDismissed, dismiss]
+  );
 
   return (
-    <HeadphonesTipContext.Provider value={{ dismissed, dismiss }}>
+    <HeadphonesTipContext.Provider value={value}>
       {children}
     </HeadphonesTipContext.Provider>
   );
 }
 
 export function useHeadphonesTip() {
+  "use no memo";
   return useContext(HeadphonesTipContext);
 }

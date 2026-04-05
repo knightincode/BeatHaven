@@ -28,6 +28,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useFavorites } from "@/hooks/useFavorites";
 import { Colors, Spacing, FrequencyColors, BorderRadius } from "@/constants/theme";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
+import { HeadphonesBanner } from "@/components/HeadphonesBanner";
 
 const CATEGORIES = [
   { id: "delta", name: "Delta", description: "0.5-4.0 Hz - Deep Sleep", color: FrequencyColors.delta },
@@ -191,6 +192,8 @@ export default function HomeScreen() {
             </ThemedText>
           </View>
         ) : null}
+
+        <HeadphonesBanner />
 
         {!hasActiveSubscription && !isDemo ? (
           <Pressable

@@ -26,6 +26,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { apiRequest } from "@/lib/query-client";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
+import { HeadphonesBanner } from "@/components/HeadphonesBanner";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -182,6 +183,8 @@ export default function AccountScreen() {
         ]}
         scrollIndicatorInsets={{ bottom: insets.bottom }}
       >
+        <HeadphonesBanner />
+
         <View style={styles.profileSection}>
           <View style={styles.avatarContainer}>
             <Feather name="user" size={40} color={Colors.dark.link} />
