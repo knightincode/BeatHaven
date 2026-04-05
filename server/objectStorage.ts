@@ -74,11 +74,16 @@ export function preCacheFileSize(objectName: string, size: number): void {
   fileSizeCache.set(objectName, size);
 }
 
-export async function getAudioFileAsBuffer(objectName: string): Promise<{ buffer: Buffer; size: number } | null> {
+export type AudioBufferResult =
+  | { status: "ok"; buffer: Buffer; size: number }
+  | { status: "not_found" }
+  | { status: "error"; message: string };
+
+export async function getAudioFileAsBuffer(objectName: string): Promise<AudioBufferResult> {
   const cached = audioBufferCache.get(objectName);
   if (cached) {
     cached.lastAccess = Date.now();
-    return { buffer: cached.buffer, size: cached.buffer.length };
+    return { status: "ok", buffer: cached.buffer, size: cached.buffer.length };
   }
 
   try {
@@ -88,12 +93,14 @@ export async function getAudioFileAsBuffer(objectName: string): Promise<{ buffer
       fileSizeCache.set(objectName, buffer.length);
       audioBufferCache.set(objectName, { buffer, lastAccess: Date.now() });
       evictBufferCache();
-      return { buffer, size: buffer.length };
+      return { status: "ok", buffer, size: buffer.length };
     }
-    return null;
+    console.error(`[Audio] downloadAsBytes returned not-ok for ${objectName}`);
+    return { status: "not_found" };
   } catch (err: any) {
-    console.error(`[Audio] getAudioFileAsBuffer error for ${objectName}:`, err?.message || err);
-    return null;
+    const message = err?.message || String(err);
+    console.error(`[Audio] getAudioFileAsBuffer error for ${objectName}:`, message);
+    return { status: "error", message };
   }
 }
 

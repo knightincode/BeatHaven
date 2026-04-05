@@ -441,7 +441,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`[Audio] Request: ${objectPath} range=${req.headers.range || "none"}`);
 
       const fileData = await getAudioFileAsBuffer(objectPath);
-      if (!fileData) {
+      if (fileData.status === "error") {
+        console.error(`[Audio] Storage error for ${objectPath}: ${fileData.message}`);
+        return res.status(500).json({ message: "Failed to retrieve audio file" });
+      }
+      if (fileData.status === "not_found") {
         console.error(`[Audio] File not found in Object Storage: ${objectPath}`);
         return res.status(404).json({ message: "Audio file not found" });
       }
