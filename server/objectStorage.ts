@@ -215,7 +215,8 @@ export type StreamServeResult =
 
 export async function getAudioStreamOrDisk(
   objectName: string,
-  knownSize: number
+  knownSize: number,
+  responseByteLimit?: number
 ): Promise<StreamServeResult> {
   const cachePath = getCachePath(objectName);
 
@@ -242,11 +243,8 @@ export async function getAudioStreamOrDisk(
   inFlightDownloads.set(objectName, cachePromise);
   cachePromise.finally(() => inFlightDownloads.delete(objectName));
 
-  const existsCheck = await objectExists(objectName);
-  if (!existsCheck.exists && !existsCheck.checkFailed) {
-    resolveCache({ status: "not_found" });
-    return { status: "not_found" };
-  }
+  // knownSize comes from pre-cached WAV constants — file is guaranteed to exist.
+  // Skip objectExists() to avoid 3-4s network roundtrip before streaming starts.
 
   const folder = path.dirname(objectName);
   ensureCacheDir(folder);
@@ -257,16 +255,79 @@ export async function getAudioStreamOrDisk(
   const responsePass = new PassThrough();
   const fileWrite = fs.createWriteStream(tmpPath);
 
+  // Track whether the response consumer (browser) has disconnected.
+  // When the browser buffers enough and closes the connection, we continue
+  // downloading and caching to disk so the next request is served instantly.
+  let responseDetached = false;
+  let passWaiting = false;
+  let fileWaiting = false;
+  let responseBytesSent = 0;
+
+  function resumeStorageStream() {
+    if (!passWaiting && !fileWaiting) {
+      storageStream.resume();
+    }
+  }
+
+  const detachResponse = () => {
+    if (!responseDetached) {
+      responseDetached = true;
+      passWaiting = false;
+      console.log(`[Audio] Client disconnected mid-stream for ${objectName}, continuing disk cache`);
+      resumeStorageStream();
+    }
+  };
+  responsePass.on("close", detachResponse);
+  responsePass.on("error", detachResponse);
+
   storageStream.on("data", (chunk: Buffer) => {
-    const passOk = responsePass.write(chunk);
+    // Always write to disk
     const fileOk = fileWrite.write(chunk);
-    if (!passOk || !fileOk) {
+    if (!fileOk && !fileWaiting) {
+      fileWaiting = true;
       storageStream.pause();
-      let passReady = passOk;
-      let fileReady = fileOk;
-      const tryResume = () => { if (passReady && fileReady) storageStream.resume(); };
-      if (!passOk) responsePass.once("drain", () => { passReady = true; tryResume(); });
-      if (!fileOk) fileWrite.once("drain", () => { fileReady = true; tryResume(); });
+      fileWrite.once("drain", () => { fileWaiting = false; resumeStorageStream(); });
+    }
+
+    // Write to response only while browser is still connected
+    if (!responseDetached) {
+      // Apply byte limit for probe requests (e.g. bytes=0-1) so we respond
+      // immediately with just the requested bytes while the rest caches to disk.
+      let chunkForResponse = chunk;
+      if (responseByteLimit !== undefined) {
+        const remaining = responseByteLimit - responseBytesSent;
+        if (remaining <= 0) {
+          // Already sent everything needed — detach response, disk continues
+          responsePass.end();
+          return;
+        }
+        if (chunk.length > remaining) {
+          chunkForResponse = chunk.slice(0, remaining);
+        }
+      }
+      responseBytesSent += chunkForResponse.length;
+
+      let passOk = false;
+      try {
+        passOk = responsePass.write(chunkForResponse);
+      } catch {
+        detachResponse();
+        return;
+      }
+      if (!passOk && !responseDetached && !passWaiting) {
+        passWaiting = true;
+        if (!storageStream.isPaused()) storageStream.pause();
+        responsePass.once("drain", () => { passWaiting = false; resumeStorageStream(); });
+      }
+
+      // If we just sent the last allowed byte, close the response stream.
+      // Set responseDetached first to prevent writes between .end() and 'close'.
+      // The storageStream continues downloading to disk via detachResponse().
+      if (responseByteLimit !== undefined && responseBytesSent >= responseByteLimit) {
+        responseDetached = true;
+        passWaiting = false;
+        responsePass.end();
+      }
     }
   });
 

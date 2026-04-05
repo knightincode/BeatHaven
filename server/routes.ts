@@ -458,12 +458,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`[Audio] Request: ${objectPath} range=${rawRange || "none"} start=${rangeStart}`);
 
       const knownSize = getCachedFileSize(objectPath);
-      const isFullFromZero =
-        rangeStart === 0 &&
-        (rangeEnd === null || (knownSize !== undefined && rangeEnd >= knownSize - 1));
 
-      if (isFullFromZero && knownSize !== undefined) {
-        const serveResult = await getAudioStreamOrDisk(objectPath, knownSize);
+      // Handle all rangeStart === 0 requests via getAudioStreamOrDisk.
+      // This covers full-file requests (bytes=0-, bytes=0-N) AND small probes
+      // (bytes=0-1) — eliminating the 7.5s disk-wait for probe requests.
+      if (rangeStart === 0 && knownSize !== undefined) {
+        // How many bytes the client actually wants (null = unlimited)
+        const responseByteLimit = rangeEnd !== null ? rangeEnd + 1 : undefined;
+        const serveResult = await getAudioStreamOrDisk(objectPath, knownSize, responseByteLimit);
 
         if (serveResult.status === "not_found") {
           return res.status(404).json({ message: "Audio file not found" });
@@ -474,23 +476,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
 
         const totalSize = serveResult.size;
-        const isRangeRequest = rawRange !== undefined;
+        const serveEnd = rangeEnd !== null ? Math.min(rangeEnd, totalSize - 1) : totalSize - 1;
+        const serveBytes = serveEnd + 1; // bytes that will actually be sent to client
+        const isDiskResult = serveResult.status === "disk";
 
         res.setHeader("Content-Type", "audio/wav");
         res.setHeader("Accept-Ranges", "bytes");
         res.setHeader("Access-Control-Allow-Origin", "*");
         res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
         res.setHeader("Cache-Control", "public, max-age=86400");
-        res.setHeader("Content-Length", totalSize);
-        if (isRangeRequest) {
-          res.setHeader("Content-Range", `bytes 0-${totalSize - 1}/${totalSize}`);
+        // Set Content-Length for disk responses (fast, no proxy buffering concern)
+        // and for small range requests from stream (e.g. bytes=0-1 probe).
+        // Omit for large tee-stream responses so chunked encoding is used,
+        // preventing the proxy from buffering 302MB before forwarding.
+        const isSmallStreamResponse = !isDiskResult && serveBytes <= 10 * 1024 * 1024;
+        if (isDiskResult || isSmallStreamResponse) {
+          res.setHeader("Content-Length", serveBytes);
+        }
+        if (rawRange) {
+          res.setHeader("Content-Range", `bytes 0-${serveEnd}/${totalSize}`);
           res.writeHead(206);
         } else {
           res.writeHead(200);
         }
 
-        if (serveResult.status === "disk") {
-          const readStream = fs.createReadStream(serveResult.filePath);
+        if (isDiskResult) {
+          const readStream = fs.createReadStream(serveResult.filePath, { start: 0, end: serveEnd });
           readStream.on("error", (err: any) => {
             console.error(`[Audio] Disk read error for ${objectPath}:`, err?.message);
           });
