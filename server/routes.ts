@@ -695,17 +695,66 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const baseUrl = `https://${process.env.REPLIT_DOMAINS?.split(",")[0]}`;
 
       const STRIPE_PRODUCT_ID = "prod_UHEEX07B2s2U5m";
-      const prices = await stripe.prices.list({
-        product: STRIPE_PRODUCT_ID,
-        active: true,
-        limit: 1,
-      });
+      const EXPECTED_AMOUNT = 499;
+      const EXPECTED_CURRENCY = "usd";
+      const EXPECTED_INTERVAL = "month";
 
-      if (!prices.data.length) {
-        return res.status(500).json({ message: "No active price found for subscription product" });
+      let priceId: string | undefined;
+
+      try {
+        const prices = await stripe.prices.list({
+          product: STRIPE_PRODUCT_ID,
+          active: true,
+          limit: 10,
+        });
+        const match = prices.data.find(
+          (p) =>
+            p.unit_amount === EXPECTED_AMOUNT &&
+            p.currency === EXPECTED_CURRENCY &&
+            p.recurring?.interval === EXPECTED_INTERVAL
+        );
+        priceId = match?.id;
+      } catch (lookupErr: any) {
+        console.warn("Stripe product lookup failed (may not exist in this environment):", lookupErr.message);
       }
 
-      const priceId = prices.data[0].id;
+      if (!priceId) {
+        console.log("Primary product not found; searching by name as fallback");
+        const products = await stripe.products.list({ active: true });
+        const existing = products.data.find(
+          (p) => p.name === "Beat Haven Premium Subscription"
+        );
+        if (existing) {
+          const prices = await stripe.prices.list({
+            product: existing.id,
+            active: true,
+            limit: 10,
+          });
+          const match = prices.data.find(
+            (p) =>
+              p.unit_amount === EXPECTED_AMOUNT &&
+              p.currency === EXPECTED_CURRENCY &&
+              p.recurring?.interval === EXPECTED_INTERVAL
+          );
+          priceId = match?.id;
+        }
+
+        if (!priceId) {
+          console.log("No matching price found; creating product and price for this Stripe environment");
+          const product = existing ?? await stripe.products.create({
+            name: "Beat Haven Premium Subscription",
+            description: "Your personal meditation sanctuary. Immerse yourself in programmatically-tuned binaural beats to sleep deeper, focus sharper, and find your calm.",
+          });
+          const price = await stripe.prices.create({
+            product: product.id,
+            unit_amount: EXPECTED_AMOUNT,
+            currency: EXPECTED_CURRENCY,
+            recurring: { interval: EXPECTED_INTERVAL },
+          });
+          priceId = price.id;
+          console.log("Created Stripe price:", priceId, "for product:", product.id);
+        }
+      }
 
       const session = await stripe.checkout.sessions.create({
         customer: customerId,
