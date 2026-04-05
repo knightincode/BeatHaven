@@ -23,7 +23,7 @@ import { Card } from "@/components/Card";
 import { Button } from "@/components/Button";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { useAuth } from "@/contexts/AuthContext";
-import { apiRequest, getApiUrl } from "@/lib/query-client";
+import { apiRequest } from "@/lib/query-client";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
@@ -68,7 +68,7 @@ export default function AccountScreen() {
   const headerHeight = useHeaderHeight();
   const tabBarHeight = useBottomTabBarHeight();
   const navigation = useNavigation<NavigationProp>();
-  const { user, token, logout, hasActiveSubscription, isAdmin, isDemo, refreshUser } = useAuth();
+  const { user, logout, hasActiveSubscription, isAdmin, isDemo, refreshUser } = useAuth();
   const [logoutModalVisible, setLogoutModalVisible] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
   const [restoreMessage, setRestoreMessage] = useState<string | null>(null);
@@ -157,15 +157,7 @@ export default function AccountScreen() {
     setIsDeleting(true);
     setDeleteError(null);
     try {
-      const baseUrl = getApiUrl();
-      const res = await fetch(`${baseUrl}api/user`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.message || "Failed to delete account");
-      }
+      await apiRequest("DELETE", "/api/user");
       if (user?.id) {
         try {
           await AsyncStorage.removeItem(`played_tracks_${user.id}`);
