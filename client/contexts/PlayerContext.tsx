@@ -754,6 +754,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   }
 
   async function stop() {
+    playGenRef.current++;
     if (sleepTimerRef.current) {
       clearInterval(sleepTimerRef.current);
       sleepTimerRef.current = null;
