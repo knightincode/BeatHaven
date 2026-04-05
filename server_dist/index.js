@@ -1390,6 +1390,8 @@ var WebhookHandlers = class {
 };
 
 // server/seedTracks.ts
+import { Client as Client2 } from "@replit/object-storage";
+var storageClient = new Client2();
 var TRACKS = [
   {
     id: "98810a89-d3ab-4b62-9077-242a019b50f5",
@@ -1903,10 +1905,34 @@ async function seedTracks() {
     console.error("[Tracks] Failed to seed tracks:", err);
   }
 }
+async function preCacheAllTrackSizes() {
+  let verified = 0;
+  let missing = 0;
+  const batchSize = 10;
+  for (let i = 0; i < TRACKS.length; i += batchSize) {
+    const batch = TRACKS.slice(i, i + batchSize);
+    await Promise.allSettled(
+      batch.map(async (track) => {
+        try {
+          const result = await storageClient.exists(track.fileUrl);
+          if (result.ok && result.value) {
+            verified++;
+          } else {
+            missing++;
+            console.error(`[Tracks] Missing in Object Storage: ${track.fileUrl}`);
+          }
+        } catch {
+          missing++;
+        }
+      })
+    );
+  }
+  console.log(`[Tracks] Verified ${verified} tracks in storage, ${missing} missing`);
+}
 
 // server/generateMissingTracks.ts
-import { Client as Client2 } from "@replit/object-storage";
-var client2 = new Client2();
+import { Client as Client3 } from "@replit/object-storage";
+var client2 = new Client3();
 var SAMPLE_RATE = 22050;
 var DURATION_SEC = 1800;
 var FADE_SEC = 2;
@@ -2154,11 +2180,13 @@ function configureExpoAndLanding(app2) {
     log("No web build found \u2014 serving Expo Go landing page at /");
   }
   log("Serving static Expo files with dynamic manifest routing");
-  app2.use((_req, res, next) => {
-    res.setHeader(
-      "Content-Security-Policy",
-      "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; media-src 'self' blob: https:; connect-src 'self' https: wss:; frame-src 'self' https:; worker-src 'self' blob:;"
-    );
+  app2.use((req, res, next) => {
+    if (!req.path.startsWith("/api")) {
+      res.setHeader(
+        "Content-Security-Policy",
+        "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; media-src 'self' blob: https:; connect-src 'self' https: wss:; frame-src 'self' https:; worker-src 'self' blob:;"
+      );
+    }
     next();
   });
   app2.use((req, res, next) => {
@@ -2223,6 +2251,7 @@ function setupErrorHandler(app2) {
   await seedDemoUser();
   await seedTracks();
   await ensureMissingTracksExist();
+  preCacheAllTrackSizes().catch((err) => console.error("[Tracks] Pre-cache error:", err));
   setupErrorHandler(app);
   const port = parseInt(process.env.PORT || "5000", 10);
   server.listen(
