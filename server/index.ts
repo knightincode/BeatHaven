@@ -4,7 +4,7 @@ import { registerRoutes } from "./routes";
 import { WebhookHandlers } from "./webhookHandlers";
 import { seedDemoUser } from "./demoUser";
 import { seedTracks, preCacheAllTrackSizes } from "./seedTracks";
-import { ensureMissingTracksExist } from "./generateMissingTracks";
+
 import * as fs from "fs";
 import * as path from "path";
 
@@ -312,7 +312,6 @@ function setupErrorHandler(app: express.Application) {
   await seedDemoUser();
   await seedTracks();
   preCacheAllTrackSizes();
-  ensureMissingTracksExist().catch((err) => console.error("[Tracks] Missing track error:", err));
 
   setupErrorHandler(app);
 
