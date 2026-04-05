@@ -111,14 +111,15 @@ export default function HomeScreen() {
   const availableMoodFilters = MOOD_FILTERS;
 
   function getTracksByCategory(category: string) {
-    const categoryTracks = tracks?.filter((t) => t.category.toLowerCase() === category) || [];
-    if (hasActiveSubscription) {
-      return categoryTracks;
-    }
-    if (categoryTracks.length <= 2) {
-      return categoryTracks;
-    }
-    return [categoryTracks[0], categoryTracks[categoryTracks.length - 1]];
+    return tracks?.filter((t) => t.category.toLowerCase() === category) || [];
+  }
+
+  function isTrackPremiumLocked(track: Track, categoryTracks: Track[]): boolean {
+    if (hasActiveSubscription) return false;
+    if (categoryTracks.length <= 2) return false;
+    const first = categoryTracks[0];
+    const last = categoryTracks[categoryTracks.length - 1];
+    return track.id !== first.id && track.id !== last.id;
   }
 
   function handlePlayTrack(track: Track, trackQueue?: Track[]) {
@@ -279,17 +280,24 @@ export default function HomeScreen() {
                   showsHorizontalScrollIndicator={false}
                   style={styles.trackListOuter}
                   contentContainerStyle={styles.trackList}
-                  renderItem={({ item }) => (
-                    <TrackCard
-                      track={item}
-                      onPress={() => handlePlayTrack(item, categoryTracks)}
-                      color={category.color}
-                      isLocked={!hasActiveSubscription && isTrackPlayed(item.id)}
-                      isFavorite={isAuthenticated ? isFavorite(item.id) : undefined}
-                      onToggleFavorite={isAuthenticated ? () => toggleFavorite(item.id) : undefined}
-                      onAddToPlaylist={isAuthenticated && hasActiveSubscription ? () => setPlaylistModalTrack(item) : undefined}
-                    />
-                  )}
+                  renderItem={({ item }) => {
+                    const premiumLocked = isTrackPremiumLocked(item, categoryTracks);
+                    return (
+                      <TrackCard
+                        track={item}
+                        onPress={premiumLocked
+                          ? () => navigation.navigate("Subscription")
+                          : () => handlePlayTrack(item, categoryTracks.filter((t) => !isTrackPremiumLocked(t, categoryTracks)))
+                        }
+                        color={category.color}
+                        isLocked={!hasActiveSubscription && !premiumLocked && isTrackPlayed(item.id)}
+                        isPremiumLocked={premiumLocked}
+                        isFavorite={isAuthenticated && !premiumLocked ? isFavorite(item.id) : undefined}
+                        onToggleFavorite={isAuthenticated && !premiumLocked ? () => toggleFavorite(item.id) : undefined}
+                        onAddToPlaylist={isAuthenticated && hasActiveSubscription && !premiumLocked ? () => setPlaylistModalTrack(item) : undefined}
+                      />
+                    );
+                  }}
                 />
               ) : (
                 <View style={styles.emptyCategory}>

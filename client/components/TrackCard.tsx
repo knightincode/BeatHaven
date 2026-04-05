@@ -3,6 +3,7 @@ import { View, StyleSheet, Pressable, Platform, TextStyle } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
+import { BlurView } from "expo-blur";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -26,6 +27,7 @@ interface TrackCardProps {
   onPress: () => void;
   color: string;
   isLocked?: boolean;
+  isPremiumLocked?: boolean;
   isFavorite?: boolean;
   onToggleFavorite?: () => void;
   onAddToPlaylist?: () => void;
@@ -38,6 +40,7 @@ export function TrackCard({
   onPress,
   color,
   isLocked = false,
+  isPremiumLocked = false,
   isFavorite,
   onToggleFavorite,
   onAddToPlaylist,
@@ -54,12 +57,12 @@ export function TrackCard({
   }));
 
   function handlePressIn() {
-    if (isLocked) return;
+    if (isLocked || isPremiumLocked) return;
     scale.value = withSpring(0.96, { damping: 15, stiffness: 150 });
   }
 
   function handlePressOut() {
-    if (isLocked) return;
+    if (isLocked || isPremiumLocked) return;
     scale.value = withSpring(1, { damping: 15, stiffness: 150 });
   }
 
@@ -71,6 +74,15 @@ export function TrackCard({
 
   function handlePress() {
     if (isLocked) return;
+
+    if (isPremiumLocked) {
+      if (Platform.OS !== "web") {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      }
+      onPress();
+      return;
+    }
+
     triggerHaptic();
 
     glowShadowOpacity.value = withSequence(
@@ -96,7 +108,7 @@ export function TrackCard({
           {
             shadowColor: color,
             shadowOffset: { width: 0, height: 2 },
-            borderColor: color + "33",
+            borderColor: isPremiumLocked ? color + "22" : color + "33",
           },
           animatedStyle,
         ]}
@@ -111,7 +123,7 @@ export function TrackCard({
           locations={[0, 0.6, 1]}
           style={styles.gradientOverlayBottom}
         />
-        <View style={styles.cardContent}>
+        <View style={[styles.cardContent, isPremiumLocked ? styles.cardContentBlurred : null]}>
           <View style={styles.topRow}>
             <View
               style={[styles.iconContainer, { backgroundColor: color + "25" }]}
@@ -123,7 +135,7 @@ export function TrackCard({
                 style={styles.iconShadow}
               />
             </View>
-            {!isLocked ? (
+            {!isLocked && !isPremiumLocked ? (
               <View style={styles.actionButtons}>
                 {onToggleFavorite ? (
                   <Pressable
@@ -184,17 +196,33 @@ export function TrackCard({
                 <Feather name="lock" size={15} color="rgba(255,255,255,0.75)" />
               </View>
             ) : (
-              <View style={[styles.playButton, { backgroundColor: color }]}>
+              <View style={[styles.playButton, { backgroundColor: isPremiumLocked ? "rgba(255,255,255,0.08)" : color }]}>
                 <Feather
-                  name="play"
-                  size={16}
-                  color="#000000"
-                  style={[{ marginLeft: 2 }, styles.playIconShadow]}
+                  name={isPremiumLocked ? "lock" : "play"}
+                  size={isPremiumLocked ? 14 : 16}
+                  color={isPremiumLocked ? "rgba(255,255,255,0.4)" : "#000000"}
+                  style={[isPremiumLocked ? null : { marginLeft: 2 }, styles.playIconShadow]}
                 />
               </View>
             )}
           </View>
         </View>
+
+        {isPremiumLocked ? (
+          <BlurView
+            intensity={Platform.OS === "web" ? 40 : 55}
+            tint="dark"
+            style={styles.premiumOverlay}
+          >
+            <View style={styles.premiumContent}>
+              <View style={styles.premiumLockCircle}>
+                <Feather name="lock" size={20} color="rgba(255,255,255,0.95)" />
+              </View>
+              <ThemedText style={styles.premiumLabel}>Unlock Premium</ThemedText>
+              <ThemedText style={styles.premiumSub}>Start 7-day free trial</ThemedText>
+            </View>
+          </BlurView>
+        ) : null}
       </AnimatedPressable>
     </View>
   );
@@ -238,6 +266,9 @@ const styles = StyleSheet.create({
   cardContent: {
     flex: 1,
     padding: Spacing.lg,
+  },
+  cardContentBlurred: {
+    opacity: 0.35,
   },
   topRow: {
     flexDirection: "row",
@@ -297,6 +328,36 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.12)",
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.2)",
+  },
+  premiumOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  premiumContent: {
+    alignItems: "center",
+    gap: 8,
+  },
+  premiumLockCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "rgba(255,255,255,0.12)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.25)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  premiumLabel: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "rgba(255,255,255,0.95)",
+    letterSpacing: 0.3,
+  },
+  premiumSub: {
+    fontSize: 10,
+    color: "rgba(255,255,255,0.55)",
+    letterSpacing: 0.2,
   },
   iconShadow: Platform.select({
     android: {},
