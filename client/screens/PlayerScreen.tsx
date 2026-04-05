@@ -27,6 +27,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useFavorites } from "@/hooks/useFavorites";
 import { AmbientMixer } from "@/components/AmbientMixer";
 import { AddToPlaylistModal } from "@/components/AddToPlaylistModal";
+import { HeadphonesBanner } from "@/components/HeadphonesBanner";
 import { Colors, Spacing, BorderRadius, FrequencyColors } from "@/constants/theme";
 import type { SleepTimerOption } from "@/contexts/PlayerContext";
 
@@ -320,6 +321,8 @@ export default function PlayerScreen() {
             </ThemedText>
           </View>
         ) : null}
+
+        <HeadphonesBanner variant="overlay" />
       </View>
 
       <View style={styles.controlPanelWrapper}>
