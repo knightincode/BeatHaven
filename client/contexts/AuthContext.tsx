@@ -119,12 +119,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         window.history.replaceState({}, "", url.toString());
 
         const baseUrl = getApiUrl();
-        fetch(`${baseUrl}api/sync-subscription`, {
-          method: "POST",
-          headers: { Authorization: `Bearer ${token}` },
-        })
-          .then(() => fetchUser(token))
-          .catch(() => fetchUser(token));
+        const syncAndRefresh = async (attempt: number) => {
+          try {
+            const res = await fetch(`${baseUrl}api/sync-subscription`, {
+              method: "POST",
+              headers: { Authorization: `Bearer ${token}` },
+            });
+            const data = await res.json();
+            await fetchUser(token);
+            if (data.subscriptionStatus !== "active" && attempt < 3) {
+              setTimeout(() => syncAndRefresh(attempt + 1), 2000);
+            }
+          } catch (e) {
+            console.warn("Subscription sync attempt failed:", e);
+            await fetchUser(token);
+            if (attempt < 3) {
+              setTimeout(() => syncAndRefresh(attempt + 1), 2000);
+            }
+          }
+        };
+        syncAndRefresh(1);
       }
     }
   }, [token]);

@@ -55,7 +55,9 @@ export default function SubscriptionScreen() {
               method: "POST",
               headers: { Authorization: `Bearer ${token}` },
             });
-          } catch (e) {}
+          } catch (e) {
+            console.warn("Subscription sync failed:", e);
+          }
           await refreshUser();
         }
       }
