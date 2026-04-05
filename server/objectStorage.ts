@@ -287,8 +287,9 @@ export async function getAudioStreamOrDisk(
     if (!responseDetached) {
       responseDetached = true;
       passWaiting = false;
-      console.log(`[Audio] Client disconnected mid-stream for ${objectName}, continuing disk cache`);
-      resumeStorageStream();
+      clearStreamTimeout();
+      console.log(`[Audio] Client disconnected for ${objectName}, aborting Object Storage download`);
+      storageStream.destroy();
     }
   };
   responsePass.on("close", detachResponse);

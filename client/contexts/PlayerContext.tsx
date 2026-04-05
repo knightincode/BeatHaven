@@ -230,7 +230,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     const audio = webAudioRef.current;
     if (audio) {
       try { audio.pause(); } catch {}
-      try { audio.src = ""; } catch {}
+      try { audio.removeAttribute("src"); } catch {}
       try { audio.load(); } catch {}
       webAudioRef.current = null;
     }
