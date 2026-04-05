@@ -49,6 +49,13 @@ export default function SubscriptionScreen() {
           window.location.href = data.url;
         } else {
           await WebBrowser.openBrowserAsync(data.url);
+          try {
+            const baseUrl = getApiUrl();
+            await fetch(`${baseUrl}api/sync-subscription`, {
+              method: "POST",
+              headers: { Authorization: `Bearer ${token}` },
+            });
+          } catch (e) {}
           await refreshUser();
         }
       }

@@ -790,6 +790,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post("/api/sync-subscription", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const user = req.user!;
+
+      if (!user.stripeCustomerId) {
+        return res.json({ subscriptionStatus: user.subscriptionStatus || "inactive" });
+      }
+
+      const stripe = await getUncachableStripeClient();
+
+      const subscriptions = await stripe.subscriptions.list({
+        customer: user.stripeCustomerId,
+        status: "all",
+        limit: 5,
+      });
+
+      const activeSub = subscriptions.data.find(
+        (s) => s.status === "active" || s.status === "trialing"
+      );
+
+      if (activeSub) {
+        await storage.updateUserStripeInfo(user.id, {
+          stripeSubscriptionId: activeSub.id,
+          subscriptionStatus: "active",
+        });
+        console.log("[Sync] Subscription synced to active for user:", user.id, "sub:", activeSub.id);
+        return res.json({ subscriptionStatus: "active" });
+      }
+
+      const cancelledOrPast = subscriptions.data.find(
+        (s) => s.status === "canceled" || s.status === "past_due" || s.status === "unpaid"
+      );
+      if (cancelledOrPast && user.subscriptionStatus === "active") {
+        await storage.updateUserStripeInfo(user.id, {
+          subscriptionStatus: "inactive",
+        });
+        console.log("[Sync] Subscription synced to inactive for user:", user.id);
+        return res.json({ subscriptionStatus: "inactive" });
+      }
+
+      return res.json({ subscriptionStatus: user.subscriptionStatus || "inactive" });
+    } catch (error: any) {
+      console.error("Sync subscription error:", error.message);
+      return res.json({ subscriptionStatus: req.user?.subscriptionStatus || "inactive" });
+    }
+  });
+
   app.post("/api/billing-portal", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const user = req.user!;

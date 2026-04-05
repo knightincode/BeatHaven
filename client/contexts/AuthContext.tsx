@@ -110,6 +110,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     checkAppleAuth();
   }, []);
 
+  useEffect(() => {
+    if (Platform.OS === "web" && token) {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("checkout") === "success") {
+        const url = new URL(window.location.href);
+        url.searchParams.delete("checkout");
+        window.history.replaceState({}, "", url.toString());
+
+        const baseUrl = getApiUrl();
+        fetch(`${baseUrl}api/sync-subscription`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
+        })
+          .then(() => fetchUser(token))
+          .catch(() => fetchUser(token));
+      }
+    }
+  }, [token]);
+
   async function checkAppleAuth() {
     const available = await isAppleAuthAvailable();
     setAppleAuthAvailable(available);
