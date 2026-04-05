@@ -9,6 +9,7 @@ import express from "express";
 
 // server/routes.ts
 import { createServer } from "node:http";
+import * as fs2 from "fs";
 import multer from "multer";
 
 // server/storage.ts
@@ -477,29 +478,19 @@ async function getStripeSync() {
 
 // server/objectStorage.ts
 import { Client } from "@replit/object-storage";
+import * as fs from "fs";
+import * as path from "path";
 var client = new Client();
 var fileSizeCache = /* @__PURE__ */ new Map();
-var MAX_BUFFER_CACHE_BYTES = 500 * 1024 * 1024;
-var currentCacheBytes = 0;
-var audioBufferCache = /* @__PURE__ */ new Map();
-function evictBufferCache() {
-  while (currentCacheBytes > MAX_BUFFER_CACHE_BYTES && audioBufferCache.size > 0) {
-    let oldestKey = null;
-    let oldestTime = Infinity;
-    for (const [key, entry] of audioBufferCache) {
-      if (entry.lastAccess < oldestTime) {
-        oldestTime = entry.lastAccess;
-        oldestKey = key;
-      }
-    }
-    if (oldestKey) {
-      const evicted = audioBufferCache.get(oldestKey);
-      if (evicted) currentCacheBytes -= evicted.buffer.length;
-      audioBufferCache.delete(oldestKey);
-    } else {
-      break;
-    }
+var DISK_CACHE_DIR = "/tmp/audio-cache";
+function ensureCacheDir(subDir) {
+  const dir = path.join(DISK_CACHE_DIR, subDir);
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
   }
+}
+function getCachePath(objectName) {
+  return path.join(DISK_CACHE_DIR, objectName);
 }
 async function uploadAudioFile(fileName, fileBuffer) {
   const objectName = `audio/${Date.now()}-${fileName}`;
@@ -508,38 +499,6 @@ async function uploadAudioFile(fileName, fileBuffer) {
 }
 function preCacheFileSize(objectName, size) {
   fileSizeCache.set(objectName, size);
-}
-async function tryStreamFallback(objectName) {
-  return new Promise((resolve2) => {
-    try {
-      const stream = client.downloadAsStream(objectName);
-      const chunks = [];
-      let totalLength = 0;
-      const timeout = setTimeout(() => {
-        stream.destroy();
-        resolve2({ status: "error", message: "Stream fallback timed out after 60s" });
-      }, 6e4);
-      stream.on("data", (chunk) => {
-        chunks.push(chunk);
-        totalLength += chunk.length;
-      });
-      stream.on("end", () => {
-        clearTimeout(timeout);
-        const buffer = Buffer.concat(chunks, totalLength);
-        fileSizeCache.set(objectName, buffer.length);
-        audioBufferCache.set(objectName, { buffer, lastAccess: Date.now() });
-        currentCacheBytes += buffer.length;
-        evictBufferCache();
-        resolve2({ status: "ok", buffer, size: buffer.length });
-      });
-      stream.on("error", (err) => {
-        clearTimeout(timeout);
-        resolve2({ status: "error", message: `Stream fallback failed: ${err?.message || err}` });
-      });
-    } catch (err) {
-      resolve2({ status: "error", message: `Stream fallback exception: ${err?.message || err}` });
-    }
-  });
 }
 async function objectExists(objectName) {
   try {
@@ -552,11 +511,55 @@ async function objectExists(objectName) {
     return { exists: false, checkFailed: true };
   }
 }
-async function getAudioFileAsBuffer(objectName) {
-  const cached = audioBufferCache.get(objectName);
-  if (cached) {
-    cached.lastAccess = Date.now();
-    return { status: "ok", buffer: cached.buffer, size: cached.buffer.length };
+async function downloadToFile(objectName, destPath) {
+  const result = await client.downloadToFilename(objectName, destPath);
+  return result.ok;
+}
+async function tryStreamToFile(objectName, destPath) {
+  return new Promise((resolve2) => {
+    try {
+      const stream = client.downloadAsStream(objectName);
+      const writeStream = fs.createWriteStream(destPath);
+      const timeout = setTimeout(() => {
+        stream.destroy();
+        writeStream.destroy();
+        if (fs.existsSync(destPath)) fs.unlinkSync(destPath);
+        resolve2(false);
+      }, 12e4);
+      stream.pipe(writeStream);
+      writeStream.on("finish", () => {
+        clearTimeout(timeout);
+        resolve2(true);
+      });
+      stream.on("error", (err) => {
+        clearTimeout(timeout);
+        writeStream.destroy();
+        if (fs.existsSync(destPath)) fs.unlinkSync(destPath);
+        console.error(`[Audio] Stream-to-file error for ${objectName}:`, err?.message || err);
+        resolve2(false);
+      });
+      writeStream.on("error", (err) => {
+        clearTimeout(timeout);
+        stream.destroy();
+        if (fs.existsSync(destPath)) fs.unlinkSync(destPath);
+        console.error(`[Audio] Write error for ${objectName}:`, err?.message || err);
+        resolve2(false);
+      });
+    } catch (err) {
+      console.error(`[Audio] Stream-to-file exception for ${objectName}:`, err?.message || err);
+      resolve2(false);
+    }
+  });
+}
+async function getAudioFilePath(objectName) {
+  const cachePath = getCachePath(objectName);
+  if (fs.existsSync(cachePath)) {
+    const stat = fs.statSync(cachePath);
+    if (stat.size > 0) {
+      fileSizeCache.set(objectName, stat.size);
+      return { status: "ok", filePath: cachePath, size: stat.size };
+    }
+    fs.unlinkSync(cachePath);
   }
   const existsCheck = await objectExists(objectName);
   if (!existsCheck.exists) {
@@ -567,32 +570,42 @@ async function getAudioFileAsBuffer(objectName) {
       return { status: "not_found" };
     }
   }
+  const folder = path.dirname(objectName);
+  ensureCacheDir(folder);
   try {
-    const result = await client.downloadAsBytes(objectName);
-    if (result.ok) {
-      const buffer = result.value[0];
-      fileSizeCache.set(objectName, buffer.length);
-      audioBufferCache.set(objectName, { buffer, lastAccess: Date.now() });
-      currentCacheBytes += buffer.length;
-      evictBufferCache();
-      return { status: "ok", buffer, size: buffer.length };
+    const ok = await downloadToFile(objectName, cachePath);
+    if (ok && fs.existsSync(cachePath)) {
+      const stat = fs.statSync(cachePath);
+      fileSizeCache.set(objectName, stat.size);
+      console.log(`[Audio] Downloaded to disk: ${objectName} (${(stat.size / 1024 / 1024).toFixed(1)} MB)`);
+      return { status: "ok", filePath: cachePath, size: stat.size };
     }
-    console.warn(`[Audio] downloadAsBytes not-ok for ${objectName}, trying stream fallback`);
-    return await tryStreamFallback(objectName);
+    console.warn(`[Audio] downloadToFilename not-ok for ${objectName}, trying stream fallback`);
   } catch (err) {
-    const message = err?.message || String(err);
-    console.warn(`[Audio] downloadAsBytes error for ${objectName}: ${message}, trying stream fallback`);
-    return await tryStreamFallback(objectName);
+    console.warn(`[Audio] downloadToFilename error for ${objectName}: ${err?.message || err}, trying stream fallback`);
   }
+  try {
+    const ok = await tryStreamToFile(objectName, cachePath);
+    if (ok && fs.existsSync(cachePath)) {
+      const stat = fs.statSync(cachePath);
+      fileSizeCache.set(objectName, stat.size);
+      console.log(`[Audio] Stream-to-file succeeded: ${objectName} (${(stat.size / 1024 / 1024).toFixed(1)} MB)`);
+      return { status: "ok", filePath: cachePath, size: stat.size };
+    }
+  } catch (err) {
+    console.error(`[Audio] Stream fallback failed for ${objectName}: ${err?.message || err}`);
+  }
+  return { status: "error", message: `All download methods failed for ${objectName}` };
 }
 async function getFileSizeFromStorage(objectName) {
   if (fileSizeCache.has(objectName)) {
     return fileSizeCache.get(objectName) ?? null;
   }
-  const cachedBuffer = audioBufferCache.get(objectName);
-  if (cachedBuffer) {
-    fileSizeCache.set(objectName, cachedBuffer.buffer.length);
-    return cachedBuffer.buffer.length;
+  const cachePath = getCachePath(objectName);
+  if (fs.existsSync(cachePath)) {
+    const stat = fs.statSync(cachePath);
+    fileSizeCache.set(objectName, stat.size);
+    return stat.size;
   }
   try {
     const result = await client.downloadAsBytes(objectName);
@@ -1036,19 +1049,22 @@ async function registerRoutes(app2) {
     try {
       objectPath = decodeURIComponent(`${req.params.folder}/${req.params.filename}`);
       console.log(`[Audio] Request: ${objectPath} range=${req.headers.range || "none"}`);
-      const fileData = await getAudioFileAsBuffer(objectPath);
-      if (fileData.status === "error") {
-        console.error(`[Audio] Storage error for ${objectPath}: ${fileData.message}`);
+      const fileResult = await getAudioFilePath(objectPath);
+      if (fileResult.status === "error") {
+        console.error(`[Audio] Storage error for ${objectPath}: ${fileResult.message}`);
         return res.status(500).json({ message: "Failed to retrieve audio file" });
       }
-      if (fileData.status === "not_found") {
+      if (fileResult.status === "not_found") {
         console.error(`[Audio] File not found in Object Storage: ${objectPath}`);
         return res.status(404).json({ message: "Audio file not found" });
       }
-      const { buffer, size: totalSize } = fileData;
+      const { filePath, size: totalSize } = fileResult;
       const range = req.headers.range;
-      let start = 0;
-      let end = totalSize - 1;
+      res.setHeader("Content-Type", "audio/wav");
+      res.setHeader("Accept-Ranges", "bytes");
+      res.setHeader("Access-Control-Allow-Origin", "*");
+      res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+      res.setHeader("Cache-Control", "public, max-age=86400");
       if (range) {
         const parts = range.replace(/bytes=/, "").split("-");
         const rawStart = parseInt(parts[0], 10);
@@ -1057,30 +1073,24 @@ async function registerRoutes(app2) {
           res.setHeader("Content-Range", `bytes */${totalSize}`);
           return res.status(416).json({ message: "Range Not Satisfiable" });
         }
-        start = rawStart;
-        end = Math.min(isNaN(rawEnd) || rawEnd < 0 ? totalSize - 1 : rawEnd, totalSize - 1);
-      }
-      if (start > end) {
-        res.setHeader("Content-Range", `bytes */${totalSize}`);
-        return res.status(416).json({ message: "Range Not Satisfiable" });
-      }
-      const chunkSize = end - start + 1;
-      const headers = {
-        "Content-Type": "audio/wav",
-        "Content-Length": chunkSize,
-        "Accept-Ranges": "bytes",
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "GET, OPTIONS",
-        "Cache-Control": "public, max-age=86400"
-      };
-      if (range) {
-        headers["Content-Range"] = `bytes ${start}-${end}/${totalSize}`;
-        res.writeHead(206, headers);
+        const start = rawStart;
+        const end = Math.min(isNaN(rawEnd) || rawEnd < 0 ? totalSize - 1 : rawEnd, totalSize - 1);
+        if (start > end) {
+          res.setHeader("Content-Range", `bytes */${totalSize}`);
+          return res.status(416).json({ message: "Range Not Satisfiable" });
+        }
+        const chunkSize = end - start + 1;
+        res.setHeader("Content-Range", `bytes ${start}-${end}/${totalSize}`);
+        res.setHeader("Content-Length", chunkSize);
+        res.writeHead(206);
+        const readStream = fs2.createReadStream(filePath, { start, end });
+        readStream.pipe(res);
       } else {
-        res.writeHead(200, headers);
+        res.setHeader("Content-Length", totalSize);
+        res.writeHead(200);
+        const readStream = fs2.createReadStream(filePath);
+        readStream.pipe(res);
       }
-      const slice = buffer.subarray(start, end + 1);
-      res.end(slice);
     } catch (error) {
       console.error(`[Audio] Error serving ${objectPath}:`, error?.message || error, error?.stack);
       if (!res.headersSent) {
@@ -2105,8 +2115,8 @@ async function ensureMissingTracksExist() {
 }
 
 // server/index.ts
-import * as fs from "fs";
-import * as path from "path";
+import * as fs3 from "fs";
+import * as path2 from "path";
 var app = express();
 var log = console.log;
 function setupCors(app2) {
@@ -2174,7 +2184,7 @@ function setupBodyParsing(app2) {
 function setupRequestLogging(app2) {
   app2.use((req, res, next) => {
     const start = Date.now();
-    const path2 = req.path;
+    const path3 = req.path;
     let capturedJsonResponse = void 0;
     const originalResJson = res.json;
     res.json = function(bodyJson, ...args) {
@@ -2182,9 +2192,9 @@ function setupRequestLogging(app2) {
       return originalResJson.apply(res, [bodyJson, ...args]);
     };
     res.on("finish", () => {
-      if (!path2.startsWith("/api")) return;
+      if (!path3.startsWith("/api")) return;
       const duration = Date.now() - start;
-      let logLine = `${req.method} ${path2} ${res.statusCode} in ${duration}ms`;
+      let logLine = `${req.method} ${path3} ${res.statusCode} in ${duration}ms`;
       if (capturedJsonResponse) {
         logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
       }
@@ -2198,8 +2208,8 @@ function setupRequestLogging(app2) {
 }
 function getAppName() {
   try {
-    const appJsonPath = path.resolve(process.cwd(), "app.json");
-    const appJsonContent = fs.readFileSync(appJsonPath, "utf-8");
+    const appJsonPath = path2.resolve(process.cwd(), "app.json");
+    const appJsonContent = fs3.readFileSync(appJsonPath, "utf-8");
     const appJson = JSON.parse(appJsonContent);
     return appJson.expo?.name || "App Landing Page";
   } catch {
@@ -2207,19 +2217,19 @@ function getAppName() {
   }
 }
 function serveExpoManifest(platform, res) {
-  const manifestPath = path.resolve(
+  const manifestPath = path2.resolve(
     process.cwd(),
     "static-build",
     platform,
     "manifest.json"
   );
-  if (!fs.existsSync(manifestPath)) {
+  if (!fs3.existsSync(manifestPath)) {
     return res.status(404).json({ error: `Manifest not found for platform: ${platform}` });
   }
   res.setHeader("expo-protocol-version", "1");
   res.setHeader("expo-sfv-version", "0");
   res.setHeader("content-type", "application/json");
-  const manifest = fs.readFileSync(manifestPath, "utf-8");
+  const manifest = fs3.readFileSync(manifestPath, "utf-8");
   res.send(manifest);
 }
 function serveLandingPage({
@@ -2241,21 +2251,21 @@ function serveLandingPage({
   res.status(200).send(html);
 }
 function configureExpoAndLanding(app2) {
-  const templatePath = path.resolve(
+  const templatePath = path2.resolve(
     process.cwd(),
     "server",
     "templates",
     "landing-page.html"
   );
-  const landingPageTemplate = fs.readFileSync(templatePath, "utf-8");
+  const landingPageTemplate = fs3.readFileSync(templatePath, "utf-8");
   const appName = getAppName();
-  const webIndexPath = path.resolve(
+  const webIndexPath = path2.resolve(
     process.cwd(),
     "static-build",
     "web",
     "index.html"
   );
-  const hasWebBuild = fs.existsSync(webIndexPath);
+  const hasWebBuild = fs3.existsSync(webIndexPath);
   if (hasWebBuild) {
     log("Web build found \u2014 serving web app at /");
   } else {
@@ -2295,13 +2305,13 @@ function configureExpoAndLanding(app2) {
     }
     next();
   });
-  app2.use("/assets", express.static(path.resolve(process.cwd(), "assets")));
+  app2.use("/assets", express.static(path2.resolve(process.cwd(), "assets")));
   if (hasWebBuild) {
     app2.use(
-      express.static(path.resolve(process.cwd(), "static-build", "web"))
+      express.static(path2.resolve(process.cwd(), "static-build", "web"))
     );
   }
-  app2.use(express.static(path.resolve(process.cwd(), "static-build")));
+  app2.use(express.static(path2.resolve(process.cwd(), "static-build")));
   app2.get("/{*path}", (req, res, next) => {
     if (req.path.startsWith("/api")) return next();
     if (hasWebBuild) {

@@ -1,32 +1,23 @@
 import { Client } from "@replit/object-storage";
 import type { Readable } from "stream";
+import * as fs from "fs";
+import * as path from "path";
 
 const client = new Client();
 
 const fileSizeCache = new Map<string, number>();
 
-const MAX_BUFFER_CACHE_BYTES = 500 * 1024 * 1024;
-let currentCacheBytes = 0;
-const audioBufferCache = new Map<string, { buffer: Buffer; lastAccess: number }>();
+const DISK_CACHE_DIR = "/tmp/audio-cache";
 
-function evictBufferCache(): void {
-  while (currentCacheBytes > MAX_BUFFER_CACHE_BYTES && audioBufferCache.size > 0) {
-    let oldestKey: string | null = null;
-    let oldestTime = Infinity;
-    for (const [key, entry] of audioBufferCache) {
-      if (entry.lastAccess < oldestTime) {
-        oldestTime = entry.lastAccess;
-        oldestKey = key;
-      }
-    }
-    if (oldestKey) {
-      const evicted = audioBufferCache.get(oldestKey);
-      if (evicted) currentCacheBytes -= evicted.buffer.length;
-      audioBufferCache.delete(oldestKey);
-    } else {
-      break;
-    }
+function ensureCacheDir(subDir: string): void {
+  const dir = path.join(DISK_CACHE_DIR, subDir);
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
   }
+}
+
+function getCachePath(objectName: string): string {
+  return path.join(DISK_CACHE_DIR, objectName);
 }
 
 export async function uploadAudioFile(
@@ -42,6 +33,10 @@ export async function uploadAudioFile(
 
 export async function deleteAudioFile(objectName: string): Promise<void> {
   await client.delete(objectName);
+  const cachePath = getCachePath(objectName);
+  if (fs.existsSync(cachePath)) {
+    fs.unlinkSync(cachePath);
+  }
 }
 
 export async function downloadAudioFile(objectName: string): Promise<Buffer | null> {
@@ -61,67 +56,24 @@ export async function getAudioFileSize(objectName: string): Promise<number | nul
     return fileSizeCache.get(objectName) ?? null;
   }
 
-  try {
-    const result = await client.downloadAsBytes(objectName);
-    if (result.ok) {
-      const buffer = result.value[0];
-      fileSizeCache.set(objectName, buffer.length);
-      audioBufferCache.set(objectName, { buffer, lastAccess: Date.now() });
-      currentCacheBytes += buffer.length;
-      evictBufferCache();
-      return buffer.length;
-    }
-    console.error(`[Audio] getAudioFileSize: downloadAsBytes failed for ${objectName}`);
-    return null;
-  } catch (err: any) {
-    console.error(`[Audio] getAudioFileSize error for ${objectName}:`, err?.message || err);
-    return null;
+  const cachePath = getCachePath(objectName);
+  if (fs.existsSync(cachePath)) {
+    const stat = fs.statSync(cachePath);
+    fileSizeCache.set(objectName, stat.size);
+    return stat.size;
   }
+
+  return null;
 }
 
 export function preCacheFileSize(objectName: string, size: number): void {
   fileSizeCache.set(objectName, size);
 }
 
-export type AudioBufferResult =
-  | { status: "ok"; buffer: Buffer; size: number }
+export type AudioFileResult =
+  | { status: "ok"; filePath: string; size: number }
   | { status: "not_found" }
   | { status: "error"; message: string };
-
-async function tryStreamFallback(objectName: string): Promise<AudioBufferResult> {
-  return new Promise((resolve) => {
-    try {
-      const stream = client.downloadAsStream(objectName) as Readable;
-      const chunks: Buffer[] = [];
-      let totalLength = 0;
-
-      const timeout = setTimeout(() => {
-        stream.destroy();
-        resolve({ status: "error", message: "Stream fallback timed out after 60s" });
-      }, 60000);
-
-      stream.on("data", (chunk: Buffer) => {
-        chunks.push(chunk);
-        totalLength += chunk.length;
-      });
-      stream.on("end", () => {
-        clearTimeout(timeout);
-        const buffer = Buffer.concat(chunks, totalLength);
-        fileSizeCache.set(objectName, buffer.length);
-        audioBufferCache.set(objectName, { buffer, lastAccess: Date.now() });
-        currentCacheBytes += buffer.length;
-        evictBufferCache();
-        resolve({ status: "ok", buffer, size: buffer.length });
-      });
-      stream.on("error", (err: any) => {
-        clearTimeout(timeout);
-        resolve({ status: "error", message: `Stream fallback failed: ${err?.message || err}` });
-      });
-    } catch (err: any) {
-      resolve({ status: "error", message: `Stream fallback exception: ${err?.message || err}` });
-    }
-  });
-}
 
 export async function objectExists(objectName: string): Promise<{ exists: boolean; checkFailed: boolean }> {
   try {
@@ -135,11 +87,62 @@ export async function objectExists(objectName: string): Promise<{ exists: boolea
   }
 }
 
-export async function getAudioFileAsBuffer(objectName: string): Promise<AudioBufferResult> {
-  const cached = audioBufferCache.get(objectName);
-  if (cached) {
-    cached.lastAccess = Date.now();
-    return { status: "ok", buffer: cached.buffer, size: cached.buffer.length };
+async function downloadToFile(objectName: string, destPath: string): Promise<boolean> {
+  const result = await client.downloadToFilename(objectName, destPath);
+  return result.ok;
+}
+
+async function tryStreamToFile(objectName: string, destPath: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    try {
+      const stream = client.downloadAsStream(objectName) as Readable;
+      const writeStream = fs.createWriteStream(destPath);
+
+      const timeout = setTimeout(() => {
+        stream.destroy();
+        writeStream.destroy();
+        if (fs.existsSync(destPath)) fs.unlinkSync(destPath);
+        resolve(false);
+      }, 120000);
+
+      stream.pipe(writeStream);
+
+      writeStream.on("finish", () => {
+        clearTimeout(timeout);
+        resolve(true);
+      });
+
+      stream.on("error", (err: any) => {
+        clearTimeout(timeout);
+        writeStream.destroy();
+        if (fs.existsSync(destPath)) fs.unlinkSync(destPath);
+        console.error(`[Audio] Stream-to-file error for ${objectName}:`, err?.message || err);
+        resolve(false);
+      });
+
+      writeStream.on("error", (err: any) => {
+        clearTimeout(timeout);
+        stream.destroy();
+        if (fs.existsSync(destPath)) fs.unlinkSync(destPath);
+        console.error(`[Audio] Write error for ${objectName}:`, err?.message || err);
+        resolve(false);
+      });
+    } catch (err: any) {
+      console.error(`[Audio] Stream-to-file exception for ${objectName}:`, err?.message || err);
+      resolve(false);
+    }
+  });
+}
+
+export async function getAudioFilePath(objectName: string): Promise<AudioFileResult> {
+  const cachePath = getCachePath(objectName);
+  if (fs.existsSync(cachePath)) {
+    const stat = fs.statSync(cachePath);
+    if (stat.size > 0) {
+      fileSizeCache.set(objectName, stat.size);
+      return { status: "ok", filePath: cachePath, size: stat.size };
+    }
+    fs.unlinkSync(cachePath);
   }
 
   const existsCheck = await objectExists(objectName);
@@ -152,23 +155,35 @@ export async function getAudioFileAsBuffer(objectName: string): Promise<AudioBuf
     }
   }
 
+  const folder = path.dirname(objectName);
+  ensureCacheDir(folder);
+
   try {
-    const result = await client.downloadAsBytes(objectName);
-    if (result.ok) {
-      const buffer = result.value[0];
-      fileSizeCache.set(objectName, buffer.length);
-      audioBufferCache.set(objectName, { buffer, lastAccess: Date.now() });
-      currentCacheBytes += buffer.length;
-      evictBufferCache();
-      return { status: "ok", buffer, size: buffer.length };
+    const ok = await downloadToFile(objectName, cachePath);
+    if (ok && fs.existsSync(cachePath)) {
+      const stat = fs.statSync(cachePath);
+      fileSizeCache.set(objectName, stat.size);
+      console.log(`[Audio] Downloaded to disk: ${objectName} (${(stat.size / 1024 / 1024).toFixed(1)} MB)`);
+      return { status: "ok", filePath: cachePath, size: stat.size };
     }
-    console.warn(`[Audio] downloadAsBytes not-ok for ${objectName}, trying stream fallback`);
-    return await tryStreamFallback(objectName);
+    console.warn(`[Audio] downloadToFilename not-ok for ${objectName}, trying stream fallback`);
   } catch (err: any) {
-    const message = err?.message || String(err);
-    console.warn(`[Audio] downloadAsBytes error for ${objectName}: ${message}, trying stream fallback`);
-    return await tryStreamFallback(objectName);
+    console.warn(`[Audio] downloadToFilename error for ${objectName}: ${err?.message || err}, trying stream fallback`);
   }
+
+  try {
+    const ok = await tryStreamToFile(objectName, cachePath);
+    if (ok && fs.existsSync(cachePath)) {
+      const stat = fs.statSync(cachePath);
+      fileSizeCache.set(objectName, stat.size);
+      console.log(`[Audio] Stream-to-file succeeded: ${objectName} (${(stat.size / 1024 / 1024).toFixed(1)} MB)`);
+      return { status: "ok", filePath: cachePath, size: stat.size };
+    }
+  } catch (err: any) {
+    console.error(`[Audio] Stream fallback failed for ${objectName}: ${err?.message || err}`);
+  }
+
+  return { status: "error", message: `All download methods failed for ${objectName}` };
 }
 
 export async function getFileSizeFromStorage(objectName: string): Promise<number | null> {
@@ -176,10 +191,11 @@ export async function getFileSizeFromStorage(objectName: string): Promise<number
     return fileSizeCache.get(objectName) ?? null;
   }
 
-  const cachedBuffer = audioBufferCache.get(objectName);
-  if (cachedBuffer) {
-    fileSizeCache.set(objectName, cachedBuffer.buffer.length);
-    return cachedBuffer.buffer.length;
+  const cachePath = getCachePath(objectName);
+  if (fs.existsSync(cachePath)) {
+    const stat = fs.statSync(cachePath);
+    fileSizeCache.set(objectName, stat.size);
+    return stat.size;
   }
 
   try {

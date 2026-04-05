@@ -1,5 +1,6 @@
 import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "node:http";
+import * as fs from "fs";
 import multer from "multer";
 import { storage } from "./storage";
 import {
@@ -11,7 +12,7 @@ import {
 import { verifyAppleIdentityToken } from "./appleAuth";
 import { verifyGoogleIdToken } from "./googleAuth";
 import { getUncachableStripeClient, getStripePublishableKey } from "./stripeClient";
-import { uploadAudioFile, getAudioFileAsBuffer, testStorageConnectivity } from "./objectStorage";
+import { uploadAudioFile, getAudioFilePath, testStorageConnectivity } from "./objectStorage";
 import { User } from "../shared/schema";
 import { db } from "./db";
 import { sql } from "drizzle-orm";
@@ -440,21 +441,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       objectPath = decodeURIComponent(`${req.params.folder}/${req.params.filename}`);
       console.log(`[Audio] Request: ${objectPath} range=${req.headers.range || "none"}`);
 
-      const fileData = await getAudioFileAsBuffer(objectPath);
-      if (fileData.status === "error") {
-        console.error(`[Audio] Storage error for ${objectPath}: ${fileData.message}`);
+      const fileResult = await getAudioFilePath(objectPath);
+      if (fileResult.status === "error") {
+        console.error(`[Audio] Storage error for ${objectPath}: ${fileResult.message}`);
         return res.status(500).json({ message: "Failed to retrieve audio file" });
       }
-      if (fileData.status === "not_found") {
+      if (fileResult.status === "not_found") {
         console.error(`[Audio] File not found in Object Storage: ${objectPath}`);
         return res.status(404).json({ message: "Audio file not found" });
       }
 
-      const { buffer, size: totalSize } = fileData;
+      const { filePath, size: totalSize } = fileResult;
       const range = req.headers.range;
 
-      let start = 0;
-      let end = totalSize - 1;
+      res.setHeader("Content-Type", "audio/wav");
+      res.setHeader("Accept-Ranges", "bytes");
+      res.setHeader("Access-Control-Allow-Origin", "*");
+      res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+      res.setHeader("Cache-Control", "public, max-age=86400");
 
       if (range) {
         const parts = range.replace(/bytes=/, "").split("-");
@@ -466,35 +470,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(416).json({ message: "Range Not Satisfiable" });
         }
 
-        start = rawStart;
-        end = Math.min(isNaN(rawEnd) || rawEnd < 0 ? totalSize - 1 : rawEnd, totalSize - 1);
-      }
+        const start = rawStart;
+        const end = Math.min(isNaN(rawEnd) || rawEnd < 0 ? totalSize - 1 : rawEnd, totalSize - 1);
 
-      if (start > end) {
-        res.setHeader("Content-Range", `bytes */${totalSize}`);
-        return res.status(416).json({ message: "Range Not Satisfiable" });
-      }
+        if (start > end) {
+          res.setHeader("Content-Range", `bytes */${totalSize}`);
+          return res.status(416).json({ message: "Range Not Satisfiable" });
+        }
 
-      const chunkSize = end - start + 1;
+        const chunkSize = end - start + 1;
+        res.setHeader("Content-Range", `bytes ${start}-${end}/${totalSize}`);
+        res.setHeader("Content-Length", chunkSize);
+        res.writeHead(206);
 
-      const headers: Record<string, string | number> = {
-        "Content-Type": "audio/wav",
-        "Content-Length": chunkSize,
-        "Accept-Ranges": "bytes",
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "GET, OPTIONS",
-        "Cache-Control": "public, max-age=86400",
-      };
-
-      if (range) {
-        headers["Content-Range"] = `bytes ${start}-${end}/${totalSize}`;
-        res.writeHead(206, headers);
+        const readStream = fs.createReadStream(filePath, { start, end });
+        readStream.pipe(res);
       } else {
-        res.writeHead(200, headers);
-      }
+        res.setHeader("Content-Length", totalSize);
+        res.writeHead(200);
 
-      const slice = buffer.subarray(start, end + 1);
-      res.end(slice);
+        const readStream = fs.createReadStream(filePath);
+        readStream.pipe(res);
+      }
 
     } catch (error: any) {
       console.error(`[Audio] Error serving ${objectPath}:`, error?.message || error, error?.stack);
