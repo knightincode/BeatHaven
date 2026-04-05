@@ -5,6 +5,7 @@ import {
   Pressable,
   Modal,
   ActivityIndicator,
+  TextInput,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
@@ -21,7 +22,7 @@ import { Card } from "@/components/Card";
 import { Button } from "@/components/Button";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { useAuth } from "@/contexts/AuthContext";
-import { apiRequest } from "@/lib/query-client";
+import { apiRequest, getApiUrl } from "@/lib/query-client";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
@@ -66,10 +67,15 @@ export default function AccountScreen() {
   const headerHeight = useHeaderHeight();
   const tabBarHeight = useBottomTabBarHeight();
   const navigation = useNavigation<NavigationProp>();
-  const { user, logout, hasActiveSubscription, isAdmin, refreshUser } = useAuth();
+  const { user, token, logout, hasActiveSubscription, isAdmin, isDemo, refreshUser } = useAuth();
   const [logoutModalVisible, setLogoutModalVisible] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
   const [restoreMessage, setRestoreMessage] = useState<string | null>(null);
+  const [deleteModalVisible, setDeleteModalVisible] = useState(false);
+  const [deleteStep, setDeleteStep] = useState<1 | 2>(1);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   async function handleRestorePurchases() {
     if (Platform.OS !== "web") {
@@ -126,6 +132,46 @@ export default function AccountScreen() {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
     navigation.navigate("AdminTesting");
+  }
+
+  function openDeleteModal() {
+    if (Platform.OS !== "web") {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+    }
+    setDeleteStep(1);
+    setDeleteConfirmText("");
+    setDeleteError(null);
+    setDeleteModalVisible(true);
+  }
+
+  function closeDeleteModal() {
+    setDeleteModalVisible(false);
+    setDeleteStep(1);
+    setDeleteConfirmText("");
+    setDeleteError(null);
+  }
+
+  async function handleDeleteAccount() {
+    if (deleteConfirmText !== "DELETE") return;
+    setIsDeleting(true);
+    setDeleteError(null);
+    try {
+      const baseUrl = getApiUrl();
+      const res = await fetch(`${baseUrl}api/user`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.message || "Failed to delete account");
+      }
+      closeDeleteModal();
+      await logout();
+    } catch (error: any) {
+      setDeleteError(error.message || "Something went wrong. Please try again.");
+    } finally {
+      setIsDeleting(false);
+    }
   }
 
   return (
@@ -245,6 +291,21 @@ export default function AccountScreen() {
             />
           </Card>
         </View>
+
+        {!isDemo ? (
+          <View style={styles.section}>
+            <Card style={styles.menuCard}>
+              <MenuItem
+                icon="trash-2"
+                title="Delete Account"
+                subtitle="Permanently remove your account and data"
+                onPress={openDeleteModal}
+                showChevron={false}
+                color={Colors.dark.error}
+              />
+            </Card>
+          </View>
+        ) : null}
       </KeyboardAwareScrollViewCompat>
 
       <Modal
@@ -272,6 +333,95 @@ export default function AccountScreen() {
                 Log Out
               </Button>
             </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={deleteModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={closeDeleteModal}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.deleteIconRow}>
+              <View style={styles.deleteIconCircle}>
+                <Feather name="alert-triangle" size={28} color={Colors.dark.error} />
+              </View>
+            </View>
+            <ThemedText type="h4" style={styles.modalTitle}>
+              {deleteStep === 1 ? "Delete Account" : "Confirm Deletion"}
+            </ThemedText>
+
+            {deleteStep === 1 ? (
+              <>
+                <ThemedText style={styles.modalMessage}>
+                  This action is permanent and cannot be undone. All of your data will be permanently removed, including:
+                </ThemedText>
+                <View style={styles.deleteList}>
+                  <ThemedText style={styles.deleteListItem}>Your profile and login credentials</ThemedText>
+                  <ThemedText style={styles.deleteListItem}>All playlists and favorites</ThemedText>
+                  <ThemedText style={styles.deleteListItem}>Your subscription and payment info</ThemedText>
+                </View>
+                <View style={styles.modalButtons}>
+                  <Pressable
+                    style={styles.modalCancelButton}
+                    onPress={closeDeleteModal}
+                  >
+                    <ThemedText style={styles.modalCancelText}>Cancel</ThemedText>
+                  </Pressable>
+                  <Pressable
+                    style={styles.deleteConfirmButton}
+                    onPress={() => setDeleteStep(2)}
+                  >
+                    <ThemedText style={styles.deleteConfirmButtonText}>Continue</ThemedText>
+                  </Pressable>
+                </View>
+              </>
+            ) : (
+              <>
+                <ThemedText style={styles.modalMessage}>
+                  Type DELETE below to confirm you want to permanently delete your account.
+                </ThemedText>
+                <TextInput
+                  testID="input-delete-confirm"
+                  style={styles.deleteInput}
+                  value={deleteConfirmText}
+                  onChangeText={setDeleteConfirmText}
+                  placeholder="Type DELETE to confirm"
+                  placeholderTextColor={Colors.dark.textSecondary}
+                  autoCapitalize="characters"
+                  autoCorrect={false}
+                />
+                {deleteError ? (
+                  <ThemedText style={styles.deleteErrorText}>{deleteError}</ThemedText>
+                ) : null}
+                <View style={styles.modalButtons}>
+                  <Pressable
+                    style={styles.modalCancelButton}
+                    onPress={closeDeleteModal}
+                  >
+                    <ThemedText style={styles.modalCancelText}>Cancel</ThemedText>
+                  </Pressable>
+                  <Pressable
+                    testID="button-delete-account"
+                    style={[
+                      styles.deleteConfirmButton,
+                      deleteConfirmText !== "DELETE" && styles.deleteButtonDisabled,
+                    ]}
+                    onPress={handleDeleteAccount}
+                    disabled={deleteConfirmText !== "DELETE" || isDeleting}
+                  >
+                    {isDeleting ? (
+                      <ActivityIndicator size="small" color="#fff" />
+                    ) : (
+                      <ThemedText style={styles.deleteConfirmButtonText}>Delete My Account</ThemedText>
+                    )}
+                  </Pressable>
+                </View>
+              </>
+            )}
           </View>
         </View>
       </Modal>
@@ -413,5 +563,57 @@ const styles = StyleSheet.create({
   restoreMessageText: {
     color: Colors.dark.textSecondary,
     fontSize: 13,
+  },
+  deleteIconRow: {
+    alignItems: "center",
+    marginBottom: Spacing.md,
+  },
+  deleteIconCircle: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: Colors.dark.error + "20",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  deleteList: {
+    marginBottom: Spacing.xl,
+    gap: Spacing.sm,
+  },
+  deleteListItem: {
+    color: Colors.dark.textSecondary,
+    fontSize: 14,
+    paddingLeft: Spacing.md,
+  },
+  deleteConfirmButton: {
+    flex: 1,
+    height: Spacing.buttonHeight,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: BorderRadius.full,
+    backgroundColor: Colors.dark.error,
+  },
+  deleteConfirmButtonText: {
+    color: "#fff",
+    fontWeight: "600",
+  },
+  deleteButtonDisabled: {
+    opacity: 0.4,
+  },
+  deleteInput: {
+    height: 48,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+    borderRadius: BorderRadius.md,
+    paddingHorizontal: Spacing.md,
+    color: Colors.dark.text,
+    fontSize: 16,
+    marginBottom: Spacing.md,
+    backgroundColor: Colors.dark.backgroundSecondary,
+  },
+  deleteErrorText: {
+    color: Colors.dark.error,
+    fontSize: 13,
+    marginBottom: Spacing.md,
   },
 });

@@ -223,6 +223,15 @@ export class Storage {
       .where(and(eq(favorites.userId, userId), eq(favorites.trackId, trackId)));
     return !!favorite;
   }
+  async deleteUser(userId: string): Promise<void> {
+    const userPlaylists = await db.select().from(playlists).where(eq(playlists.userId, userId));
+    for (const playlist of userPlaylists) {
+      await db.delete(playlistTracks).where(eq(playlistTracks.playlistId, playlist.id));
+    }
+    await db.delete(playlists).where(eq(playlists.userId, userId));
+    await db.delete(favorites).where(eq(favorites.userId, userId));
+    await db.delete(users).where(eq(users.id, userId));
+  }
 }
 
 export const storage = new Storage();

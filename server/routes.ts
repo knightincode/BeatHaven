@@ -369,6 +369,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.delete("/api/user", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const user = req.user!;
+
+      if (user.isDemo) {
+        return res.status(403).json({ message: "Demo accounts cannot be deleted" });
+      }
+
+      if (user.stripeCustomerId) {
+        try {
+          const stripe = await getUncachableStripeClient();
+
+          const subscriptions = await stripe.subscriptions.list({
+            customer: user.stripeCustomerId,
+            status: "active",
+          });
+          for (const sub of subscriptions.data) {
+            await stripe.subscriptions.cancel(sub.id);
+            console.log("[Delete] Cancelled subscription:", sub.id);
+          }
+
+          const trialingSubs = await stripe.subscriptions.list({
+            customer: user.stripeCustomerId,
+            status: "trialing",
+          });
+          for (const sub of trialingSubs.data) {
+            await stripe.subscriptions.cancel(sub.id);
+            console.log("[Delete] Cancelled trialing subscription:", sub.id);
+          }
+
+          await stripe.customers.del(user.stripeCustomerId);
+          console.log("[Delete] Deleted Stripe customer:", user.stripeCustomerId);
+        } catch (stripeErr: any) {
+          console.warn("[Delete] Stripe cleanup error (continuing):", stripeErr.message);
+        }
+      }
+
+      await storage.deleteUser(user.id);
+      console.log("[Delete] Deleted user:", user.id, user.email);
+
+      res.json({ message: "Account deleted successfully" });
+    } catch (error: any) {
+      console.error("Delete account error:", error);
+      res.status(500).json({ message: "Failed to delete account" });
+    }
+  });
+
   app.get("/api/tracks", async (req: Request, res: Response) => {
     try {
       const tracks = await storage.getAllTracks();
