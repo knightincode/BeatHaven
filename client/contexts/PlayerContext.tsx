@@ -40,6 +40,7 @@ export type LoopMode = "none" | "one" | "all";
 export type SleepTimerOption = number | null;
 
 const FREE_PREVIEW_MS = 5 * 60 * 1000;
+const RETRY_DELAY_MS = 1500;
 
 interface PlayerContextType {
   currentTrack: Track | null;
@@ -82,6 +83,10 @@ const PlayerContext = createContext<PlayerContextType | undefined>(undefined);
 const FADE_DURATION = 30000;
 const FADE_INTERVAL = 500;
 
+function isRetryableStatus(status: number): boolean {
+  return status >= 500 || status === 408 || status === 429;
+}
+
 export function PlayerProvider({ children }: { children: ReactNode }) {
   const { hasActiveSubscription, user, isDemo, demoSessionId } = useAuth();
   useWebAudioUnlock();
@@ -104,6 +109,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
   const soundRef = useRef<Audio.Sound | null>(null);
   const webAudioRef = useRef<HTMLAudioElement | null>(null);
+  const webAudioListenersRef = useRef<{ el: HTMLAudioElement; handlers: Record<string, () => void> } | null>(null);
   const playGenRef = useRef(0);
   const sleepTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const fadeIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -212,14 +218,28 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     return playedTrackIdsRef.current.has(trackId);
   }
 
+  function destroyWebAudio() {
+    const entry = webAudioListenersRef.current;
+    if (entry) {
+      const { el, handlers } = entry;
+      for (const [event, handler] of Object.entries(handlers)) {
+        el.removeEventListener(event, handler);
+      }
+      webAudioListenersRef.current = null;
+    }
+    const audio = webAudioRef.current;
+    if (audio) {
+      try { audio.pause(); } catch {}
+      try { audio.src = ""; } catch {}
+      try { audio.load(); } catch {}
+      webAudioRef.current = null;
+    }
+  }
+
   useEffect(() => {
     return () => {
       if (Platform.OS === "web") {
-        if (webAudioRef.current) {
-          webAudioRef.current.pause();
-          webAudioRef.current.src = "";
-          webAudioRef.current = null;
-        }
+        destroyWebAudio();
       } else {
         if (soundRef.current) {
           soundRef.current.unloadAsync();
@@ -404,6 +424,178 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  async function preflightAudioUrl(url: string, trackTitle: string): Promise<{ ok: true } | { ok: false; message: string; retryable: boolean }> {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10_000);
+      const resp = await fetch(url, { method: "HEAD", signal: controller.signal });
+      clearTimeout(timeoutId);
+      if (!resp.ok) {
+        const retryable = isRetryableStatus(resp.status);
+        return { ok: false, message: `Server returned ${resp.status} for '${trackTitle}'`, retryable };
+      }
+      return { ok: true };
+    } catch (err: unknown) {
+      if (err instanceof DOMException && err.name === "AbortError") {
+        return { ok: false, message: `Request timed out loading '${trackTitle}'`, retryable: true };
+      }
+      const msg = err instanceof Error ? err.message : String(err);
+      return { ok: false, message: `Network error loading '${trackTitle}': ${msg}`, retryable: true };
+    }
+  }
+
+  async function attemptWebPlay(
+    track: Track,
+    audioUrl: string,
+    gen: number,
+    isRetry: boolean,
+  ): Promise<void> {
+    if (playGenRef.current !== gen) return;
+
+    destroyWebAudio();
+
+    const audio = document.createElement("audio") as HTMLAudioElement;
+    audio.preload = "none";
+    audio.src = audioUrl;
+    webAudioRef.current = audio;
+
+    const onTimeUpdate = () => {
+      if (webAudioRef.current !== audio) return;
+      const posMs = audio.currentTime * 1000;
+      const durMs = isFinite(audio.duration) ? audio.duration * 1000 : 0;
+      setProgress(posMs);
+      if (durMs > 0) setDuration(durMs);
+
+      if (
+        !subscriptionRef.current &&
+        posMs >= FREE_PREVIEW_MS &&
+        !audio.paused &&
+        !previewEndedRef.current
+      ) {
+        previewEndedRef.current = true;
+        setIsPlaying(false);
+        setPreviewEnded(true);
+        const trackId = currentTrackIdRef.current;
+        if (trackId) {
+          const newSet = new Set(playedTrackIdsRef.current);
+          newSet.add(trackId);
+          playedTrackIdsRef.current = newSet;
+          setPlayedTrackIds(new Set(newSet));
+          if (userIdRef.current) {
+            persistPlayedTracks(userIdRef.current, newSet);
+          }
+        }
+        audio.pause();
+      }
+    };
+
+    const onEnded = () => {
+      if (webAudioRef.current !== audio) return;
+      if (subscriptionRef.current) {
+        if (loopModeRef.current === "one" || queueRef.current.length <= 1) {
+          audio.currentTime = 0;
+          audio.play().catch(() => {});
+        } else {
+          const nextIdx = queueIndexRef.current + 1;
+          if (nextIdx < queueRef.current.length) {
+            playTrackInternal(
+              queueRef.current[nextIdx],
+              queueRef.current,
+              nextIdx,
+            );
+          } else if (loopModeRef.current === "all") {
+            playTrackInternal(queueRef.current[0], queueRef.current, 0);
+          } else {
+            setIsPlaying(false);
+            setProgress(0);
+          }
+        }
+      } else {
+        setIsPlaying(false);
+        setProgress(0);
+      }
+    };
+
+    const onError = () => {
+      if (webAudioRef.current !== audio) return;
+      const err = audio.error;
+      if (err && err.code === 1) return;
+
+      const codeNames: Record<number, string> = {
+        2: "MEDIA_ERR_NETWORK",
+        3: "MEDIA_ERR_DECODE",
+        4: "MEDIA_ERR_SRC_NOT_SUPPORTED",
+      };
+      const codeName = err ? (codeNames[err.code] || `code=${err.code}`) : "unknown";
+      const detail = err?.message ? `: ${err.message}` : "";
+      const logMsg = `[Player] Audio element error for '${track.title}': ${codeName}${detail} (src: ${audioUrl})`;
+      console.error(logMsg);
+      setAudioError(`Could not play '${track.title}' (${codeName})`);
+      setIsPlaying(false);
+      setIsLoading(false);
+    };
+
+    audio.addEventListener("timeupdate", onTimeUpdate);
+    audio.addEventListener("ended", onEnded);
+    audio.addEventListener("error", onError);
+    webAudioListenersRef.current = {
+      el: audio,
+      handlers: { timeupdate: onTimeUpdate, ended: onEnded, error: onError },
+    };
+
+    const preflight = await preflightAudioUrl(audioUrl, track.title);
+    if (playGenRef.current !== gen) return;
+
+    if (!preflight.ok) {
+      if (preflight.retryable && !isRetry) {
+        console.warn(`[Player] Pre-flight failed for '${track.title}', retrying in ${RETRY_DELAY_MS}ms: ${preflight.message}`);
+        await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
+        return attemptWebPlay(track, audioUrl, gen, true);
+      }
+      console.error(`[Player] Pre-flight failed for '${track.title}': ${preflight.message}`);
+      setAudioError(preflight.message);
+      setIsPlaying(false);
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      const ctx = getSharedAudioContext();
+      if (ctx && ctx.state === "suspended") {
+        await ctx.resume();
+      }
+      await audio.play();
+      if (playGenRef.current !== gen) return;
+      setAudioBlocked(false);
+      setIsPlaying(true);
+      setIsLoading(false);
+    } catch (playErr: unknown) {
+      if (playGenRef.current !== gen) return;
+      if (playErr instanceof Error && playErr.name === "NotAllowedError") {
+        setAudioBlocked(true);
+        setIsLoading(false);
+        setIsPlaying(false);
+      } else if (playErr instanceof Error && playErr.name === "AbortError") {
+        setIsLoading(false);
+        setIsPlaying(false);
+      } else {
+        const errName = playErr instanceof Error ? playErr.name : "Unknown";
+        const errMsg = playErr instanceof Error ? playErr.message : String(playErr);
+        console.error(`[Player] play() failed for '${track.title}': ${errName}: ${errMsg}`);
+
+        if (!isRetry) {
+          console.warn(`[Player] Retrying '${track.title}' in ${RETRY_DELAY_MS}ms`);
+          await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
+          return attemptWebPlay(track, audioUrl, gen, true);
+        }
+
+        setAudioError(`Could not play '${track.title}': ${errName}`);
+        setIsPlaying(false);
+        setIsLoading(false);
+      }
+    }
+  }
+
   async function playTrackInternal(
     track: Track,
     trackQueue: Track[],
@@ -418,135 +610,16 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       queueIndexRef.current = index;
       setIsPlayerVisible(true);
       setIsLoading(true);
+      setIsPlaying(false);
       setPreviewEnded(false);
       setAudioError(null);
+      setAudioBlocked(false);
       previewEndedRef.current = false;
 
       if (Platform.OS === "web") {
-        // Increment generation so stale async callbacks can detect they've been superseded
         const gen = ++playGenRef.current;
-
-        if (webAudioRef.current) {
-          webAudioRef.current.pause();
-          webAudioRef.current.src = "";
-          webAudioRef.current = null;
-        }
-
         const audioUrl = resolveAudioUrl(track.fileUrl);
-        const audio = document.createElement("audio") as HTMLAudioElement;
-        audio.preload = "none";
-        audio.src = audioUrl;
-        webAudioRef.current = audio;
-
-        audio.addEventListener("timeupdate", () => {
-          if (webAudioRef.current !== audio) return;
-          const posMs = audio.currentTime * 1000;
-          const durMs = isFinite(audio.duration) ? audio.duration * 1000 : 0;
-          setProgress(posMs);
-          if (durMs > 0) setDuration(durMs);
-
-          if (
-            !subscriptionRef.current &&
-            posMs >= FREE_PREVIEW_MS &&
-            !audio.paused &&
-            !previewEndedRef.current
-          ) {
-            previewEndedRef.current = true;
-            setIsPlaying(false);
-            setPreviewEnded(true);
-            const trackId = currentTrackIdRef.current;
-            if (trackId) {
-              const newSet = new Set(playedTrackIdsRef.current);
-              newSet.add(trackId);
-              playedTrackIdsRef.current = newSet;
-              setPlayedTrackIds(new Set(newSet));
-              if (userIdRef.current) {
-                persistPlayedTracks(userIdRef.current, newSet);
-              }
-            }
-            audio.pause();
-          }
-        });
-
-        audio.addEventListener("ended", () => {
-          if (webAudioRef.current !== audio) return;
-          if (subscriptionRef.current) {
-            if (loopModeRef.current === "one" || queueRef.current.length <= 1) {
-              audio.currentTime = 0;
-              audio.play().catch(() => {});
-            } else {
-              const nextIdx = queueIndexRef.current + 1;
-              if (nextIdx < queueRef.current.length) {
-                playTrackInternal(
-                  queueRef.current[nextIdx],
-                  queueRef.current,
-                  nextIdx,
-                );
-              } else if (loopModeRef.current === "all") {
-                playTrackInternal(queueRef.current[0], queueRef.current, 0);
-              } else {
-                setIsPlaying(false);
-                setProgress(0);
-              }
-            }
-          } else {
-            setIsPlaying(false);
-            setProgress(0);
-          }
-        });
-
-        audio.addEventListener("error", () => {
-          if (webAudioRef.current !== audio) return;
-          const err = audio.error;
-          // MEDIA_ERR_ABORTED (code 1) fires when src is cleared — not a real error
-          if (err && err.code === 1) return;
-          const msg = err ? `code=${err.code} msg=${err.message}` : "unknown";
-          console.error(
-            "[Player] Web audio load error:",
-            msg,
-            "src:",
-            audio.src,
-          );
-          setAudioError("Unable to load audio. Please try again.");
-          setIsPlaying(false);
-          setIsLoading(false);
-        });
-
-        try {
-          const ctx = getSharedAudioContext();
-          if (ctx && ctx.state === "suspended") {
-            await ctx.resume();
-          }
-          await audio.play();
-          // Guard: if a newer playTrackInternal has started, don't touch state
-          if (playGenRef.current !== gen) return;
-          setAudioBlocked(false);
-          setIsPlaying(true);
-          setIsLoading(false);
-        } catch (playErr: unknown) {
-          // Guard: if superseded, this catch is stale — swallow it silently
-          if (playGenRef.current !== gen) return;
-          if (
-            playErr instanceof Error &&
-            playErr.name === "NotAllowedError"
-          ) {
-            setAudioBlocked(true);
-            setIsLoading(false);
-            setIsPlaying(false);
-          } else if (
-            playErr instanceof Error &&
-            playErr.name === "AbortError"
-          ) {
-            // AbortError means play() was interrupted by pause() or src change — not a user-facing error
-            setIsLoading(false);
-            setIsPlaying(false);
-          } else {
-            console.error("[Player] Web audio play error:", playErr);
-            setAudioError("Failed to play audio. Please try again.");
-            setIsPlaying(false);
-            setIsLoading(false);
-          }
-        }
+        await attemptWebPlay(track, audioUrl, gen, false);
       } else {
         if (soundRef.current) {
           await soundRef.current.unloadAsync();
@@ -573,7 +646,9 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         setIsLoading(false);
       }
     } catch (error) {
-      console.error("Error playing track:", error);
+      const errMsg = error instanceof Error ? error.message : String(error);
+      console.error(`[Player] playTrackInternal failed for '${track.title}': ${errMsg}`);
+      setAudioError(`Could not play '${track.title}'`);
       setIsPlaying(false);
       setIsLoading(false);
     }
@@ -663,8 +738,9 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
           } else if (err instanceof Error && err.name === "AbortError") {
             // play() was interrupted by a concurrent track change — not a real error
           } else {
-            setAudioError("Failed to resume audio. Please try again.");
-            console.warn("[Player] Web resume failed:", err);
+            const errName = err instanceof Error ? err.name : "Unknown";
+            console.warn(`[Player] Web resume failed: ${errName}:`, err);
+            setAudioError(`Failed to resume audio (${errName})`);
           }
         }
       }
@@ -691,11 +767,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     setPreviewEnded(false);
 
     if (Platform.OS === "web") {
-      if (webAudioRef.current) {
-        webAudioRef.current.pause();
-        webAudioRef.current.src = "";
-        webAudioRef.current = null;
-      }
+      destroyWebAudio();
     } else {
       if (soundRef.current) {
         await soundRef.current.stopAsync();
@@ -750,10 +822,11 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         setIsPlaying(true);
         setIsLoading(false);
       } catch (err: unknown) {
-        if (err instanceof Error && err.name !== "NotAllowedError") {
-          setAudioError("Failed to play audio. Please try again.");
+        const errName = err instanceof Error ? err.name : "Unknown";
+        if (errName !== "NotAllowedError") {
+          setAudioError(`Failed to play audio (${errName})`);
         }
-        console.error("[Player] resumeBlockedAudio failed:", err);
+        console.error(`[Player] resumeBlockedAudio failed: ${errName}:`, err);
       }
     }
   }

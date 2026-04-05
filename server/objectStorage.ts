@@ -259,9 +259,19 @@ export async function getAudioStreamOrDisk(
   const responsePass = new PassThrough();
   const fileWrite = fs.createWriteStream(tmpPath);
 
-  // Track whether the response consumer (browser) has disconnected.
-  // When the browser buffers enough and closes the connection, we continue
-  // downloading and caching to disk so the next request is served instantly.
+  const streamTimeout = setTimeout(() => {
+    console.error(`[Audio] Stream timeout (120s) for ${objectName} — destroying streams`);
+    storageStream.destroy(new Error("Stream timeout"));
+  }, 120_000);
+
+  let streamEnded = false;
+  const clearStreamTimeout = () => {
+    if (!streamEnded) {
+      streamEnded = true;
+      clearTimeout(streamTimeout);
+    }
+  };
+
   let responseDetached = false;
   let passWaiting = false;
   let fileWaiting = false;
@@ -336,11 +346,13 @@ export async function getAudioStreamOrDisk(
   });
 
   storageStream.on("end", () => {
+    clearStreamTimeout();
     responsePass.end();
     fileWrite.end();
   });
 
   storageStream.on("error", (err: any) => {
+    clearStreamTimeout();
     console.error(`[Audio] Tee stream source error for ${objectName}:`, err?.message || err);
     responsePass.destroy(err);
     fileWrite.destroy();

@@ -45,7 +45,14 @@ Preferred communication style: Simple, everyday language.
 
 **Audio URL Architecture**: The server returns relative paths (e.g. `/api/audio/Delta/...`) from all track API endpoints. The client resolves these to full URLs using `getApiUrl()` (which includes the correct port 5000). This ensures audio requests always reach the Express backend on port 5000, not the Expo frontend on port 80. The `resolveAudioUrl()` helper in `PlayerContext.tsx` handles this conversion using `new URL(fileUrl, getApiUrl())`.
 
-**Audio Serving**: The `/api/audio/:folder/:filename` route uses disk-based caching in `/tmp/audio-cache/`. On first request, files are downloaded from Object Storage to disk using `downloadToFilename` (primary) or stream-to-file (fallback). Subsequent requests are served directly from disk via `fs.createReadStream` with native range request support — no files are loaded into memory. An `exists()` check distinguishes true 404s from storage errors (500). A storage health endpoint at `/api/health/storage` verifies both bytes and stream access to Object Storage.
+**Audio Serving**: The `/api/audio/:folder/:filename` route uses disk-based caching in `/tmp/audio-cache/`. On first request, files are tee-streamed from Object Storage to both the response and disk simultaneously. Subsequent requests are served directly from disk via `fs.createReadStream` with native range request support — no files are loaded into memory. A lightweight `HEAD` handler returns metadata (Content-Length, Content-Type) without initiating streams, used by the client's pre-flight check. Stream timeout (120s) prevents hung Object Storage downloads. All error responses include the `path` field for diagnostics, and stream error handlers call `res.end()` to prevent hung connections. A storage health endpoint at `/api/health/storage` verifies Object Storage connectivity.
+
+**Audio Playback Hardening** (PlayerContext.tsx):
+- `destroyWebAudio()` fully tears down old audio elements (removes event listeners, nulls refs) before creating new ones — prevents cascade failures where one track's error poisons all subsequent playback
+- Pre-flight `HEAD` check before `audio.play()` catches 404/500/network errors early with track-specific error messages
+- Single automatic retry on retryable errors (5xx, network timeout, AbortError) with 1.5s delay
+- `playGenRef` generation counter prevents stale async state writes when tracks are switched rapidly
+- Full state reset (audioError, audioBlocked, isLoading, isPlaying) at start of each `playTrackInternal` call
 
 ### Data Storage
 
