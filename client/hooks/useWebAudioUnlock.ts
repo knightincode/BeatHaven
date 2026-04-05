@@ -21,8 +21,6 @@ export function useWebAudioUnlock() {
 
     const unlock = async () => {
       if (unlocked) return;
-      unlocked = true;
-      cleanup();
       try {
         const AC =
           window.AudioContext ||
@@ -43,6 +41,8 @@ export function useWebAudioUnlock() {
         await audio.play().catch(() => {});
         audio.pause();
         audio.src = "";
+        unlocked = true;
+        cleanup();
       } catch {}
     };
 
