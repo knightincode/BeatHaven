@@ -123,12 +123,15 @@ async function tryStreamFallback(objectName: string): Promise<AudioBufferResult>
   });
 }
 
-export async function objectExists(objectName: string): Promise<boolean> {
+export async function objectExists(objectName: string): Promise<{ exists: boolean; checkFailed: boolean }> {
   try {
     const result = await client.exists(objectName);
-    return result.ok && result.value === true;
+    if (result.ok) {
+      return { exists: result.value === true, checkFailed: false };
+    }
+    return { exists: false, checkFailed: true };
   } catch {
-    return false;
+    return { exists: false, checkFailed: true };
   }
 }
 
@@ -139,10 +142,14 @@ export async function getAudioFileAsBuffer(objectName: string): Promise<AudioBuf
     return { status: "ok", buffer: cached.buffer, size: cached.buffer.length };
   }
 
-  const exists = await objectExists(objectName);
-  if (!exists) {
-    console.error(`[Audio] Object does not exist: ${objectName}`);
-    return { status: "not_found" };
+  const existsCheck = await objectExists(objectName);
+  if (!existsCheck.exists) {
+    if (existsCheck.checkFailed) {
+      console.warn(`[Audio] exists() check failed for ${objectName}, proceeding with download attempt`);
+    } else {
+      console.error(`[Audio] Object does not exist: ${objectName}`);
+      return { status: "not_found" };
+    }
   }
 
   try {

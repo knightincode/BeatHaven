@@ -1,9 +1,6 @@
 import { db } from "./db";
 import { audioTracks } from "../shared/schema";
-import { preCacheFileSize, getFileSizeFromStorage } from "./objectStorage";
-import { Client } from "@replit/object-storage";
-
-const storageClient = new Client();
+import { getFileSizeFromStorage } from "./objectStorage";
 
 const TRACKS = [
   {

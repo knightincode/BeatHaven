@@ -544,9 +544,12 @@ async function tryStreamFallback(objectName) {
 async function objectExists(objectName) {
   try {
     const result = await client.exists(objectName);
-    return result.ok && result.value === true;
+    if (result.ok) {
+      return { exists: result.value === true, checkFailed: false };
+    }
+    return { exists: false, checkFailed: true };
   } catch {
-    return false;
+    return { exists: false, checkFailed: true };
   }
 }
 async function getAudioFileAsBuffer(objectName) {
@@ -555,10 +558,14 @@ async function getAudioFileAsBuffer(objectName) {
     cached.lastAccess = Date.now();
     return { status: "ok", buffer: cached.buffer, size: cached.buffer.length };
   }
-  const exists = await objectExists(objectName);
-  if (!exists) {
-    console.error(`[Audio] Object does not exist: ${objectName}`);
-    return { status: "not_found" };
+  const existsCheck = await objectExists(objectName);
+  if (!existsCheck.exists) {
+    if (existsCheck.checkFailed) {
+      console.warn(`[Audio] exists() check failed for ${objectName}, proceeding with download attempt`);
+    } else {
+      console.error(`[Audio] Object does not exist: ${objectName}`);
+      return { status: "not_found" };
+    }
   }
   try {
     const result = await client.downloadAsBytes(objectName);
@@ -1471,8 +1478,6 @@ var WebhookHandlers = class {
 };
 
 // server/seedTracks.ts
-import { Client as Client2 } from "@replit/object-storage";
-var storageClient = new Client2();
 var TRACKS = [
   {
     id: "98810a89-d3ab-4b62-9077-242a019b50f5",
@@ -2008,8 +2013,8 @@ async function preCacheAllTrackSizes() {
 }
 
 // server/generateMissingTracks.ts
-import { Client as Client3 } from "@replit/object-storage";
-var client2 = new Client3();
+import { Client as Client2 } from "@replit/object-storage";
+var client2 = new Client2();
 var SAMPLE_RATE = 22050;
 var DURATION_SEC = 1800;
 var FADE_SEC = 2;
