@@ -258,11 +258,15 @@ export async function getAudioStreamOrDisk(
   const fileWrite = fs.createWriteStream(tmpPath);
 
   storageStream.on("data", (chunk: Buffer) => {
-    responsePass.write(chunk);
-    const canContinue = fileWrite.write(chunk);
-    if (!canContinue) {
+    const passOk = responsePass.write(chunk);
+    const fileOk = fileWrite.write(chunk);
+    if (!passOk || !fileOk) {
       storageStream.pause();
-      fileWrite.once("drain", () => storageStream.resume());
+      let passReady = passOk;
+      let fileReady = fileOk;
+      const tryResume = () => { if (passReady && fileReady) storageStream.resume(); };
+      if (!passOk) responsePass.once("drain", () => { passReady = true; tryResume(); });
+      if (!fileOk) fileWrite.once("drain", () => { fileReady = true; tryResume(); });
     }
   });
 

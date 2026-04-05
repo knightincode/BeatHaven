@@ -448,16 +448,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const rawRange = req.headers.range;
       let rangeStart = 0;
+      let rangeEnd: number | null = null;
       if (rawRange) {
-        const firstPart = rawRange.replace(/bytes=/, "").split("-")[0];
-        rangeStart = parseInt(firstPart, 10) || 0;
+        const parts = rawRange.replace(/bytes=/, "").split("-");
+        rangeStart = parseInt(parts[0], 10) || 0;
+        rangeEnd = parts[1] ? parseInt(parts[1], 10) : null;
       }
 
       console.log(`[Audio] Request: ${objectPath} range=${rawRange || "none"} start=${rangeStart}`);
 
       const knownSize = getCachedFileSize(objectPath);
+      const isFullFromZero =
+        rangeStart === 0 &&
+        (rangeEnd === null || (knownSize !== undefined && rangeEnd >= knownSize - 1));
 
-      if (rangeStart === 0 && knownSize !== undefined) {
+      if (isFullFromZero && knownSize !== undefined) {
         const serveResult = await getAudioStreamOrDisk(objectPath, knownSize);
 
         if (serveResult.status === "not_found") {
@@ -469,15 +474,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
 
         const totalSize = serveResult.size;
+        const isRangeRequest = rawRange !== undefined;
 
         res.setHeader("Content-Type", "audio/wav");
         res.setHeader("Accept-Ranges", "bytes");
         res.setHeader("Access-Control-Allow-Origin", "*");
         res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
         res.setHeader("Cache-Control", "public, max-age=86400");
-        res.setHeader("Content-Range", `bytes 0-${totalSize - 1}/${totalSize}`);
         res.setHeader("Content-Length", totalSize);
-        res.writeHead(206);
+        if (isRangeRequest) {
+          res.setHeader("Content-Range", `bytes 0-${totalSize - 1}/${totalSize}`);
+          res.writeHead(206);
+        } else {
+          res.writeHead(200);
+        }
 
         if (serveResult.status === "disk") {
           const readStream = fs.createReadStream(serveResult.filePath);
