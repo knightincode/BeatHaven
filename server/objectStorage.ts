@@ -123,11 +123,26 @@ async function tryStreamFallback(objectName: string): Promise<AudioBufferResult>
   });
 }
 
+export async function objectExists(objectName: string): Promise<boolean> {
+  try {
+    const result = await client.exists(objectName);
+    return result.ok && result.value === true;
+  } catch {
+    return false;
+  }
+}
+
 export async function getAudioFileAsBuffer(objectName: string): Promise<AudioBufferResult> {
   const cached = audioBufferCache.get(objectName);
   if (cached) {
     cached.lastAccess = Date.now();
     return { status: "ok", buffer: cached.buffer, size: cached.buffer.length };
+  }
+
+  const exists = await objectExists(objectName);
+  if (!exists) {
+    console.error(`[Audio] Object does not exist: ${objectName}`);
+    return { status: "not_found" };
   }
 
   try {
@@ -146,6 +161,30 @@ export async function getAudioFileAsBuffer(objectName: string): Promise<AudioBuf
     const message = err?.message || String(err);
     console.warn(`[Audio] downloadAsBytes error for ${objectName}: ${message}, trying stream fallback`);
     return await tryStreamFallback(objectName);
+  }
+}
+
+export async function getFileSizeFromStorage(objectName: string): Promise<number | null> {
+  if (fileSizeCache.has(objectName)) {
+    return fileSizeCache.get(objectName) ?? null;
+  }
+
+  const cachedBuffer = audioBufferCache.get(objectName);
+  if (cachedBuffer) {
+    fileSizeCache.set(objectName, cachedBuffer.buffer.length);
+    return cachedBuffer.buffer.length;
+  }
+
+  try {
+    const result = await client.downloadAsBytes(objectName);
+    if (result.ok) {
+      const size = result.value[0].length;
+      fileSizeCache.set(objectName, size);
+      return size;
+    }
+    return null;
+  } catch {
+    return null;
   }
 }
 

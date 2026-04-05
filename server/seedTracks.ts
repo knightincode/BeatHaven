@@ -1,6 +1,6 @@
 import { db } from "./db";
 import { audioTracks } from "../shared/schema";
-import { preCacheFileSize } from "./objectStorage";
+import { preCacheFileSize, getFileSizeFromStorage } from "./objectStorage";
 import { Client } from "@replit/object-storage";
 
 const storageClient = new Client();
@@ -525,30 +525,24 @@ export async function seedTracks(): Promise<void> {
 }
 
 export async function preCacheAllTrackSizes(): Promise<void> {
-  let verified = 0;
+  let cached = 0;
   let missing = 0;
   let errors = 0;
-  const batchSize = 10;
 
-  for (let i = 0; i < TRACKS.length; i += batchSize) {
-    const batch = TRACKS.slice(i, i + batchSize);
-    await Promise.allSettled(
-      batch.map(async (track) => {
-        try {
-          const result = await storageClient.exists(track.fileUrl);
-          if (result.ok && result.value) {
-            verified++;
-          } else {
-            missing++;
-            console.error(`[Tracks] Missing in Object Storage: ${track.fileUrl}`);
-          }
-        } catch (err: any) {
-          errors++;
-          console.error(`[Tracks] Error checking ${track.fileUrl}: ${err?.message || err}`);
-        }
-      })
-    );
+  for (const track of TRACKS) {
+    try {
+      const size = await getFileSizeFromStorage(track.fileUrl);
+      if (size !== null) {
+        cached++;
+      } else {
+        missing++;
+        console.error(`[Tracks] Could not determine size for: ${track.fileUrl}`);
+      }
+    } catch (err: any) {
+      errors++;
+      console.error(`[Tracks] Error pre-caching ${track.fileUrl}: ${err?.message || err}`);
+    }
   }
 
-  console.log(`[Tracks] Verified ${verified} tracks in storage, ${missing} missing, ${errors} errors`);
+  console.log(`[Tracks] Pre-cached ${cached} track sizes, ${missing} missing, ${errors} errors`);
 }

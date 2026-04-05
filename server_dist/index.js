@@ -541,11 +541,24 @@ async function tryStreamFallback(objectName) {
     }
   });
 }
+async function objectExists(objectName) {
+  try {
+    const result = await client.exists(objectName);
+    return result.ok && result.value === true;
+  } catch {
+    return false;
+  }
+}
 async function getAudioFileAsBuffer(objectName) {
   const cached = audioBufferCache.get(objectName);
   if (cached) {
     cached.lastAccess = Date.now();
     return { status: "ok", buffer: cached.buffer, size: cached.buffer.length };
+  }
+  const exists = await objectExists(objectName);
+  if (!exists) {
+    console.error(`[Audio] Object does not exist: ${objectName}`);
+    return { status: "not_found" };
   }
   try {
     const result = await client.downloadAsBytes(objectName);
@@ -563,6 +576,27 @@ async function getAudioFileAsBuffer(objectName) {
     const message = err?.message || String(err);
     console.warn(`[Audio] downloadAsBytes error for ${objectName}: ${message}, trying stream fallback`);
     return await tryStreamFallback(objectName);
+  }
+}
+async function getFileSizeFromStorage(objectName) {
+  if (fileSizeCache.has(objectName)) {
+    return fileSizeCache.get(objectName) ?? null;
+  }
+  const cachedBuffer = audioBufferCache.get(objectName);
+  if (cachedBuffer) {
+    fileSizeCache.set(objectName, cachedBuffer.buffer.length);
+    return cachedBuffer.buffer.length;
+  }
+  try {
+    const result = await client.downloadAsBytes(objectName);
+    if (result.ok) {
+      const size = result.value[0].length;
+      fileSizeCache.set(objectName, size);
+      return size;
+    }
+    return null;
+  } catch {
+    return null;
   }
 }
 async function testStorageConnectivity() {
@@ -1953,30 +1987,24 @@ async function seedTracks() {
   }
 }
 async function preCacheAllTrackSizes() {
-  let verified = 0;
+  let cached = 0;
   let missing = 0;
   let errors = 0;
-  const batchSize = 10;
-  for (let i = 0; i < TRACKS.length; i += batchSize) {
-    const batch = TRACKS.slice(i, i + batchSize);
-    await Promise.allSettled(
-      batch.map(async (track) => {
-        try {
-          const result = await storageClient.exists(track.fileUrl);
-          if (result.ok && result.value) {
-            verified++;
-          } else {
-            missing++;
-            console.error(`[Tracks] Missing in Object Storage: ${track.fileUrl}`);
-          }
-        } catch (err) {
-          errors++;
-          console.error(`[Tracks] Error checking ${track.fileUrl}: ${err?.message || err}`);
-        }
-      })
-    );
+  for (const track of TRACKS) {
+    try {
+      const size = await getFileSizeFromStorage(track.fileUrl);
+      if (size !== null) {
+        cached++;
+      } else {
+        missing++;
+        console.error(`[Tracks] Could not determine size for: ${track.fileUrl}`);
+      }
+    } catch (err) {
+      errors++;
+      console.error(`[Tracks] Error pre-caching ${track.fileUrl}: ${err?.message || err}`);
+    }
   }
-  console.log(`[Tracks] Verified ${verified} tracks in storage, ${missing} missing, ${errors} errors`);
+  console.log(`[Tracks] Pre-cached ${cached} track sizes, ${missing} missing, ${errors} errors`);
 }
 
 // server/generateMissingTracks.ts
