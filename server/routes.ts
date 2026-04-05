@@ -554,7 +554,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         const chunkSize = end - start + 1;
         res.setHeader("Content-Range", `bytes ${start}-${end}/${totalSize}`);
-        res.setHeader("Content-Length", chunkSize);
+        // Omit Content-Length for large range responses so the production reverse
+        // proxy uses chunked encoding rather than buffering the full payload
+        // before forwarding any audio data to the browser.
+        if (chunkSize <= 10 * 1024 * 1024) {
+          res.setHeader("Content-Length", chunkSize);
+        }
         res.writeHead(206);
 
         const readStream = fs.createReadStream(filePath, { start, end });
@@ -563,7 +568,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
         readStream.pipe(res);
       } else {
-        res.setHeader("Content-Length", totalSize);
+        if (totalSize <= 10 * 1024 * 1024) {
+          res.setHeader("Content-Length", totalSize);
+        }
         res.writeHead(200);
 
         const readStream = fs.createReadStream(filePath);
@@ -576,6 +583,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error(`[Audio] Error serving ${objectPath}:`, error?.message || error, error?.stack);
       if (!res.headersSent) {
+        res.setHeader("Access-Control-Allow-Origin", "*");
         res.status(500).json({ message: "Failed to stream audio" });
       }
     }
