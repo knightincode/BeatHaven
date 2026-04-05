@@ -1,5 +1,6 @@
 import { Client } from "@replit/object-storage";
 import type { Readable } from "stream";
+import { PassThrough } from "stream";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -103,6 +104,41 @@ async function downloadToFile(objectName: string, destPath: string): Promise<boo
   }
 }
 
+async function streamToFile(objectName: string, destPath: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    try {
+      const stream = client.downloadAsStream(objectName) as Readable;
+      const writeStream = fs.createWriteStream(destPath);
+      const timeout = setTimeout(() => {
+        stream.destroy();
+        writeStream.destroy();
+        cleanupTmp(destPath);
+        resolve(false);
+      }, 120_000);
+
+      stream.pipe(writeStream);
+      writeStream.on("finish", () => { clearTimeout(timeout); resolve(true); });
+      stream.on("error", (err: any) => {
+        clearTimeout(timeout);
+        writeStream.destroy();
+        cleanupTmp(destPath);
+        console.error(`[Audio] Stream-to-file error for ${objectName}:`, err?.message || err);
+        resolve(false);
+      });
+      writeStream.on("error", (err: any) => {
+        clearTimeout(timeout);
+        stream.destroy();
+        cleanupTmp(destPath);
+        console.error(`[Audio] Write error for ${objectName}:`, err?.message || err);
+        resolve(false);
+      });
+    } catch (err: any) {
+      console.error(`[Audio] Stream-to-file exception for ${objectName}:`, err?.message || err);
+      resolve(false);
+    }
+  });
+}
+
 async function runDownload(objectName: string): Promise<AudioFileResult> {
   const cachePath = getCachePath(objectName);
   const tmpPath = getTmpPath(objectName);
@@ -150,41 +186,6 @@ async function runDownload(objectName: string): Promise<AudioFileResult> {
   return { status: "error", message: msg };
 }
 
-async function streamToFile(objectName: string, destPath: string): Promise<boolean> {
-  return new Promise((resolve) => {
-    try {
-      const stream = client.downloadAsStream(objectName) as Readable;
-      const writeStream = fs.createWriteStream(destPath);
-      const timeout = setTimeout(() => {
-        stream.destroy();
-        writeStream.destroy();
-        cleanupTmp(destPath);
-        resolve(false);
-      }, 120_000);
-
-      stream.pipe(writeStream);
-      writeStream.on("finish", () => { clearTimeout(timeout); resolve(true); });
-      stream.on("error", (err: any) => {
-        clearTimeout(timeout);
-        writeStream.destroy();
-        cleanupTmp(destPath);
-        console.error(`[Audio] Stream-to-file error for ${objectName}:`, err?.message || err);
-        resolve(false);
-      });
-      writeStream.on("error", (err: any) => {
-        clearTimeout(timeout);
-        stream.destroy();
-        cleanupTmp(destPath);
-        console.error(`[Audio] Write error for ${objectName}:`, err?.message || err);
-        resolve(false);
-      });
-    } catch (err: any) {
-      console.error(`[Audio] Stream-to-file exception for ${objectName}:`, err?.message || err);
-      resolve(false);
-    }
-  });
-}
-
 export async function getAudioFilePath(objectName: string): Promise<AudioFileResult> {
   const cachePath = getCachePath(objectName);
 
@@ -206,13 +207,9 @@ export async function getAudioFilePath(objectName: string): Promise<AudioFileRes
   return promise;
 }
 
-export function openStorageStream(objectName: string): Readable {
-  return client.downloadAsStream(objectName) as Readable;
-}
-
 export type StreamServeResult =
-  | { mode: "disk"; filePath: string; size: number }
-  | { mode: "stream"; stream: Readable; size: number }
+  | { status: "disk"; filePath: string; size: number }
+  | { status: "stream"; stream: Readable; size: number }
   | { status: "not_found" }
   | { status: "error"; message: string };
 
@@ -226,7 +223,7 @@ export async function getAudioStreamOrDisk(
     const stat = fs.statSync(cachePath);
     if (stat.size > 0) {
       fileSizeCache.set(objectName, stat.size);
-      return { mode: "disk", filePath: cachePath, size: stat.size };
+      return { status: "disk", filePath: cachePath, size: stat.size };
     }
     try { fs.unlinkSync(cachePath); } catch {}
   }
@@ -234,23 +231,82 @@ export async function getAudioStreamOrDisk(
   const existing = inFlightDownloads.get(objectName);
   if (existing) {
     const result = await existing;
-    return result.status === "ok"
-      ? { mode: "disk", filePath: result.filePath, size: result.size }
-      : result;
+    if (result.status === "ok") return { status: "disk", filePath: result.filePath, size: result.size };
+    return result;
+  }
+
+  let resolveCache!: (r: AudioFileResult) => void;
+  const cachePromise: Promise<AudioFileResult> = new Promise((resolve) => {
+    resolveCache = resolve;
+  });
+  inFlightDownloads.set(objectName, cachePromise);
+  cachePromise.finally(() => inFlightDownloads.delete(objectName));
+
+  const existsCheck = await objectExists(objectName);
+  if (!existsCheck.exists && !existsCheck.checkFailed) {
+    resolveCache({ status: "not_found" });
+    return { status: "not_found" };
   }
 
   const folder = path.dirname(objectName);
   ensureCacheDir(folder);
-
   const tmpPath = getTmpPath(objectName);
   cleanupTmp(tmpPath);
 
-  const promise = runDownload(objectName);
-  inFlightDownloads.set(objectName, promise);
-  promise.finally(() => inFlightDownloads.delete(objectName));
+  const storageStream = client.downloadAsStream(objectName) as Readable;
+  const responsePass = new PassThrough();
+  const fileWrite = fs.createWriteStream(tmpPath);
 
-  const stream = client.downloadAsStream(objectName) as Readable;
-  return { mode: "stream", stream, size: knownSize };
+  storageStream.on("data", (chunk: Buffer) => {
+    responsePass.write(chunk);
+    const canContinue = fileWrite.write(chunk);
+    if (!canContinue) {
+      storageStream.pause();
+      fileWrite.once("drain", () => storageStream.resume());
+    }
+  });
+
+  storageStream.on("end", () => {
+    responsePass.end();
+    fileWrite.end();
+  });
+
+  storageStream.on("error", (err: any) => {
+    console.error(`[Audio] Tee stream source error for ${objectName}:`, err?.message || err);
+    responsePass.destroy(err);
+    fileWrite.destroy();
+    cleanupTmp(tmpPath);
+    resolveCache({ status: "error", message: err?.message || "Stream source error" });
+  });
+
+  fileWrite.on("finish", () => {
+    try {
+      const stat = fs.statSync(tmpPath);
+      if (stat.size > 0) {
+        fs.renameSync(tmpPath, cachePath);
+        fileSizeCache.set(objectName, stat.size);
+        console.log(`[Audio] Tee-cached to disk: ${objectName} (${(stat.size / 1024 / 1024).toFixed(1)} MB)`);
+        resolveCache({ status: "ok", filePath: cachePath, size: stat.size });
+      } else {
+        cleanupTmp(tmpPath);
+        resolveCache({ status: "error", message: "Empty file after tee write" });
+      }
+    } catch (err: any) {
+      cleanupTmp(tmpPath);
+      resolveCache({ status: "error", message: err?.message || "Rename failed after tee" });
+    }
+  });
+
+  fileWrite.on("error", (err: any) => {
+    console.error(`[Audio] Tee file write error for ${objectName}:`, err?.message || err);
+    storageStream.destroy();
+    responsePass.destroy(err);
+    cleanupTmp(tmpPath);
+    resolveCache({ status: "error", message: err?.message || "Tee file write error" });
+  });
+
+  console.log(`[Audio] Tee-streaming ${objectName} (${(knownSize / 1024 / 1024).toFixed(1)} MB) → response + disk`);
+  return { status: "stream", stream: responsePass, size: knownSize };
 }
 
 export async function getFileSizeFromStorage(objectName: string): Promise<number | null> {

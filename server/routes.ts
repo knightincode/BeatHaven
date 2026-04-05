@@ -464,7 +464,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(404).json({ message: "Audio file not found" });
         }
         if (serveResult.status === "error") {
-          console.error(`[Audio] Error for ${objectPath}:`, (serveResult as any).message);
+          console.error(`[Audio] Error for ${objectPath}:`, serveResult.message);
           return res.status(500).json({ message: "Failed to retrieve audio file" });
         }
 
@@ -479,16 +479,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         res.setHeader("Content-Length", totalSize);
         res.writeHead(206);
 
-        if (serveResult.mode === "disk") {
+        if (serveResult.status === "disk") {
           const readStream = fs.createReadStream(serveResult.filePath);
           readStream.on("error", (err: any) => {
             console.error(`[Audio] Disk read error for ${objectPath}:`, err?.message);
           });
           readStream.pipe(res);
         } else {
-          console.log(`[Audio] Streaming ${objectPath} (${(totalSize / 1024 / 1024).toFixed(1)} MB) directly to client`);
           serveResult.stream.on("error", (err: any) => {
-            console.error(`[Audio] Storage stream error for ${objectPath}:`, err?.message || err);
+            console.error(`[Audio] Tee stream error for ${objectPath}:`, err?.message || err);
           });
           serveResult.stream.pipe(res);
         }
