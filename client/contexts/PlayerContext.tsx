@@ -104,6 +104,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
   const soundRef = useRef<Audio.Sound | null>(null);
   const webAudioRef = useRef<HTMLAudioElement | null>(null);
+  const playGenRef = useRef(0);
   const sleepTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const fadeIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const sleepTimerEndRef = useRef<number>(0);
@@ -422,6 +423,9 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       previewEndedRef.current = false;
 
       if (Platform.OS === "web") {
+        // Increment generation so stale async callbacks can detect they've been superseded
+        const gen = ++playGenRef.current;
+
         if (webAudioRef.current) {
           webAudioRef.current.pause();
           webAudioRef.current.src = "";
@@ -430,8 +434,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
         const audioUrl = resolveAudioUrl(track.fileUrl);
         const audio = document.createElement("audio") as HTMLAudioElement;
-        audio.preload = "auto";
-        audio.crossOrigin = "anonymous";
+        audio.preload = "none";
         audio.src = audioUrl;
         webAudioRef.current = audio;
 
@@ -495,6 +498,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         audio.addEventListener("error", () => {
           if (webAudioRef.current !== audio) return;
           const err = audio.error;
+          // MEDIA_ERR_ABORTED (code 1) fires when src is cleared — not a real error
+          if (err && err.code === 1) return;
           const msg = err ? `code=${err.code} msg=${err.message}` : "unknown";
           console.error(
             "[Player] Web audio load error:",
@@ -513,10 +518,14 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
             await ctx.resume();
           }
           await audio.play();
+          // Guard: if a newer playTrackInternal has started, don't touch state
+          if (playGenRef.current !== gen) return;
           setAudioBlocked(false);
           setIsPlaying(true);
           setIsLoading(false);
         } catch (playErr: unknown) {
+          // Guard: if superseded, this catch is stale — swallow it silently
+          if (playGenRef.current !== gen) return;
           if (
             playErr instanceof Error &&
             playErr.name === "NotAllowedError"
@@ -524,6 +533,12 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
             setAudioBlocked(true);
             setIsLoading(false);
             setIsPlaying(false);
+          } else if (
+            playErr instanceof Error &&
+            playErr.name === "AbortError"
+          ) {
+            // AbortError means play() was interrupted by pause() or src change — not a user-facing error
+            setIsLoading(false);
           } else {
             console.error("[Player] Web audio play error:", playErr);
             setAudioError("Failed to play audio. Please try again.");
@@ -644,10 +659,12 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         } catch (err: unknown) {
           if (err instanceof Error && err.name === "NotAllowedError") {
             setAudioBlocked(true);
+          } else if (err instanceof Error && err.name === "AbortError") {
+            // play() was interrupted by a concurrent track change — not a real error
           } else {
             setAudioError("Failed to resume audio. Please try again.");
+            console.warn("[Player] Web resume failed:", err);
           }
-          console.warn("[Player] Web resume failed:", err);
         }
       }
     } else {
