@@ -12,11 +12,13 @@ import {
 import { verifyAppleIdentityToken } from "./appleAuth";
 import { verifyGoogleIdToken } from "./googleAuth";
 import { getUncachableStripeClient, getStripePublishableKey } from "./stripeClient";
+import * as path from "path";
 import {
   uploadAudioFile,
   getAudioFilePath,
   getAudioStreamOrDisk,
   getCachedFileSize,
+  objectExists,
   testStorageConnectivity,
 } from "./objectStorage";
 import { User } from "../shared/schema";
@@ -445,13 +447,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
     let objectPath = "";
     try {
       objectPath = decodeURIComponent(`${req.params.folder}/${req.params.filename}`);
-      const knownSize = getCachedFileSize(objectPath);
-      if (knownSize === undefined) {
-        return res.status(404).end();
+
+      let size = getCachedFileSize(objectPath);
+
+      if (size === undefined) {
+        const cachePath = path.join("/tmp/audio-cache", objectPath);
+        if (fs.existsSync(cachePath)) {
+          const stat = fs.statSync(cachePath);
+          if (stat.size > 0) {
+            size = stat.size;
+          }
+        }
       }
+
+      if (size === undefined) {
+        const check = await objectExists(objectPath);
+        if (check.checkFailed) {
+          return res.status(503).end();
+        }
+        if (!check.exists) {
+          return res.status(404).end();
+        }
+        size = 0;
+      }
+
       res.setHeader("Content-Type", "audio/wav");
       res.setHeader("Accept-Ranges", "bytes");
-      res.setHeader("Content-Length", knownSize);
+      if (size > 0) {
+        res.setHeader("Content-Length", size);
+      }
       res.setHeader("Access-Control-Allow-Origin", "*");
       res.setHeader("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS");
       res.setHeader("Cache-Control", "public, max-age=86400");
@@ -494,8 +518,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(404).json({ message: "Audio file not found", path: objectPath });
         }
         if (serveResult.status === "error") {
-          console.error(`[Audio] Error for ${objectPath}:`, serveResult.message);
-          return res.status(500).json({ message: "Failed to retrieve audio file", path: objectPath });
+          const isTransient = /timeout|ECONNRESET|EPIPE|socket hang up/i.test(serveResult.message || "");
+          const statusCode = isTransient ? 503 : 500;
+          console.error(`[Audio] Error (${statusCode}) for ${objectPath}:`, serveResult.message);
+          return res.status(statusCode).json({ message: "Failed to retrieve audio file", path: objectPath });
         }
 
         const totalSize = serveResult.size;
@@ -542,8 +568,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const fileResult = await getAudioFilePath(objectPath);
       if (fileResult.status === "error") {
-        console.error(`[Audio] Storage error for ${objectPath}: ${fileResult.message}`);
-        return res.status(500).json({ message: "Failed to retrieve audio file", path: objectPath });
+        const isTransient = /timeout|ECONNRESET|EPIPE|socket hang up/i.test(fileResult.message || "");
+        const statusCode = isTransient ? 503 : 500;
+        console.error(`[Audio] Storage error (${statusCode}) for ${objectPath}: ${fileResult.message}`);
+        return res.status(statusCode).json({ message: "Failed to retrieve audio file", path: objectPath });
       }
       if (fileResult.status === "not_found") {
         console.error(`[Audio] File not found in Object Storage: ${objectPath}`);

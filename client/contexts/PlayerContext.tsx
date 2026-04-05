@@ -84,7 +84,7 @@ const FADE_DURATION = 30000;
 const FADE_INTERVAL = 500;
 
 function isRetryableStatus(status: number): boolean {
-  return status >= 500 || status === 408 || status === 429;
+  return status >= 500 || status === 408 || status === 429 || status === 503;
 }
 
 export function PlayerProvider({ children }: { children: ReactNode }) {
