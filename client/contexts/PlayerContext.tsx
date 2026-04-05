@@ -539,6 +539,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
           ) {
             // AbortError means play() was interrupted by pause() or src change — not a user-facing error
             setIsLoading(false);
+            setIsPlaying(false);
           } else {
             console.error("[Player] Web audio play error:", playErr);
             setAudioError("Failed to play audio. Please try again.");

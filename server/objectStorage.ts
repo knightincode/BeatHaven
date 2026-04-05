@@ -231,9 +231,13 @@ export async function getAudioStreamOrDisk(
 
   const existing = inFlightDownloads.get(objectName);
   if (existing) {
-    const result = await existing;
-    if (result.status === "ok") return { status: "disk", filePath: result.filePath, size: result.size };
-    return result;
+    // Another request is already downloading this file to disk.
+    // Serve a fresh Object Storage stream directly to this response instead of
+    // blocking for the entire 302MB download to finish.
+    // The existing download will complete the disk cache for future requests.
+    console.log(`[Audio] Concurrent request for ${objectName} — serving fresh stream (disk write in progress)`);
+    const freshStream = client.downloadAsStream(objectName) as Readable;
+    return { status: "stream", stream: freshStream, size: knownSize };
   }
 
   let resolveCache!: (r: AudioFileResult) => void;
@@ -396,13 +400,18 @@ export async function testStorageConnectivity(): Promise<{
     streamOk: false,
   };
 
+  // Use exists() check instead of downloading the full 302MB file
   try {
-    const bytesResult = await client.downloadAsBytes(testPath);
-    result.bytesOk = bytesResult.ok;
+    const existsResult = await client.exists(testPath);
+    result.bytesOk = existsResult.ok && existsResult.value === true;
+    if (!result.bytesOk && existsResult.ok) {
+      result.error = "Test file not found in Object Storage";
+    }
   } catch (err: any) {
-    result.error = `downloadAsBytes: ${err?.message || err}`;
+    result.error = `exists check: ${err?.message || err}`;
   }
 
+  // Read just the first chunk of the stream to verify streaming works
   try {
     const stream = client.downloadAsStream(testPath) as Readable;
     await new Promise<void>((resolve, reject) => {
