@@ -2,7 +2,7 @@ import Stripe from "stripe";
 
 let connectionSettings: any;
 
-async function fetchConnection(hostname: string, token: string, environment: string): Promise<any | null> {
+async function fetchConnectorConnection(hostname: string, token: string, environment: string): Promise<any | null> {
   const url = new URL(`https://${hostname}/api/v2/connection`);
   url.searchParams.set("include_secrets", "true");
   url.searchParams.set("connector_names", "stripe");
@@ -29,6 +29,22 @@ async function fetchConnection(hostname: string, token: string, environment: str
 }
 
 async function getCredentials() {
+  const publishableEnv = process.env.STRIPE_PUBLISHABLE_KEY;
+  const secretEnv = process.env.STRIPE_SECRET_KEY;
+
+  if (publishableEnv && secretEnv) {
+    const isLive = publishableEnv.startsWith("pk_live_");
+    if (isLive) {
+      console.log("[Stripe] Mode: LIVE — real charges will be processed");
+    } else {
+      console.log("[Stripe] Mode: TEST — no real charges");
+      console.warn(
+        "[Stripe] WARNING: Using test keys. Update STRIPE_PUBLISHABLE_KEY and STRIPE_SECRET_KEY to live keys to accept real payments."
+      );
+    }
+    return { publishableKey: publishableEnv, secretKey: secretEnv };
+  }
+
   const hostname = process.env.REPLIT_CONNECTORS_HOSTNAME;
   const xReplitToken = process.env.REPL_IDENTITY
     ? "repl " + process.env.REPL_IDENTITY
@@ -36,16 +52,16 @@ async function getCredentials() {
       ? "depl " + process.env.WEB_REPL_RENEWAL
       : null;
 
-  if (!xReplitToken) {
-    throw new Error("X_REPLIT_TOKEN not found for repl/depl");
+  if (!xReplitToken || !hostname) {
+    throw new Error("No Stripe credentials found. Set STRIPE_PUBLISHABLE_KEY and STRIPE_SECRET_KEY secrets.");
   }
 
   connectionSettings =
-    (await fetchConnection(hostname!, xReplitToken, "production")) ??
-    (await fetchConnection(hostname!, xReplitToken, "development"));
+    (await fetchConnectorConnection(hostname, xReplitToken, "production")) ??
+    (await fetchConnectorConnection(hostname, xReplitToken, "development"));
 
   if (!connectionSettings) {
-    throw new Error("No Stripe connection found. Configure a Stripe connection in Replit.");
+    throw new Error("No Stripe connection found. Set STRIPE_PUBLISHABLE_KEY and STRIPE_SECRET_KEY secrets or configure a Stripe connector.");
   }
 
   const publishableKey = connectionSettings.settings.publishable as string;
@@ -58,7 +74,7 @@ async function getCredentials() {
   } else {
     console.log("[Stripe] Mode: TEST — no real charges");
     console.warn(
-      "[Stripe] WARNING: Using test keys. Switch to live keys in the Replit Stripe integration to accept real payments."
+      "[Stripe] WARNING: Using test keys. Switch to live keys to accept real payments."
     );
   }
 
