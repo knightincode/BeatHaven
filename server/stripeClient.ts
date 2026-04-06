@@ -106,12 +106,18 @@ export async function getStripeSync() {
     const { StripeSync } = await import("stripe-replit-sync");
     const secretKey = await getStripeSecretKey();
 
+    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+    if (!webhookSecret) {
+      console.warn("[Stripe] WARNING: STRIPE_WEBHOOK_SECRET is not set. Webhook signature verification will fail.");
+    }
+
     stripeSync = new StripeSync({
       poolConfig: {
         connectionString: process.env.DATABASE_URL!,
         max: 2,
       },
       stripeSecretKey: secretKey,
+      ...(webhookSecret ? { webhookSecret } : {}),
     });
   }
   return stripeSync;
