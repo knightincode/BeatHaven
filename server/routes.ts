@@ -841,19 +841,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const baseUrl = `https://${process.env.REPLIT_DOMAINS?.split(",")[0]}`;
 
-      const TEST_PRODUCT_ID_FALLBACK = "prod_UHEEX07B2s2U5m";
       const isProduction = process.env.REPLIT_DEPLOYMENT === "1";
-      const STRIPE_PRODUCT_ID =
-        process.env.STRIPE_PRODUCT_ID ||
-        (isProduction
-          ? (() => {
-              console.warn(
-                "[Stripe] WARNING: STRIPE_PRODUCT_ID env var is not set in production. " +
-                "Set it to your live Stripe product ID in the Replit Secrets panel."
-              );
-              return TEST_PRODUCT_ID_FALLBACK;
-            })()
-          : TEST_PRODUCT_ID_FALLBACK);
+
+      let stripeProductId: string;
+      if (process.env.STRIPE_PRODUCT_ID) {
+        stripeProductId = process.env.STRIPE_PRODUCT_ID;
+      } else if (isProduction) {
+        console.error(
+          "[Stripe] FATAL: STRIPE_PRODUCT_ID is not set in production. " +
+          "Add it as a production environment variable in the Replit Secrets panel."
+        );
+        return res.status(500).json({ message: "Subscription service is not configured. Please contact support." });
+      } else {
+        console.warn("[Dev] STRIPE_PRODUCT_ID not set; using hardcoded test product ID fallback.");
+        stripeProductId = "prod_UHEEX07B2s2U5m";
+      }
+
+      const STRIPE_PRODUCT_ID = stripeProductId;
       const EXPECTED_AMOUNT = 499;
       const EXPECTED_CURRENCY = "usd";
       const EXPECTED_INTERVAL = "month";

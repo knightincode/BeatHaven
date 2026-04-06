@@ -4,6 +4,7 @@ import { registerRoutes } from "./routes";
 import { WebhookHandlers } from "./webhookHandlers";
 import { seedDemoUser } from "./demoUser";
 import { seedTracks, preCacheAllTrackSizes } from "./seedTracks";
+import { getStripePublishableKey } from "./stripeClient";
 
 import * as fs from "fs";
 import * as path from "path";
@@ -335,6 +336,9 @@ function setupErrorHandler(app: express.Application) {
     },
     () => {
       log(`express server serving on port ${port}`);
+      getStripePublishableKey().catch((err) => {
+        console.warn("[Stripe] Could not initialize at startup:", err.message);
+      });
     },
   );
 })();
