@@ -841,11 +841,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const baseUrl = `https://${process.env.REPLIT_DOMAINS?.split(",")[0]}`;
 
-      const STRIPE_PRODUCT_ID = "prod_UHEEX07B2s2U5m";
+      const TEST_PRODUCT_ID_FALLBACK = "prod_UHEEX07B2s2U5m";
+      const isProduction = process.env.REPLIT_DEPLOYMENT === "1";
+      const STRIPE_PRODUCT_ID =
+        process.env.STRIPE_PRODUCT_ID ||
+        (isProduction
+          ? (() => {
+              console.warn(
+                "[Stripe] WARNING: STRIPE_PRODUCT_ID env var is not set in production. " +
+                "Set it to your live Stripe product ID in the Replit Secrets panel."
+              );
+              return TEST_PRODUCT_ID_FALLBACK;
+            })()
+          : TEST_PRODUCT_ID_FALLBACK);
       const EXPECTED_AMOUNT = 499;
       const EXPECTED_CURRENCY = "usd";
       const EXPECTED_INTERVAL = "month";
-      const isProduction = process.env.REPLIT_DEPLOYMENT === "1";
 
       let priceId: string | undefined;
 

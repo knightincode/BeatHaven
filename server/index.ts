@@ -55,6 +55,17 @@ function setupCors(app: express.Application) {
   });
 }
 
+// STRIPE WEBHOOK SETUP
+// Production webhook URL: https://recursionlabs.org/api/stripe/webhook
+// Configure this endpoint in the Stripe Dashboard → Developers → Webhooks.
+// Required events:
+//   - checkout.session.completed
+//   - customer.subscription.updated
+//   - customer.subscription.deleted
+//   - invoice.paid
+//   - invoice.payment_failed
+// For live mode: create the webhook under your LIVE Stripe account with the live signing secret.
+// The signing secret is automatically fetched from the Replit Stripe connector settings.
 function setupStripeWebhook(app: express.Application) {
   app.post(
     "/api/stripe/webhook",

@@ -73,10 +73,25 @@ async function getCredentials() {
     }
   }
 
-  return {
-    publishableKey: connectionSettings.settings.publishable,
-    secretKey: connectionSettings.settings.secret,
-  };
+  const publishableKey = connectionSettings.settings.publishable as string;
+  const secretKey = connectionSettings.settings.secret as string;
+
+  const isLiveKey = publishableKey.startsWith("pk_live_");
+  const isDeployed = process.env.REPLIT_DEPLOYMENT === "1";
+
+  if (isLiveKey) {
+    console.log("[Stripe] Mode: LIVE — real charges will be processed");
+  } else {
+    console.log("[Stripe] Mode: TEST — no real charges");
+    if (isDeployed) {
+      console.warn(
+        "[Stripe] WARNING: Running in LIVE deployment with TEST keys. " +
+        "Configure a production Stripe connection with live keys to accept real payments."
+      );
+    }
+  }
+
+  return { publishableKey, secretKey };
 }
 
 export async function getUncachableStripeClient() {
