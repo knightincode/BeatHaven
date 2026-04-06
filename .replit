@@ -89,3 +89,4 @@ GOOGLE_ANDROID_CLIENT_ID = "793408192278-1pqra370vnt03ramsp834lsi4jsmmjc2.apps.g
 
 [userenv.production]
 EXPO_PUBLIC_DOMAIN = "recursionlabs.org"
+STRIPE_PRODUCT_ID = "prod_UHEEX07B2s2U5m"
