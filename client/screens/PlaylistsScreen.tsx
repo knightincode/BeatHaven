@@ -280,7 +280,7 @@ export default function PlaylistsScreen() {
             </LinearGradient>
           </Pressable>
           <ThemedText style={styles.gatePriceText}>
-            Then just $0.99/month
+            Then just $4.99/month
           </ThemedText>
 
           <View style={styles.gateFeatures}>
