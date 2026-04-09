@@ -456,7 +456,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     destroyWebAudio();
 
     const audio = document.createElement("audio") as HTMLAudioElement;
-    audio.preload = "auto";
+    audio.preload = "none";
     audio.src = audioUrl;
     webAudioRef.current = audio;
 
