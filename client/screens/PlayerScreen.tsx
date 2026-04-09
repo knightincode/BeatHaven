@@ -4,13 +4,21 @@ import {
   StyleSheet,
   Pressable,
   Dimensions,
-  ActivityIndicator,
   Modal,
   TextInput,
   KeyboardAvoidingView,
   Keyboard,
   ScrollView,
 } from "react-native";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withRepeat,
+  withSequence,
+  withTiming,
+  withDelay,
+  Easing,
+} from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { BlurView } from "expo-blur";
@@ -127,6 +135,56 @@ const SLEEP_TIMER_OPTIONS: { label: string; value: SleepTimerOption }[] = [
   { label: "45 min", value: 45 },
   { label: "60 min", value: 60 },
 ];
+
+const BAR_DELAYS = [0, 80, 160, 240, 320];
+const BAR_DURATION = 480;
+
+function WaveformBar({ delay, color }: { delay: number; color: string }) {
+  const scaleY = useSharedValue(0.2);
+
+  useEffect(() => {
+    scaleY.value = withDelay(
+      delay,
+      withRepeat(
+        withSequence(
+          withTiming(1, { duration: BAR_DURATION, easing: Easing.inOut(Easing.ease) }),
+          withTiming(0.2, { duration: BAR_DURATION, easing: Easing.inOut(Easing.ease) }),
+        ),
+        -1,
+        false,
+      ),
+    );
+  }, []);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scaleY: scaleY.value }],
+  }));
+
+  return (
+    <Animated.View
+      style={[
+        {
+          width: 4,
+          height: 28,
+          borderRadius: 2,
+          backgroundColor: color,
+          marginHorizontal: 3,
+        },
+        animatedStyle,
+      ]}
+    />
+  );
+}
+
+function WaveformLoading({ color }: { color: string }) {
+  return (
+    <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", height: 40 }}>
+      {BAR_DELAYS.map((delay, i) => (
+        <WaveformBar key={i} delay={delay} color={color} />
+      ))}
+    </View>
+  );
+}
 
 export default function PlayerScreen() {
   const insets = useSafeAreaInsets();
@@ -402,7 +460,7 @@ export default function PlayerScreen() {
               testID="button-play-pause"
             >
               {isLoading ? (
-                <ActivityIndicator size="large" color="#FFFFFF" />
+                <WaveformLoading color="#FFFFFF" />
               ) : (
                 <Feather
                   name={isPlaying ? "pause" : "play"}
@@ -425,7 +483,7 @@ export default function PlayerScreen() {
 
           {isLoading ? (
             <View style={styles.loadingMessage}>
-              <ThemedText style={styles.loadingText}>Loading audio...</ThemedText>
+              <ThemedText style={styles.loadingText}>Loading...</ThemedText>
             </View>
           ) : null}
 

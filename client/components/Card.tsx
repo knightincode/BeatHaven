@@ -17,6 +17,7 @@ interface CardProps {
   description?: string;
   children?: React.ReactNode;
   onPress?: () => void;
+  onPressIn?: () => void;
   style?: ViewStyle;
 }
 
@@ -52,6 +53,7 @@ export function Card({
   description,
   children,
   onPress,
+  onPressIn: externalOnPressIn,
   style,
 }: CardProps) {
   const { theme } = useTheme();
@@ -65,6 +67,7 @@ export function Card({
 
   const handlePressIn = () => {
     scale.value = withSpring(0.98, springConfig);
+    externalOnPressIn?.();
   };
 
   const handlePressOut = () => {

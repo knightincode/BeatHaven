@@ -25,6 +25,7 @@ const STEEL_COLOR = "#C2CCD6";
 interface TrackCardProps {
   track: Track;
   onPress: () => void;
+  onPressIn?: () => void;
   color: string;
   isLocked?: boolean;
   isPremiumLocked?: boolean;
@@ -38,6 +39,7 @@ const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 export function TrackCard({
   track,
   onPress,
+  onPressIn,
   color,
   isLocked = false,
   isPremiumLocked = false,
@@ -59,6 +61,7 @@ export function TrackCard({
   function handlePressIn() {
     if (isLocked || isPremiumLocked) return;
     scale.value = withSpring(0.96, { damping: 15, stiffness: 150 });
+    onPressIn?.();
   }
 
   function handlePressOut() {

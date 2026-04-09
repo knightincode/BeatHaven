@@ -14,6 +14,7 @@ import Animated, {
   withSequence,
   withTiming,
   withSpring,
+  withDelay,
   interpolateColor,
   interpolate,
   Easing,
@@ -31,6 +32,50 @@ import { RootStackParamList } from "@/navigation/RootStackNavigator";
 const MINI_PLAYER_HEIGHT = 64;
 const SCREEN_WIDTH = Dimensions.get("window").width;
 const DISMISS_THRESHOLD = -SCREEN_WIDTH * 0.4;
+
+const MINI_BAR_DELAYS = [0, 70, 140, 210];
+const MINI_BAR_DURATION = 400;
+
+function MiniWaveformBar({ delay }: { delay: number }) {
+  const scaleY = useSharedValue(0.2);
+
+  useEffect(() => {
+    scaleY.value = withDelay(
+      delay,
+      withRepeat(
+        withSequence(
+          withTiming(1, { duration: MINI_BAR_DURATION, easing: Easing.inOut(Easing.ease) }),
+          withTiming(0.2, { duration: MINI_BAR_DURATION, easing: Easing.inOut(Easing.ease) }),
+        ),
+        -1,
+        false,
+      ),
+    );
+  }, []);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scaleY: scaleY.value }],
+  }));
+
+  return (
+    <Animated.View
+      style={[
+        { width: 3, height: 14, borderRadius: 2, backgroundColor: "#FFFFFF", marginHorizontal: 1.5 },
+        animatedStyle,
+      ]}
+    />
+  );
+}
+
+function MiniWaveformLoading() {
+  return (
+    <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center" }}>
+      {MINI_BAR_DELAYS.map((delay, i) => (
+        <MiniWaveformBar key={i} delay={delay} />
+      ))}
+    </View>
+  );
+}
 
 export function MiniPlayer() {
   const insets = useSafeAreaInsets();
@@ -261,7 +306,7 @@ export function MiniPlayer() {
               testID="button-mini-play-pause"
             >
               {isLoading ? (
-                <View style={styles.loadingDot} />
+                <MiniWaveformLoading />
               ) : (
                 <Feather
                   name={isPlaying ? "pause" : "play"}

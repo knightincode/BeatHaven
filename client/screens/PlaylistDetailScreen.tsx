@@ -42,7 +42,7 @@ export default function PlaylistDetailScreen() {
   const navigation = useNavigation<NavigationProp>();
   const insets = useSafeAreaInsets();
   const headerHeight = useHeaderHeight();
-  const { playTrack } = usePlayer();
+  const { playTrack, prebufferTrack } = usePlayer();
   const { hasActiveSubscription } = useAuth();
   const queryClient = useQueryClient();
   const { playlistId, playlistName } = route.params;
@@ -101,7 +101,7 @@ export default function PlaylistDetailScreen() {
   function renderTrack({ item }: { item: PlaylistTrack }) {
     const color = FrequencyColors[item.category.toLowerCase()] || Colors.dark.link;
     return (
-      <Card style={styles.trackCard} onPress={() => handlePlayTrack(item)}>
+      <Card style={styles.trackCard} onPress={() => handlePlayTrack(item)} onPressIn={() => prebufferTrack(item)}>
         <View style={[styles.categoryDot, { backgroundColor: color }]} />
         <View style={styles.trackInfo}>
           <ThemedText style={styles.trackTitle}>{item.title}</ThemedText>

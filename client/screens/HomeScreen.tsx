@@ -87,7 +87,7 @@ export default function HomeScreen() {
   const headerHeight = useHeaderHeight();
   const tabBarHeight = useBottomTabBarHeight();
   const navigation = useNavigation<NavigationProp>();
-  const { playTrack, isTrackPlayed } = usePlayer();
+  const { playTrack, prebufferTrack, isTrackPlayed } = usePlayer();
   const { isAuthenticated, hasActiveSubscription, isDemo, showSubscriptionOffer, setShowSubscriptionOffer, logoutToSignup } = useAuth();
   const { isFavorite, toggleFavorite } = useFavorites();
   const [activeFilter, setActiveFilter] = useState("all");
@@ -294,6 +294,7 @@ export default function HomeScreen() {
                           ? () => navigation.navigate("Subscription")
                           : () => handlePlayTrack(item, categoryTracks.filter((t) => !isTrackPremiumLocked(t, categoryTracks)))
                         }
+                        onPressIn={premiumLocked ? undefined : () => prebufferTrack(item)}
                         color={category.color}
                         isLocked={!hasActiveSubscription && !premiumLocked && isTrackPlayed(item.id)}
                         isPremiumLocked={premiumLocked}

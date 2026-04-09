@@ -62,6 +62,7 @@ interface PlayerContextType {
   playedTrackIds: Set<string>;
   isTrackPlayed: (trackId: string) => boolean;
   playTrack: (track: Track, trackQueue?: Track[]) => Promise<void>;
+  prebufferTrack: (track: Track) => void;
   playNext: () => Promise<void>;
   playPrevious: () => Promise<void>;
   pause: () => Promise<void>;
@@ -110,6 +111,9 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const soundRef = useRef<Audio.Sound | null>(null);
   const webAudioRef = useRef<HTMLAudioElement | null>(null);
   const webAudioListenersRef = useRef<{ el: HTMLAudioElement; handlers: Record<string, () => void> } | null>(null);
+  const prebufferedSoundRef = useRef<Audio.Sound | null>(null);
+  const prebufferedTrackIdRef = useRef<string | null>(null);
+  const prebufferedWebAudioRef = useRef<{ audio: HTMLAudioElement; url: string } | null>(null);
   const playGenRef = useRef(0);
   const sleepTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const fadeIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -445,6 +449,48 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  function prebufferTrack(track: Track): void {
+    if (currentTrackIdRef.current === track.id) return;
+    const audioUrl = resolveAudioUrl(track.fileUrl);
+
+    if (Platform.OS === "web") {
+      if (typeof document === "undefined") return;
+      if (prebufferedWebAudioRef.current?.url === audioUrl) return;
+      try {
+        const audio = document.createElement("audio") as HTMLAudioElement;
+        audio.preload = "auto";
+        audio.src = audioUrl;
+        audio.load();
+        prebufferedWebAudioRef.current = { audio, url: audioUrl };
+      } catch {
+        // Prebuffer failures are silent — don't affect playback
+      }
+    } else {
+      if (prebufferedTrackIdRef.current === track.id) return;
+      void (async () => {
+        try {
+          if (prebufferedSoundRef.current) {
+            await prebufferedSoundRef.current.unloadAsync();
+            prebufferedSoundRef.current = null;
+            prebufferedTrackIdRef.current = null;
+          }
+          await Audio.setAudioModeAsync({
+            playsInSilentModeIOS: true,
+            staysActiveInBackground: true,
+          });
+          const { sound } = await Audio.Sound.createAsync(
+            { uri: audioUrl },
+            { shouldPlay: false },
+          );
+          prebufferedSoundRef.current = sound;
+          prebufferedTrackIdRef.current = track.id;
+        } catch {
+          // Prebuffer failures are silent — don't affect playback
+        }
+      })();
+    }
+  }
+
   async function attemptWebPlay(
     track: Track,
     audioUrl: string,
@@ -453,11 +499,20 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   ): Promise<void> {
     if (playGenRef.current !== gen) return;
 
+    // Reuse a pre-buffered audio element if one was prepared for this URL
+    const prebuffered = prebufferedWebAudioRef.current;
+    prebufferedWebAudioRef.current = null;
+
     destroyWebAudio();
 
-    const audio = document.createElement("audio") as HTMLAudioElement;
-    audio.preload = "none";
-    audio.src = audioUrl;
+    let audio: HTMLAudioElement;
+    if (prebuffered && prebuffered.url === audioUrl) {
+      audio = prebuffered.audio;
+    } else {
+      audio = document.createElement("audio") as HTMLAudioElement;
+      audio.preload = "none";
+      audio.src = audioUrl;
+    }
     webAudioRef.current = audio;
 
     const onTimeUpdate = () => {
@@ -632,11 +687,28 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
           hasActiveSubscription &&
           (loopModeRef.current === "one" || trackQueue.length <= 1);
 
-        const { sound } = await Audio.Sound.createAsync(
-          { uri: resolveAudioUrl(track.fileUrl) },
-          { shouldPlay: true, isLooping: shouldLoopSingle },
-          onPlaybackStatusUpdate,
-        );
+        let sound: Audio.Sound;
+
+        if (prebufferedSoundRef.current && prebufferedTrackIdRef.current === track.id) {
+          sound = prebufferedSoundRef.current;
+          prebufferedSoundRef.current = null;
+          prebufferedTrackIdRef.current = null;
+          sound.setOnPlaybackStatusUpdate(onPlaybackStatusUpdate);
+          await sound.setIsLoopingAsync(shouldLoopSingle);
+          await sound.playAsync();
+        } else {
+          if (prebufferedSoundRef.current) {
+            prebufferedSoundRef.current.unloadAsync().catch(() => {});
+            prebufferedSoundRef.current = null;
+            prebufferedTrackIdRef.current = null;
+          }
+          const result = await Audio.Sound.createAsync(
+            { uri: resolveAudioUrl(track.fileUrl) },
+            { shouldPlay: true, isLooping: shouldLoopSingle },
+            onPlaybackStatusUpdate,
+          );
+          sound = result.sound;
+        }
 
         soundRef.current = sound;
         setIsPlaying(true);
@@ -766,11 +838,17 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
     if (Platform.OS === "web") {
       destroyWebAudio();
+      prebufferedWebAudioRef.current = null;
     } else {
       if (soundRef.current) {
         await soundRef.current.stopAsync();
         await soundRef.current.unloadAsync();
         soundRef.current = null;
+      }
+      if (prebufferedSoundRef.current) {
+        prebufferedSoundRef.current.unloadAsync().catch(() => {});
+        prebufferedSoundRef.current = null;
+        prebufferedTrackIdRef.current = null;
       }
     }
     setCurrentTrack(null);
@@ -855,6 +933,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         playedTrackIds,
         isTrackPlayed,
         playTrack,
+        prebufferTrack,
         playNext,
         playPrevious,
         pause,
