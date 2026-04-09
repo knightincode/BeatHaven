@@ -13,7 +13,8 @@
       "bundleIdentifier": "com.beathaven.app",
       "usesAppleSignIn": true,
       "infoPlist": {
-        "NSFaceIDUsageDescription": "Use Face ID to sign in to Beat Haven quickly and securely."
+        "NSFaceIDUsageDescription": "Use Face ID to sign in to Beat Haven quickly and securely.",
+        "UIBackgroundModes": ["audio"]
       }
     },
     "android": {

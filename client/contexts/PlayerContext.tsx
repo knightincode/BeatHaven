@@ -456,7 +456,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     destroyWebAudio();
 
     const audio = document.createElement("audio") as HTMLAudioElement;
-    audio.preload = "none";
+    audio.preload = "auto";
     audio.src = audioUrl;
     webAudioRef.current = audio;
 
@@ -544,27 +544,23 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       handlers: { timeupdate: onTimeUpdate, ended: onEnded, error: onError },
     };
 
-    const preflight = await preflightAudioUrl(audioUrl, track.title);
-    if (playGenRef.current !== gen) return;
-
-    if (!preflight.ok) {
-      if (preflight.retryable && !isRetry) {
-        console.warn(`[Player] Pre-flight failed for '${track.title}' (url=${audioUrl}), retrying in ${RETRY_DELAY_MS}ms: ${preflight.message}`);
-        await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
-        return attemptWebPlay(track, audioUrl, gen, true);
+    // On retry attempts there is no active user gesture, so run a preflight
+    // check first to surface network errors with a clear message.
+    if (isRetry) {
+      const preflight = await preflightAudioUrl(audioUrl, track.title);
+      if (playGenRef.current !== gen) return;
+      if (!preflight.ok) {
+        console.error(`[Player] Pre-flight failed for '${track.title}' (url=${audioUrl}): ${preflight.message}`);
+        setAudioError(preflight.message);
+        setIsPlaying(false);
+        setIsLoading(false);
+        return;
       }
-      console.error(`[Player] Pre-flight failed for '${track.title}' (url=${audioUrl}): ${preflight.message}`);
-      setAudioError(preflight.message);
-      setIsPlaying(false);
-      setIsLoading(false);
-      return;
     }
 
+    // Call play() immediately — no network awaits before this on the initial
+    // path so Safari's gesture chain remains intact.
     try {
-      const ctx = getSharedAudioContext();
-      if (ctx && ctx.state === "suspended") {
-        await ctx.resume();
-      }
       await audio.play();
       if (playGenRef.current !== gen) return;
       setAudioBlocked(false);
