@@ -114,6 +114,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const prebufferedSoundRef = useRef<Audio.Sound | null>(null);
   const prebufferedTrackIdRef = useRef<string | null>(null);
   const prebufferedWebAudioRef = useRef<{ audio: HTMLAudioElement; url: string } | null>(null);
+  const prebufferGenRef = useRef(0);
   const playGenRef = useRef(0);
   const sleepTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const fadeIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -244,9 +245,22 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     return () => {
       if (Platform.OS === "web") {
         destroyWebAudio();
+        if (prebufferedWebAudioRef.current) {
+          try {
+            prebufferedWebAudioRef.current.audio.pause();
+            prebufferedWebAudioRef.current.audio.src = "";
+            prebufferedWebAudioRef.current.audio.load();
+          } catch {}
+          prebufferedWebAudioRef.current = null;
+        }
       } else {
         if (soundRef.current) {
           soundRef.current.unloadAsync();
+        }
+        if (prebufferedSoundRef.current) {
+          prebufferedSoundRef.current.unloadAsync().catch(() => {});
+          prebufferedSoundRef.current = null;
+          prebufferedTrackIdRef.current = null;
         }
       }
       if (sleepTimerRef.current) {
@@ -475,6 +489,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       }
     } else {
       if (prebufferedTrackIdRef.current === track.id) return;
+      const gen = ++prebufferGenRef.current;
       void (async () => {
         try {
           if (prebufferedSoundRef.current) {
@@ -482,14 +497,20 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
             prebufferedSoundRef.current = null;
             prebufferedTrackIdRef.current = null;
           }
+          if (prebufferGenRef.current !== gen) return;
           await Audio.setAudioModeAsync({
             playsInSilentModeIOS: true,
             staysActiveInBackground: true,
           });
+          if (prebufferGenRef.current !== gen) return;
           const { sound } = await Audio.Sound.createAsync(
             { uri: audioUrl },
             { shouldPlay: false },
           );
+          if (prebufferGenRef.current !== gen) {
+            sound.unloadAsync().catch(() => {});
+            return;
+          }
           prebufferedSoundRef.current = sound;
           prebufferedTrackIdRef.current = track.id;
         } catch {
@@ -850,7 +871,14 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
     if (Platform.OS === "web") {
       destroyWebAudio();
-      prebufferedWebAudioRef.current = null;
+      if (prebufferedWebAudioRef.current) {
+        try {
+          prebufferedWebAudioRef.current.audio.pause();
+          prebufferedWebAudioRef.current.audio.src = "";
+          prebufferedWebAudioRef.current.audio.load();
+        } catch {}
+        prebufferedWebAudioRef.current = null;
+      }
     } else {
       if (soundRef.current) {
         await soundRef.current.stopAsync();
