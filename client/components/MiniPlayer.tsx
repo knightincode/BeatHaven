@@ -264,9 +264,12 @@ export function MiniPlayer() {
               </View>
               
               <View style={styles.trackInfo}>
-                <ThemedText style={styles.title} numberOfLines={1}>
-                  {currentTrack.title}
-                </ThemedText>
+                <View style={styles.titleRow}>
+                  <ThemedText style={styles.title} numberOfLines={1}>
+                    {currentTrack.title}
+                  </ThemedText>
+                  {isLoading ? <MiniWaveformLoading /> : null}
+                </View>
                 <ThemedText style={styles.category} numberOfLines={1}>
                   {currentTrack.category} • {currentTrack.frequency}
                 </ThemedText>
@@ -305,16 +308,12 @@ export function MiniPlayer() {
               hitSlop={12}
               testID="button-mini-play-pause"
             >
-              {isLoading ? (
-                <MiniWaveformLoading />
-              ) : (
-                <Feather
-                  name={isPlaying ? "pause" : "play"}
-                  size={22}
-                  color="#FFFFFF"
-                  style={isPlaying ? {} : { marginLeft: 2 }}
-                />
-              )}
+              <Feather
+                name={isPlaying ? "pause" : "play"}
+                size={22}
+                color="#FFFFFF"
+                style={isPlaying ? {} : { marginLeft: 2 }}
+              />
             </Pressable>
           </View>
 
@@ -402,10 +401,16 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
   },
+  titleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
   title: {
     color: "#FFFFFF",
     fontSize: 14,
     fontWeight: "600",
+    flexShrink: 1,
   },
   category: {
     color: "rgba(255, 255, 255, 0.8)",
@@ -427,11 +432,5 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     marginLeft: Spacing.sm,
-  },
-  loadingDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: "#FFFFFF",
   },
 });

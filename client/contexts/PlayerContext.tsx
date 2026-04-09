@@ -457,6 +457,14 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       if (typeof document === "undefined") return;
       if (prebufferedWebAudioRef.current?.url === audioUrl) return;
       try {
+        // Tear down any existing prebuffered element to avoid concurrent downloads
+        if (prebufferedWebAudioRef.current) {
+          const old = prebufferedWebAudioRef.current.audio;
+          old.pause();
+          old.src = "";
+          old.load();
+          prebufferedWebAudioRef.current = null;
+        }
         const audio = document.createElement("audio") as HTMLAudioElement;
         audio.preload = "auto";
         audio.src = audioUrl;
@@ -509,8 +517,12 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     if (prebuffered && prebuffered.url === audioUrl) {
       audio = prebuffered.audio;
     } else {
+      // Discard unmatched prebuffered element cleanly
+      if (prebuffered) {
+        try { prebuffered.audio.pause(); prebuffered.audio.src = ""; prebuffered.audio.load(); } catch {}
+      }
       audio = document.createElement("audio") as HTMLAudioElement;
-      audio.preload = "none";
+      audio.preload = "auto";
       audio.src = audioUrl;
     }
     webAudioRef.current = audio;
