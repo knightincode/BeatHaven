@@ -32,13 +32,22 @@ __export(schema_exports, {
   playlistTracks: () => playlistTracks,
   playlists: () => playlists,
   quotes: () => quotes,
-  users: () => users
+  users: () => users,
 });
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, boolean, integer } from "drizzle-orm/pg-core";
+import {
+  pgTable,
+  text,
+  varchar,
+  timestamp,
+  boolean,
+  integer,
+} from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 var users = pgTable("users", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
   email: text("email").notNull().unique(),
   password: text("password"),
   authProvider: text("auth_provider").default("email"),
@@ -49,10 +58,12 @@ var users = pgTable("users", {
   stripeCustomerId: text("stripe_customer_id"),
   stripeSubscriptionId: text("stripe_subscription_id"),
   subscriptionStatus: text("subscription_status").default("inactive"),
-  createdAt: timestamp("created_at").defaultNow()
+  createdAt: timestamp("created_at").defaultNow(),
 });
 var audioTracks = pgTable("audio_tracks", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
   title: text("title").notNull(),
   description: text("description"),
   frequency: text("frequency").notNull(),
@@ -60,58 +71,76 @@ var audioTracks = pgTable("audio_tracks", {
   duration: integer("duration").notNull(),
   fileUrl: text("file_url").notNull(),
   thumbnailUrl: text("thumbnail_url"),
-  createdAt: timestamp("created_at").defaultNow()
+  createdAt: timestamp("created_at").defaultNow(),
 });
 var playlists = pgTable("playlists", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").notNull().references(() => users.id),
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  userId: varchar("user_id")
+    .notNull()
+    .references(() => users.id),
   name: text("name").notNull(),
-  createdAt: timestamp("created_at").defaultNow()
+  createdAt: timestamp("created_at").defaultNow(),
 });
 var playlistTracks = pgTable("playlist_tracks", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  playlistId: varchar("playlist_id").notNull().references(() => playlists.id),
-  trackId: varchar("track_id").notNull().references(() => audioTracks.id),
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  playlistId: varchar("playlist_id")
+    .notNull()
+    .references(() => playlists.id),
+  trackId: varchar("track_id")
+    .notNull()
+    .references(() => audioTracks.id),
   position: integer("position").notNull(),
-  createdAt: timestamp("created_at").defaultNow()
+  createdAt: timestamp("created_at").defaultNow(),
 });
 var favorites = pgTable("favorites", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").notNull().references(() => users.id),
-  trackId: varchar("track_id").notNull().references(() => audioTracks.id),
-  createdAt: timestamp("created_at").defaultNow()
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  userId: varchar("user_id")
+    .notNull()
+    .references(() => users.id),
+  trackId: varchar("track_id")
+    .notNull()
+    .references(() => audioTracks.id),
+  createdAt: timestamp("created_at").defaultNow(),
 });
 var insertUserSchema = createInsertSchema(users).pick({
   email: true,
-  password: true
+  password: true,
 });
 var insertAudioTrackSchema = createInsertSchema(audioTracks).omit({
   id: true,
-  createdAt: true
+  createdAt: true,
 });
 var insertPlaylistSchema = createInsertSchema(playlists).pick({
   name: true,
-  userId: true
+  userId: true,
 });
 var insertPlaylistTrackSchema = createInsertSchema(playlistTracks).omit({
   id: true,
-  createdAt: true
+  createdAt: true,
 });
 var quotes = pgTable("quotes", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
   text: text("text").notNull(),
   author: text("author"),
-  createdAt: timestamp("created_at").defaultNow()
+  createdAt: timestamp("created_at").defaultNow(),
 });
 var insertFavoriteSchema = createInsertSchema(favorites).omit({
   id: true,
-  createdAt: true
+  createdAt: true,
 });
 
 // server/db.ts
 var { Pool } = pkg;
 var pool = new Pool({
-  connectionString: process.env.DATABASE_URL
+  connectionString: process.env.DATABASE_URL,
 });
 var db = drizzle(pool, { schema: schema_exports });
 
@@ -126,36 +155,59 @@ var Storage = class {
     return user;
   }
   async getUserByAppleId(appleUserId) {
-    const [user] = await db.select().from(users).where(eq(users.appleUserId, appleUserId));
+    const [user] = await db
+      .select()
+      .from(users)
+      .where(eq(users.appleUserId, appleUserId));
     return user;
   }
   async getUserByGoogleId(googleUserId) {
-    const [user] = await db.select().from(users).where(eq(users.googleUserId, googleUserId));
+    const [user] = await db
+      .select()
+      .from(users)
+      .where(eq(users.googleUserId, googleUserId));
     return user;
   }
   async createUser(email, hashedPassword, options) {
-    const [user] = await db.insert(users).values({
-      email,
-      password: hashedPassword,
-      authProvider: options?.authProvider || "email",
-      appleUserId: options?.appleUserId || null,
-      googleUserId: options?.googleUserId || null
-    }).returning();
+    const [user] = await db
+      .insert(users)
+      .values({
+        email,
+        password: hashedPassword,
+        authProvider: options?.authProvider || "email",
+        appleUserId: options?.appleUserId || null,
+        googleUserId: options?.googleUserId || null,
+      })
+      .returning();
     return user;
   }
   async updateUser(id, data) {
-    const [user] = await db.update(users).set(data).where(eq(users.id, id)).returning();
+    const [user] = await db
+      .update(users)
+      .set(data)
+      .where(eq(users.id, id))
+      .returning();
     return user;
   }
   async updateUserStripeInfo(userId, stripeInfo) {
-    const [user] = await db.update(users).set(stripeInfo).where(eq(users.id, userId)).returning();
+    const [user] = await db
+      .update(users)
+      .set(stripeInfo)
+      .where(eq(users.id, userId))
+      .returning();
     return user;
   }
   async getAllTracks() {
-    return await db.select().from(audioTracks).orderBy(audioTracks.category, audioTracks.title);
+    return await db
+      .select()
+      .from(audioTracks)
+      .orderBy(audioTracks.category, audioTracks.title);
   }
   async getTrack(id) {
-    const [track] = await db.select().from(audioTracks).where(eq(audioTracks.id, id));
+    const [track] = await db
+      .select()
+      .from(audioTracks)
+      .where(eq(audioTracks.id, id));
     return track;
   }
   async createTrack(track) {
@@ -181,15 +233,21 @@ var Storage = class {
       userId: row.user_id,
       name: row.name,
       createdAt: row.created_at,
-      trackCount: row.track_count || 0
+      trackCount: row.track_count || 0,
     }));
   }
   async getPlaylist(id) {
-    const [playlist] = await db.select().from(playlists).where(eq(playlists.id, id));
+    const [playlist] = await db
+      .select()
+      .from(playlists)
+      .where(eq(playlists.id, id));
     return playlist;
   }
   async createPlaylist(userId, name) {
-    const [playlist] = await db.insert(playlists).values({ userId, name }).returning();
+    const [playlist] = await db
+      .insert(playlists)
+      .values({ userId, name })
+      .returning();
     return playlist;
   }
   async deletePlaylist(id) {
@@ -214,22 +272,30 @@ var Storage = class {
       fileUrl: row.file_url,
       thumbnailUrl: row.thumbnail_url,
       createdAt: row.created_at,
-      position: row.position
+      position: row.position,
     }));
   }
   async addTrackToPlaylist(playlistId, trackId) {
-    const existingTracks = await db.select().from(playlistTracks).where(eq(playlistTracks.playlistId, playlistId));
+    const existingTracks = await db
+      .select()
+      .from(playlistTracks)
+      .where(eq(playlistTracks.playlistId, playlistId));
     const position = existingTracks.length;
-    const [playlistTrack] = await db.insert(playlistTracks).values({ playlistId, trackId, position }).returning();
+    const [playlistTrack] = await db
+      .insert(playlistTracks)
+      .values({ playlistId, trackId, position })
+      .returning();
     return playlistTrack;
   }
   async removeTrackFromPlaylist(playlistId, trackId) {
-    await db.delete(playlistTracks).where(
-      and(
-        eq(playlistTracks.playlistId, playlistId),
-        eq(playlistTracks.trackId, trackId)
-      )
-    );
+    await db
+      .delete(playlistTracks)
+      .where(
+        and(
+          eq(playlistTracks.playlistId, playlistId),
+          eq(playlistTracks.trackId, trackId),
+        ),
+      );
   }
   async getUserFavorites(userId) {
     const result = await db.execute(sql2`
@@ -248,25 +314,38 @@ var Storage = class {
       duration: row.duration,
       fileUrl: row.file_url,
       thumbnailUrl: row.thumbnail_url,
-      createdAt: row.created_at
+      createdAt: row.created_at,
     }));
   }
   async addFavorite(userId, trackId) {
-    const [favorite] = await db.insert(favorites).values({ userId, trackId }).returning();
+    const [favorite] = await db
+      .insert(favorites)
+      .values({ userId, trackId })
+      .returning();
     return favorite;
   }
   async removeFavorite(userId, trackId) {
-    await db.delete(favorites).where(and(eq(favorites.userId, userId), eq(favorites.trackId, trackId)));
+    await db
+      .delete(favorites)
+      .where(and(eq(favorites.userId, userId), eq(favorites.trackId, trackId)));
   }
   async isFavorite(userId, trackId) {
-    const [favorite] = await db.select().from(favorites).where(and(eq(favorites.userId, userId), eq(favorites.trackId, trackId)));
+    const [favorite] = await db
+      .select()
+      .from(favorites)
+      .where(and(eq(favorites.userId, userId), eq(favorites.trackId, trackId)));
     return !!favorite;
   }
   async deleteUser(userId) {
     await db.transaction(async (tx) => {
-      const userPlaylists = await tx.select().from(playlists).where(eq(playlists.userId, userId));
+      const userPlaylists = await tx
+        .select()
+        .from(playlists)
+        .where(eq(playlists.userId, userId));
       for (const playlist of userPlaylists) {
-        await tx.delete(playlistTracks).where(eq(playlistTracks.playlistId, playlist.id));
+        await tx
+          .delete(playlistTracks)
+          .where(eq(playlistTracks.playlistId, playlist.id));
       }
       await tx.delete(playlists).where(eq(playlists.userId, userId));
       await tx.delete(favorites).where(eq(favorites.userId, userId));
@@ -283,21 +362,29 @@ var JWT_SECRET = process.env.SESSION_SECRET || "binaural-beats-secret-key";
 function generateToken(userId) {
   const payload = {
     userId,
-    exp: Date.now() + 30 * 24 * 60 * 60 * 1e3
+    exp: Date.now() + 30 * 24 * 60 * 60 * 1e3,
   };
   const payloadString = JSON.stringify(payload);
   const base64Payload = Buffer.from(payloadString).toString("base64");
-  const signature = crypto.createHmac("sha256", JWT_SECRET).update(base64Payload).digest("base64");
+  const signature = crypto
+    .createHmac("sha256", JWT_SECRET)
+    .update(base64Payload)
+    .digest("base64");
   return `${base64Payload}.${signature}`;
 }
 function verifyToken(token) {
   try {
     const [base64Payload, signature] = token.split(".");
-    const expectedSignature = crypto.createHmac("sha256", JWT_SECRET).update(base64Payload).digest("base64");
+    const expectedSignature = crypto
+      .createHmac("sha256", JWT_SECRET)
+      .update(base64Payload)
+      .digest("base64");
     if (signature !== expectedSignature) {
       return null;
     }
-    const payloadString = Buffer.from(base64Payload, "base64").toString("utf-8");
+    const payloadString = Buffer.from(base64Payload, "base64").toString(
+      "utf-8",
+    );
     const payload = JSON.parse(payloadString);
     if (payload.exp < Date.now()) {
       return null;
@@ -338,22 +425,27 @@ var appleJWKS = createRemoteJWKSet(new URL(APPLE_JWKS_URL));
 async function verifyAppleIdentityToken(identityToken) {
   const { payload } = await jwtVerify(identityToken, appleJWKS, {
     issuer: APPLE_ISSUER,
-    audience: VALID_AUDIENCES
+    audience: VALID_AUDIENCES,
   });
   if (!payload.sub) {
     throw new Error("Apple identity token missing subject");
   }
   return {
     sub: payload.sub,
-    email: payload.email
+    email: payload.email,
   };
 }
 
 // server/googleAuth.ts
-import { createRemoteJWKSet as createRemoteJWKSet2, jwtVerify as jwtVerify2 } from "jose";
+import {
+  createRemoteJWKSet as createRemoteJWKSet2,
+  jwtVerify as jwtVerify2,
+} from "jose";
 var GOOGLE_JWKS_URL = "https://www.googleapis.com/oauth2/v3/certs";
 var GOOGLE_ISSUERS = ["https://accounts.google.com", "accounts.google.com"];
-var WEB_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || "793408192278-rbno8ju44gflq2o7s6v9efjfpodf8tmi.apps.googleusercontent.com";
+var WEB_CLIENT_ID =
+  process.env.GOOGLE_CLIENT_ID ||
+  "793408192278-rbno8ju44gflq2o7s6v9efjfpodf8tmi.apps.googleusercontent.com";
 var IOS_CLIENT_ID = process.env.GOOGLE_IOS_CLIENT_ID || "";
 var ANDROID_CLIENT_ID = process.env.GOOGLE_ANDROID_CLIENT_ID || "";
 function getValidAudiences() {
@@ -369,7 +461,7 @@ async function verifyGoogleIdToken(idToken) {
   for (const audience of validAudiences) {
     try {
       const { payload } = await jwtVerify2(idToken, googleJWKS, {
-        audience
+        audience,
       });
       const issuer = payload.iss;
       if (!GOOGLE_ISSUERS.includes(issuer)) {
@@ -382,7 +474,7 @@ async function verifyGoogleIdToken(idToken) {
         sub: payload.sub,
         email: payload.email,
         email_verified: payload.email_verified,
-        name: payload.name
+        name: payload.name,
       };
     } catch (err) {
       lastError = err;
@@ -396,7 +488,11 @@ import Stripe from "stripe";
 var connectionSettings;
 async function getCredentials() {
   const hostname = process.env.REPLIT_CONNECTORS_HOSTNAME;
-  const xReplitToken = process.env.REPL_IDENTITY ? "repl " + process.env.REPL_IDENTITY : process.env.WEB_REPL_RENEWAL ? "depl " + process.env.WEB_REPL_RENEWAL : null;
+  const xReplitToken = process.env.REPL_IDENTITY
+    ? "repl " + process.env.REPL_IDENTITY
+    : process.env.WEB_REPL_RENEWAL
+      ? "depl " + process.env.WEB_REPL_RENEWAL
+      : null;
   if (!xReplitToken) {
     throw new Error("X_REPLIT_TOKEN not found for repl/depl");
   }
@@ -410,15 +506,19 @@ async function getCredentials() {
   const response = await fetch(url.toString(), {
     headers: {
       Accept: "application/json",
-      X_REPLIT_TOKEN: xReplitToken
-    }
+      X_REPLIT_TOKEN: xReplitToken,
+    },
   });
   const data = await response.json();
   connectionSettings = data.items?.[0];
-  if (!connectionSettings || !connectionSettings.settings.publishable || !connectionSettings.settings.secret) {
+  if (
+    !connectionSettings ||
+    !connectionSettings.settings.publishable ||
+    !connectionSettings.settings.secret
+  ) {
     if (isProduction) {
       console.warn(
-        "[Stripe] WARNING: No production Stripe connection found. Falling back to development connection. Configure a production Stripe connection to use live keys."
+        "[Stripe] WARNING: No production Stripe connection found. Falling back to development connection. Configure a production Stripe connection to use live keys.",
       );
       const devUrl = new URL(`https://${hostname}/api/v2/connection`);
       devUrl.searchParams.set("include_secrets", "true");
@@ -427,14 +527,18 @@ async function getCredentials() {
       const devResponse = await fetch(devUrl.toString(), {
         headers: {
           Accept: "application/json",
-          X_REPLIT_TOKEN: xReplitToken
-        }
+          X_REPLIT_TOKEN: xReplitToken,
+        },
       });
       const devData = await devResponse.json();
       connectionSettings = devData.items?.[0];
-      if (!connectionSettings || !connectionSettings.settings.publishable || !connectionSettings.settings.secret) {
+      if (
+        !connectionSettings ||
+        !connectionSettings.settings.publishable ||
+        !connectionSettings.settings.secret
+      ) {
         throw new Error(
-          "Stripe connection not found in either production or development"
+          "Stripe connection not found in either production or development",
         );
       }
     } else {
@@ -443,13 +547,13 @@ async function getCredentials() {
   }
   return {
     publishableKey: connectionSettings.settings.publishable,
-    secretKey: connectionSettings.settings.secret
+    secretKey: connectionSettings.settings.secret,
   };
 }
 async function getUncachableStripeClient() {
   const { secretKey } = await getCredentials();
   return new Stripe(secretKey, {
-    apiVersion: "2025-08-27.basil"
+    apiVersion: "2025-08-27.basil",
   });
 }
 async function getStripePublishableKey() {
@@ -468,9 +572,9 @@ async function getStripeSync() {
     stripeSync = new StripeSync({
       poolConfig: {
         connectionString: process.env.DATABASE_URL,
-        max: 2
+        max: 2,
       },
-      stripeSecretKey: secretKey
+      stripeSecretKey: secretKey,
     });
   }
   return stripeSync;
@@ -535,18 +639,27 @@ async function tryStreamToFile(objectName, destPath) {
         clearTimeout(timeout);
         writeStream.destroy();
         if (fs.existsSync(destPath)) fs.unlinkSync(destPath);
-        console.error(`[Audio] Stream-to-file error for ${objectName}:`, err?.message || err);
+        console.error(
+          `[Audio] Stream-to-file error for ${objectName}:`,
+          err?.message || err,
+        );
         resolve2(false);
       });
       writeStream.on("error", (err) => {
         clearTimeout(timeout);
         stream.destroy();
         if (fs.existsSync(destPath)) fs.unlinkSync(destPath);
-        console.error(`[Audio] Write error for ${objectName}:`, err?.message || err);
+        console.error(
+          `[Audio] Write error for ${objectName}:`,
+          err?.message || err,
+        );
         resolve2(false);
       });
     } catch (err) {
-      console.error(`[Audio] Stream-to-file exception for ${objectName}:`, err?.message || err);
+      console.error(
+        `[Audio] Stream-to-file exception for ${objectName}:`,
+        err?.message || err,
+      );
       resolve2(false);
     }
   });
@@ -564,7 +677,9 @@ async function getAudioFilePath(objectName) {
   const existsCheck = await objectExists(objectName);
   if (!existsCheck.exists) {
     if (existsCheck.checkFailed) {
-      console.warn(`[Audio] exists() check failed for ${objectName}, proceeding with download attempt`);
+      console.warn(
+        `[Audio] exists() check failed for ${objectName}, proceeding with download attempt`,
+      );
     } else {
       console.error(`[Audio] Object does not exist: ${objectName}`);
       return { status: "not_found" };
@@ -577,25 +692,38 @@ async function getAudioFilePath(objectName) {
     if (ok && fs.existsSync(cachePath)) {
       const stat = fs.statSync(cachePath);
       fileSizeCache.set(objectName, stat.size);
-      console.log(`[Audio] Downloaded to disk: ${objectName} (${(stat.size / 1024 / 1024).toFixed(1)} MB)`);
+      console.log(
+        `[Audio] Downloaded to disk: ${objectName} (${(stat.size / 1024 / 1024).toFixed(1)} MB)`,
+      );
       return { status: "ok", filePath: cachePath, size: stat.size };
     }
-    console.warn(`[Audio] downloadToFilename not-ok for ${objectName}, trying stream fallback`);
+    console.warn(
+      `[Audio] downloadToFilename not-ok for ${objectName}, trying stream fallback`,
+    );
   } catch (err) {
-    console.warn(`[Audio] downloadToFilename error for ${objectName}: ${err?.message || err}, trying stream fallback`);
+    console.warn(
+      `[Audio] downloadToFilename error for ${objectName}: ${err?.message || err}, trying stream fallback`,
+    );
   }
   try {
     const ok = await tryStreamToFile(objectName, cachePath);
     if (ok && fs.existsSync(cachePath)) {
       const stat = fs.statSync(cachePath);
       fileSizeCache.set(objectName, stat.size);
-      console.log(`[Audio] Stream-to-file succeeded: ${objectName} (${(stat.size / 1024 / 1024).toFixed(1)} MB)`);
+      console.log(
+        `[Audio] Stream-to-file succeeded: ${objectName} (${(stat.size / 1024 / 1024).toFixed(1)} MB)`,
+      );
       return { status: "ok", filePath: cachePath, size: stat.size };
     }
   } catch (err) {
-    console.error(`[Audio] Stream fallback failed for ${objectName}: ${err?.message || err}`);
+    console.error(
+      `[Audio] Stream fallback failed for ${objectName}: ${err?.message || err}`,
+    );
   }
-  return { status: "error", message: `All download methods failed for ${objectName}` };
+  return {
+    status: "error",
+    message: `All download methods failed for ${objectName}`,
+  };
 }
 async function getFileSizeFromStorage(objectName) {
   if (fileSizeCache.has(objectName)) {
@@ -623,7 +751,7 @@ async function testStorageConnectivity() {
   const testPath = "Alpha/AlphaBinauralBeat_235_12-0_AlphaBetaBorder.wav";
   const result = {
     bytesOk: false,
-    streamOk: false
+    streamOk: false,
   };
   try {
     const bytesResult = await client.downloadAsBytes(testPath);
@@ -650,7 +778,9 @@ async function testStorageConnectivity() {
       });
     });
   } catch (err) {
-    result.error = (result.error ? result.error + "; " : "") + `downloadAsStream: ${err?.message || err}`;
+    result.error =
+      (result.error ? result.error + "; " : "") +
+      `downloadAsStream: ${err?.message || err}`;
   }
   return result;
 }
@@ -664,35 +794,44 @@ var demoUserId = null;
 var demoUserCache = null;
 async function seedDemoUser() {
   try {
-    const [row] = await db.insert(users).values({
-      email: DEMO_EMAIL,
-      password: null,
-      authProvider: "demo",
-      isDemo: true,
-      isAdmin: false,
-      subscriptionStatus: "inactive"
-    }).onConflictDoUpdate({
-      target: users.email,
-      set: {
-        isDemo: true,
-        isAdmin: false,
+    const [row] = await db
+      .insert(users)
+      .values({
+        email: DEMO_EMAIL,
         password: null,
         authProvider: "demo",
-        subscriptionStatus: "inactive"
-      }
-    }).returning();
+        isDemo: true,
+        isAdmin: false,
+        subscriptionStatus: "inactive",
+      })
+      .onConflictDoUpdate({
+        target: users.email,
+        set: {
+          isDemo: true,
+          isAdmin: false,
+          password: null,
+          authProvider: "demo",
+          subscriptionStatus: "inactive",
+        },
+      })
+      .returning();
     demoUserId = row.id;
     demoUserCache = {
       id: row.id,
       email: row.email,
       isAdmin: false,
       isDemo: true,
-      subscriptionStatus: "inactive"
+      subscriptionStatus: "inactive",
     };
     console.log(`[Demo] Demo user ready: ${demoUserId}`);
   } catch (err) {
-    console.error("[Demo] CRITICAL: Failed to seed demo user \u2014 demo mode will be unavailable:", err);
-    console.error("[Demo] Check database connectivity and ensure the is_demo column exists (run migration 0001_add_is_demo.sql if needed).");
+    console.error(
+      "[Demo] CRITICAL: Failed to seed demo user \u2014 demo mode will be unavailable:",
+      err,
+    );
+    console.error(
+      "[Demo] Check database connectivity and ensure the is_demo column exists (run migration 0001_add_is_demo.sql if needed).",
+    );
   }
 }
 function getDemoUser() {
@@ -743,7 +882,9 @@ async function registerRoutes(app2) {
     try {
       const { email, password } = req.body;
       if (!email || !password) {
-        return res.status(400).json({ message: "Email and password are required" });
+        return res
+          .status(400)
+          .json({ message: "Email and password are required" });
       }
       const existingUser = await storage.getUserByEmail(email);
       if (existingUser) {
@@ -759,8 +900,8 @@ async function registerRoutes(app2) {
           email: user.email,
           isAdmin: user.isAdmin,
           isDemo: user.isDemo ?? false,
-          subscriptionStatus: user.subscriptionStatus
-        }
+          subscriptionStatus: user.subscriptionStatus,
+        },
       });
     } catch (error) {
       console.error("Registration error:", error);
@@ -772,40 +913,58 @@ async function registerRoutes(app2) {
       const { identityToken, email, fullName, mode } = req.body;
       const isSignupMode = mode === "signup";
       if (!identityToken) {
-        return res.status(400).json({ message: "Apple identity token is required" });
+        return res
+          .status(400)
+          .json({ message: "Apple identity token is required" });
       }
       let verifiedPayload;
       try {
         verifiedPayload = await verifyAppleIdentityToken(identityToken);
       } catch (verifyError) {
         console.error("Apple token verification failed:", verifyError);
-        return res.status(401).json({ message: "Invalid Apple identity token" });
+        return res
+          .status(401)
+          .json({ message: "Invalid Apple identity token" });
       }
       const appleUserId = verifiedPayload.sub;
       const verifiedEmail = verifiedPayload.email || email;
       let user = await storage.getUserByAppleId(appleUserId);
       let isNewUser = false;
       if (!user) {
-        const userEmail = verifiedEmail || `apple_${appleUserId}@privaterelay.appleid.com`;
+        const userEmail =
+          verifiedEmail || `apple_${appleUserId}@privaterelay.appleid.com`;
         const existingEmailUser = await storage.getUserByEmail(userEmail);
         if (existingEmailUser) {
           if (isSignupMode) {
-            return res.status(409).json({ message: "You already have an account with this Apple account. Please sign in instead." });
+            return res
+              .status(409)
+              .json({
+                message:
+                  "You already have an account with this Apple account. Please sign in instead.",
+              });
           }
           await storage.updateUser(existingEmailUser.id, {
             appleUserId,
-            authProvider: existingEmailUser.authProvider === "email" ? "apple" : existingEmailUser.authProvider
+            authProvider:
+              existingEmailUser.authProvider === "email"
+                ? "apple"
+                : existingEmailUser.authProvider,
           });
           user = await storage.getUser(existingEmailUser.id);
         } else {
           user = await storage.createUser(userEmail, null, {
             authProvider: "apple",
-            appleUserId
+            appleUserId,
           });
           isNewUser = true;
         }
       } else if (isSignupMode) {
-        return res.status(409).json({ message: "You already have an account with this Apple account. Please sign in instead." });
+        return res
+          .status(409)
+          .json({
+            message:
+              "You already have an account with this Apple account. Please sign in instead.",
+          });
       }
       const token = generateToken(user.id);
       res.json({
@@ -816,8 +975,8 @@ async function registerRoutes(app2) {
           email: user.email,
           isAdmin: user.isAdmin,
           isDemo: user.isDemo ?? false,
-          subscriptionStatus: user.subscriptionStatus
-        }
+          subscriptionStatus: user.subscriptionStatus,
+        },
       });
     } catch (error) {
       console.error("Apple auth error:", error);
@@ -841,35 +1000,59 @@ async function registerRoutes(app2) {
       const googleUserId = verifiedPayload.sub;
       const verifiedEmail = verifiedPayload.email;
       const emailVerified = verifiedPayload.email_verified === true;
-      console.log(`[Google Auth] sub=${googleUserId}, email=${verifiedEmail}, email_verified=${emailVerified}, mode=${mode}`);
+      console.log(
+        `[Google Auth] sub=${googleUserId}, email=${verifiedEmail}, email_verified=${emailVerified}, mode=${mode}`,
+      );
       let user = await storage.getUserByGoogleId(googleUserId);
       let isNewUser = false;
       if (!user) {
         const userEmail = verifiedEmail || `google_${googleUserId}@gmail.com`;
-        const existingEmailUser = emailVerified && verifiedEmail ? await storage.getUserByEmail(userEmail) : null;
+        const existingEmailUser =
+          emailVerified && verifiedEmail
+            ? await storage.getUserByEmail(userEmail)
+            : null;
         if (existingEmailUser) {
           if (isSignupMode) {
-            return res.status(409).json({ message: "You already have an account with this Google account. Please sign in instead." });
+            return res
+              .status(409)
+              .json({
+                message:
+                  "You already have an account with this Google account. Please sign in instead.",
+              });
           }
-          console.log(`[Google Auth] Linking to existing email user: ${existingEmailUser.id} (${existingEmailUser.email})`);
+          console.log(
+            `[Google Auth] Linking to existing email user: ${existingEmailUser.id} (${existingEmailUser.email})`,
+          );
           await storage.updateUser(existingEmailUser.id, {
             googleUserId,
-            authProvider: existingEmailUser.authProvider === "email" ? "google" : existingEmailUser.authProvider
+            authProvider:
+              existingEmailUser.authProvider === "email"
+                ? "google"
+                : existingEmailUser.authProvider,
           });
           user = await storage.getUser(existingEmailUser.id);
         } else {
-          console.log(`[Google Auth] Creating new user with email: ${userEmail}`);
+          console.log(
+            `[Google Auth] Creating new user with email: ${userEmail}`,
+          );
           user = await storage.createUser(userEmail, null, {
             authProvider: "google",
-            googleUserId
+            googleUserId,
           });
           isNewUser = true;
         }
       } else {
         if (isSignupMode) {
-          return res.status(409).json({ message: "You already have an account with this Google account. Please sign in instead." });
+          return res
+            .status(409)
+            .json({
+              message:
+                "You already have an account with this Google account. Please sign in instead.",
+            });
         }
-        console.log(`[Google Auth] Found existing Google user: ${user.id} (${user.email})`);
+        console.log(
+          `[Google Auth] Found existing Google user: ${user.id} (${user.email})`,
+        );
       }
       const token = generateToken(user.id);
       res.json({
@@ -880,8 +1063,8 @@ async function registerRoutes(app2) {
           email: user.email,
           isAdmin: user.isAdmin,
           isDemo: user.isDemo ?? false,
-          subscriptionStatus: user.subscriptionStatus
-        }
+          subscriptionStatus: user.subscriptionStatus,
+        },
       });
     } catch (error) {
       console.error("Google auth error:", error);
@@ -890,13 +1073,26 @@ async function registerRoutes(app2) {
   });
   app2.post("/api/auth/demo", async (req, res) => {
     try {
-      const ip = req.headers["x-forwarded-for"]?.split(",")[0]?.trim() || req.socket.remoteAddress || "unknown";
+      const ip =
+        req.headers["x-forwarded-for"]?.split(",")[0]?.trim() ||
+        req.socket.remoteAddress ||
+        "unknown";
       if (!checkDemoRateLimit(ip)) {
-        return res.status(429).json({ message: "Too many demo login attempts. Please wait a minute and try again." });
+        return res
+          .status(429)
+          .json({
+            message:
+              "Too many demo login attempts. Please wait a minute and try again.",
+          });
       }
       const demoUser = getDemoUser();
       if (!demoUser) {
-        return res.status(503).json({ message: "Demo mode is not available right now. Please try again shortly." });
+        return res
+          .status(503)
+          .json({
+            message:
+              "Demo mode is not available right now. Please try again shortly.",
+          });
       }
       const token = generateToken(demoUser.id);
       res.json({
@@ -906,8 +1102,8 @@ async function registerRoutes(app2) {
           email: demoUser.email,
           isAdmin: demoUser.isAdmin,
           isDemo: demoUser.isDemo,
-          subscriptionStatus: demoUser.subscriptionStatus
-        }
+          subscriptionStatus: demoUser.subscriptionStatus,
+        },
       });
     } catch (error) {
       console.error("Demo auth error:", error);
@@ -918,15 +1114,26 @@ async function registerRoutes(app2) {
     try {
       const { email, password } = req.body;
       if (!email || !password) {
-        return res.status(400).json({ message: "Email and password are required" });
+        return res
+          .status(400)
+          .json({ message: "Email and password are required" });
       }
       const user = await storage.getUserByEmail(email);
       if (!user) {
         return res.status(401).json({ message: "Invalid email or password" });
       }
       if (!user.password) {
-        const provider = user.authProvider === "google" ? "Google" : user.authProvider === "apple" ? "Apple" : "social";
-        return res.status(401).json({ message: `This account uses ${provider} Sign-In. Please sign in with ${provider}.` });
+        const provider =
+          user.authProvider === "google"
+            ? "Google"
+            : user.authProvider === "apple"
+              ? "Apple"
+              : "social";
+        return res
+          .status(401)
+          .json({
+            message: `This account uses ${provider} Sign-In. Please sign in with ${provider}.`,
+          });
       }
       const validPassword = await comparePasswords(password, user.password);
       if (!validPassword) {
@@ -940,8 +1147,8 @@ async function registerRoutes(app2) {
           email: user.email,
           isAdmin: user.isAdmin,
           isDemo: user.isDemo ?? false,
-          subscriptionStatus: user.subscriptionStatus
-        }
+          subscriptionStatus: user.subscriptionStatus,
+        },
       });
     } catch (error) {
       console.error("Login error:", error);
@@ -955,7 +1162,7 @@ async function registerRoutes(app2) {
       email: user.email,
       isAdmin: user.isAdmin,
       isDemo: user.isDemo,
-      subscriptionStatus: user.subscriptionStatus
+      subscriptionStatus: user.subscriptionStatus,
     });
   });
   app2.put("/api/user/update", authMiddleware, async (req, res) => {
@@ -973,11 +1180,18 @@ async function registerRoutes(app2) {
       if (newPassword) {
         if (user.password) {
           if (!currentPassword) {
-            return res.status(400).json({ message: "Current password is required" });
+            return res
+              .status(400)
+              .json({ message: "Current password is required" });
           }
-          const validPassword = await comparePasswords(currentPassword, user.password);
+          const validPassword = await comparePasswords(
+            currentPassword,
+            user.password,
+          );
           if (!validPassword) {
-            return res.status(400).json({ message: "Current password is incorrect" });
+            return res
+              .status(400)
+              .json({ message: "Current password is incorrect" });
           }
         }
         updates.password = await hashPassword(newPassword);
@@ -995,13 +1209,15 @@ async function registerRoutes(app2) {
     try {
       const user = req.user;
       if (user.isDemo) {
-        return res.status(403).json({ message: "Demo accounts cannot be deleted" });
+        return res
+          .status(403)
+          .json({ message: "Demo accounts cannot be deleted" });
       }
       if (user.stripeCustomerId) {
         const stripe = await getUncachableStripeClient();
         const subscriptions = await stripe.subscriptions.list({
           customer: user.stripeCustomerId,
-          status: "active"
+          status: "active",
         });
         for (const sub of subscriptions.data) {
           await stripe.subscriptions.cancel(sub.id);
@@ -1009,7 +1225,7 @@ async function registerRoutes(app2) {
         }
         const trialingSubs = await stripe.subscriptions.list({
           customer: user.stripeCustomerId,
-          status: "trialing"
+          status: "trialing",
         });
         for (const sub of trialingSubs.data) {
           await stripe.subscriptions.cancel(sub.id);
@@ -1031,11 +1247,15 @@ async function registerRoutes(app2) {
       const tracks = await storage.getAllTracks();
       const tracksWithUrls = tracks.map((track) => ({
         ...track,
-        fileUrl: `/api/audio/${track.fileUrl}`
+        fileUrl: `/api/audio/${track.fileUrl}`,
       }));
       tracksWithUrls.sort((a, b) => {
-        const beatFreqA = parseFloat(a.frequency.match(/(\d+\.?\d*)Hz beat/)?.[1] || "0");
-        const beatFreqB = parseFloat(b.frequency.match(/(\d+\.?\d*)Hz beat/)?.[1] || "0");
+        const beatFreqA = parseFloat(
+          a.frequency.match(/(\d+\.?\d*)Hz beat/)?.[1] || "0",
+        );
+        const beatFreqB = parseFloat(
+          b.frequency.match(/(\d+\.?\d*)Hz beat/)?.[1] || "0",
+        );
         return beatFreqA - beatFreqB;
       });
       res.json(tracksWithUrls);
@@ -1047,15 +1267,25 @@ async function registerRoutes(app2) {
   app2.get("/api/audio/:folder/:filename", async (req, res) => {
     let objectPath = "";
     try {
-      objectPath = decodeURIComponent(`${req.params.folder}/${req.params.filename}`);
-      console.log(`[Audio] Request: ${objectPath} range=${req.headers.range || "none"}`);
+      objectPath = decodeURIComponent(
+        `${req.params.folder}/${req.params.filename}`,
+      );
+      console.log(
+        `[Audio] Request: ${objectPath} range=${req.headers.range || "none"}`,
+      );
       const fileResult = await getAudioFilePath(objectPath);
       if (fileResult.status === "error") {
-        console.error(`[Audio] Storage error for ${objectPath}: ${fileResult.message}`);
-        return res.status(500).json({ message: "Failed to retrieve audio file" });
+        console.error(
+          `[Audio] Storage error for ${objectPath}: ${fileResult.message}`,
+        );
+        return res
+          .status(500)
+          .json({ message: "Failed to retrieve audio file" });
       }
       if (fileResult.status === "not_found") {
-        console.error(`[Audio] File not found in Object Storage: ${objectPath}`);
+        console.error(
+          `[Audio] File not found in Object Storage: ${objectPath}`,
+        );
         return res.status(404).json({ message: "Audio file not found" });
       }
       const { filePath, size: totalSize } = fileResult;
@@ -1074,7 +1304,10 @@ async function registerRoutes(app2) {
           return res.status(416).json({ message: "Range Not Satisfiable" });
         }
         const start = rawStart;
-        const end = Math.min(isNaN(rawEnd) || rawEnd < 0 ? totalSize - 1 : rawEnd, totalSize - 1);
+        const end = Math.min(
+          isNaN(rawEnd) || rawEnd < 0 ? totalSize - 1 : rawEnd,
+          totalSize - 1,
+        );
         if (start > end) {
           res.setHeader("Content-Range", `bytes */${totalSize}`);
           return res.status(416).json({ message: "Range Not Satisfiable" });
@@ -1092,26 +1325,35 @@ async function registerRoutes(app2) {
         readStream.pipe(res);
       }
     } catch (error) {
-      console.error(`[Audio] Error serving ${objectPath}:`, error?.message || error, error?.stack);
+      console.error(
+        `[Audio] Error serving ${objectPath}:`,
+        error?.message || error,
+        error?.stack,
+      );
       if (!res.headersSent) {
         res.status(500).json({ message: "Failed to stream audio" });
       }
     }
   });
-  app2.post("/api/admin/toggle-subscription", adminMiddleware, async (req, res) => {
-    try {
-      const user = req.user;
-      const newStatus = user.subscriptionStatus === "active" ? "inactive" : "active";
-      await db.execute(
-        sql3`UPDATE users SET subscription_status = ${newStatus} WHERE id = ${user.id}`
-      );
-      const updatedUser = await storage.getUser(user.id);
-      res.json(updatedUser);
-    } catch (error) {
-      console.error("Toggle subscription error:", error);
-      res.status(500).json({ message: "Failed to toggle subscription" });
-    }
-  });
+  app2.post(
+    "/api/admin/toggle-subscription",
+    adminMiddleware,
+    async (req, res) => {
+      try {
+        const user = req.user;
+        const newStatus =
+          user.subscriptionStatus === "active" ? "inactive" : "active";
+        await db.execute(
+          sql3`UPDATE users SET subscription_status = ${newStatus} WHERE id = ${user.id}`,
+        );
+        const updatedUser = await storage.getUser(user.id);
+        res.json(updatedUser);
+      } catch (error) {
+        console.error("Toggle subscription error:", error);
+        res.status(500).json({ message: "Failed to toggle subscription" });
+      }
+    },
+  );
   app2.get("/api/playlists", authMiddleware, async (req, res) => {
     try {
       const user = req.user;
@@ -1132,7 +1374,9 @@ async function registerRoutes(app2) {
       if (user.isDemo) {
         const existingPlaylists = await storage.getUserPlaylists(user.id);
         if (existingPlaylists.length >= 1) {
-          return res.status(403).json({ message: "Demo accounts are limited to one playlist" });
+          return res
+            .status(403)
+            .json({ message: "Demo accounts are limited to one playlist" });
         }
       }
       const playlist = await storage.createPlaylist(user.id, name);
@@ -1168,7 +1412,10 @@ async function registerRoutes(app2) {
       const tracks = await storage.getPlaylistTracks(id);
       const tracksWithUrls = tracks.map((track) => ({
         ...track,
-        fileUrl: track.fileUrl && !track.fileUrl.startsWith("/api/audio/") ? `/api/audio/${track.fileUrl}` : track.fileUrl
+        fileUrl:
+          track.fileUrl && !track.fileUrl.startsWith("/api/audio/")
+            ? `/api/audio/${track.fileUrl}`
+            : track.fileUrl,
       }));
       res.json(tracksWithUrls);
     } catch (error) {
@@ -1192,28 +1439,37 @@ async function registerRoutes(app2) {
       res.status(500).json({ message: "Failed to add track to playlist" });
     }
   });
-  app2.delete("/api/playlists/:playlistId/tracks/:trackId", authMiddleware, async (req, res) => {
-    try {
-      const user = req.user;
-      const { playlistId, trackId } = req.params;
-      const playlist = await storage.getPlaylist(playlistId);
-      if (!playlist || playlist.userId !== user.id) {
-        return res.status(404).json({ message: "Playlist not found" });
+  app2.delete(
+    "/api/playlists/:playlistId/tracks/:trackId",
+    authMiddleware,
+    async (req, res) => {
+      try {
+        const user = req.user;
+        const { playlistId, trackId } = req.params;
+        const playlist = await storage.getPlaylist(playlistId);
+        if (!playlist || playlist.userId !== user.id) {
+          return res.status(404).json({ message: "Playlist not found" });
+        }
+        await storage.removeTrackFromPlaylist(playlistId, trackId);
+        res.json({ message: "Track removed from playlist" });
+      } catch (error) {
+        console.error("Remove track from playlist error:", error);
+        res
+          .status(500)
+          .json({ message: "Failed to remove track from playlist" });
       }
-      await storage.removeTrackFromPlaylist(playlistId, trackId);
-      res.json({ message: "Track removed from playlist" });
-    } catch (error) {
-      console.error("Remove track from playlist error:", error);
-      res.status(500).json({ message: "Failed to remove track from playlist" });
-    }
-  });
+    },
+  );
   app2.get("/api/favorites", authMiddleware, async (req, res) => {
     try {
       const user = req.user;
       const favorites2 = await storage.getUserFavorites(user.id);
       const favoritesWithUrls = favorites2.map((track) => ({
         ...track,
-        fileUrl: track.fileUrl && !track.fileUrl.startsWith("/api/audio/") ? `/api/audio/${track.fileUrl}` : track.fileUrl
+        fileUrl:
+          track.fileUrl && !track.fileUrl.startsWith("/api/audio/")
+            ? `/api/audio/${track.fileUrl}`
+            : track.fileUrl,
       }));
       res.json(favoritesWithUrls);
     } catch (error) {
@@ -1260,10 +1516,12 @@ async function registerRoutes(app2) {
       if (!customerId) {
         const customer = await stripe.customers.create({
           email: user.email,
-          metadata: { userId: user.id }
+          metadata: { userId: user.id },
         });
         customerId = customer.id;
-        await storage.updateUserStripeInfo(user.id, { stripeCustomerId: customerId });
+        await storage.updateUserStripeInfo(user.id, {
+          stripeCustomerId: customerId,
+        });
       }
       const baseUrl = `https://${process.env.REPLIT_DOMAINS?.split(",")[0]}`;
       const STRIPE_PRODUCT_ID = "prod_UHEEX07B2s2U5m";
@@ -1276,52 +1534,74 @@ async function registerRoutes(app2) {
         const prices = await stripe.prices.list({
           product: STRIPE_PRODUCT_ID,
           active: true,
-          limit: 10
+          limit: 10,
         });
         const match = prices.data.find(
-          (p) => p.unit_amount === EXPECTED_AMOUNT && p.currency === EXPECTED_CURRENCY && p.recurring?.interval === EXPECTED_INTERVAL
+          (p) =>
+            p.unit_amount === EXPECTED_AMOUNT &&
+            p.currency === EXPECTED_CURRENCY &&
+            p.recurring?.interval === EXPECTED_INTERVAL,
         );
         priceId = match?.id;
       } catch (lookupErr) {
         console.warn("Stripe product lookup failed:", lookupErr.message);
         if (isProduction) {
-          return res.status(500).json({ message: "Subscription product not configured" });
+          return res
+            .status(500)
+            .json({ message: "Subscription product not configured" });
         }
       }
       if (!priceId && isProduction) {
-        return res.status(500).json({ message: "No matching subscription price found" });
+        return res
+          .status(500)
+          .json({ message: "No matching subscription price found" });
       }
       if (!priceId) {
-        console.log("[Dev] Primary product not found; searching by name as fallback");
+        console.log(
+          "[Dev] Primary product not found; searching by name as fallback",
+        );
         const products = await stripe.products.list({ active: true });
         const existing = products.data.find(
-          (p) => p.name === "Beat Haven Premium Subscription"
+          (p) => p.name === "Beat Haven Premium Subscription",
         );
         if (existing) {
           const prices = await stripe.prices.list({
             product: existing.id,
             active: true,
-            limit: 10
+            limit: 10,
           });
           const match = prices.data.find(
-            (p) => p.unit_amount === EXPECTED_AMOUNT && p.currency === EXPECTED_CURRENCY && p.recurring?.interval === EXPECTED_INTERVAL
+            (p) =>
+              p.unit_amount === EXPECTED_AMOUNT &&
+              p.currency === EXPECTED_CURRENCY &&
+              p.recurring?.interval === EXPECTED_INTERVAL,
           );
           priceId = match?.id;
         }
         if (!priceId) {
-          console.log("[Dev] No matching price found; creating product and price for test environment");
-          const product = existing ?? await stripe.products.create({
-            name: "Beat Haven Premium Subscription",
-            description: "Your personal meditation sanctuary. Immerse yourself in programmatically-tuned binaural beats to sleep deeper, focus sharper, and find your calm."
-          });
+          console.log(
+            "[Dev] No matching price found; creating product and price for test environment",
+          );
+          const product =
+            existing ??
+            (await stripe.products.create({
+              name: "Beat Haven Premium Subscription",
+              description:
+                "Your personal meditation sanctuary. Immerse yourself in programmatically-tuned binaural beats to sleep deeper, focus sharper, and find your calm.",
+            }));
           const price = await stripe.prices.create({
             product: product.id,
             unit_amount: EXPECTED_AMOUNT,
             currency: EXPECTED_CURRENCY,
-            recurring: { interval: EXPECTED_INTERVAL }
+            recurring: { interval: EXPECTED_INTERVAL },
           });
           priceId = price.id;
-          console.log("[Dev] Created Stripe price:", priceId, "for product:", product.id);
+          console.log(
+            "[Dev] Created Stripe price:",
+            priceId,
+            "for product:",
+            product.id,
+          );
         }
       }
       console.log("Checkout using price:", priceId);
@@ -1331,15 +1611,15 @@ async function registerRoutes(app2) {
         line_items: [
           {
             price: priceId,
-            quantity: 1
-          }
+            quantity: 1,
+          },
         ],
         mode: "subscription",
         success_url: `${baseUrl}?checkout=success`,
         cancel_url: `${baseUrl}?checkout=cancelled`,
         subscription_data: {
-          trial_period_days: 7
-        }
+          trial_period_days: 7,
+        },
       });
       res.json({ url: session.url });
     } catch (error) {
@@ -1351,39 +1631,56 @@ async function registerRoutes(app2) {
     try {
       const user = req.user;
       if (!user.stripeCustomerId) {
-        return res.json({ subscriptionStatus: user.subscriptionStatus || "inactive" });
+        return res.json({
+          subscriptionStatus: user.subscriptionStatus || "inactive",
+        });
       }
       const stripe = await getUncachableStripeClient();
       const subscriptions = await stripe.subscriptions.list({
         customer: user.stripeCustomerId,
         status: "all",
-        limit: 5
+        limit: 5,
       });
       const activeSub = subscriptions.data.find(
-        (s) => s.status === "active" || s.status === "trialing"
+        (s) => s.status === "active" || s.status === "trialing",
       );
       if (activeSub) {
         await storage.updateUserStripeInfo(user.id, {
           stripeSubscriptionId: activeSub.id,
-          subscriptionStatus: "active"
+          subscriptionStatus: "active",
         });
-        console.log("[Sync] Subscription synced to active for user:", user.id, "sub:", activeSub.id);
+        console.log(
+          "[Sync] Subscription synced to active for user:",
+          user.id,
+          "sub:",
+          activeSub.id,
+        );
         return res.json({ subscriptionStatus: "active" });
       }
       const cancelledOrPast = subscriptions.data.find(
-        (s) => s.status === "canceled" || s.status === "past_due" || s.status === "unpaid"
+        (s) =>
+          s.status === "canceled" ||
+          s.status === "past_due" ||
+          s.status === "unpaid",
       );
       if (cancelledOrPast && user.subscriptionStatus === "active") {
         await storage.updateUserStripeInfo(user.id, {
-          subscriptionStatus: "inactive"
+          subscriptionStatus: "inactive",
         });
-        console.log("[Sync] Subscription synced to inactive for user:", user.id);
+        console.log(
+          "[Sync] Subscription synced to inactive for user:",
+          user.id,
+        );
         return res.json({ subscriptionStatus: "inactive" });
       }
-      return res.json({ subscriptionStatus: user.subscriptionStatus || "inactive" });
+      return res.json({
+        subscriptionStatus: user.subscriptionStatus || "inactive",
+      });
     } catch (error) {
       console.error("Sync subscription error:", error.message);
-      return res.json({ subscriptionStatus: req.user?.subscriptionStatus || "inactive" });
+      return res.json({
+        subscriptionStatus: req.user?.subscriptionStatus || "inactive",
+      });
     }
   });
   app2.post("/api/billing-portal", authMiddleware, async (req, res) => {
@@ -1396,44 +1693,55 @@ async function registerRoutes(app2) {
       const baseUrl = `https://${process.env.REPLIT_DOMAINS?.split(",")[0]}`;
       const session = await stripe.billingPortal.sessions.create({
         customer: user.stripeCustomerId,
-        return_url: baseUrl
+        return_url: baseUrl,
       });
       res.json({ url: session.url });
     } catch (error) {
       console.error("Billing portal error:", error);
-      res.status(500).json({ message: "Failed to create billing portal session" });
+      res
+        .status(500)
+        .json({ message: "Failed to create billing portal session" });
     }
   });
-  app2.post("/api/admin/tracks", adminMiddleware, upload.single("audio"), async (req, res) => {
-    try {
-      const { title, description, frequency, category, duration } = req.body;
-      const file = req.file;
-      if (!file) {
-        return res.status(400).json({ message: "Audio file is required" });
+  app2.post(
+    "/api/admin/tracks",
+    adminMiddleware,
+    upload.single("audio"),
+    async (req, res) => {
+      try {
+        const { title, description, frequency, category, duration } = req.body;
+        const file = req.file;
+        if (!file) {
+          return res.status(400).json({ message: "Audio file is required" });
+        }
+        if (!title || !frequency || !category || !duration) {
+          return res
+            .status(400)
+            .json({
+              message: "Title, frequency, category, and duration are required",
+            });
+        }
+        const validCategories = ["Delta", "Theta", "Alpha", "Beta", "Gamma"];
+        if (!validCategories.includes(category)) {
+          return res.status(400).json({ message: "Invalid category" });
+        }
+        const fileUrl = await uploadAudioFile(file.originalname, file.buffer);
+        const track = await storage.createTrack({
+          title,
+          description: description || null,
+          frequency,
+          category,
+          duration: parseInt(duration, 10),
+          fileUrl,
+          thumbnailUrl: null,
+        });
+        res.json(track);
+      } catch (error) {
+        console.error("Admin upload track error:", error);
+        res.status(500).json({ message: "Failed to upload track" });
       }
-      if (!title || !frequency || !category || !duration) {
-        return res.status(400).json({ message: "Title, frequency, category, and duration are required" });
-      }
-      const validCategories = ["Delta", "Theta", "Alpha", "Beta", "Gamma"];
-      if (!validCategories.includes(category)) {
-        return res.status(400).json({ message: "Invalid category" });
-      }
-      const fileUrl = await uploadAudioFile(file.originalname, file.buffer);
-      const track = await storage.createTrack({
-        title,
-        description: description || null,
-        frequency,
-        category,
-        duration: parseInt(duration, 10),
-        fileUrl,
-        thumbnailUrl: null
-      });
-      res.json(track);
-    } catch (error) {
-      console.error("Admin upload track error:", error);
-      res.status(500).json({ message: "Failed to upload track" });
-    }
-  });
+    },
+  );
   app2.delete("/api/admin/tracks/:id", adminMiddleware, async (req, res) => {
     try {
       const { id } = req.params;
@@ -1446,7 +1754,9 @@ async function registerRoutes(app2) {
   });
   app2.get("/api/quotes/random", async (_req, res) => {
     try {
-      const result = await db.execute(sql3`SELECT * FROM quotes ORDER BY RANDOM() LIMIT 1`);
+      const result = await db.execute(
+        sql3`SELECT * FROM quotes ORDER BY RANDOM() LIMIT 1`,
+      );
       if (result.rows.length === 0) {
         return res.json({ text: "Find your inner peace.", author: null });
       }
@@ -1463,7 +1773,7 @@ async function registerRoutes(app2) {
         status: result.bytesOk ? "ok" : "degraded",
         bytesAccess: result.bytesOk,
         streamAccess: result.streamOk,
-        error: result.error || null
+        error: result.error || null,
       });
     } catch (error) {
       console.error("[Health] Storage check error:", error);
@@ -1479,7 +1789,9 @@ var WebhookHandlers = class {
   static async processWebhook(payload, signature) {
     if (!Buffer.isBuffer(payload)) {
       throw new Error(
-        "STRIPE WEBHOOK ERROR: Payload must be a Buffer. Received type: " + typeof payload + ". This usually means express.json() parsed the body before reaching this handler. FIX: Ensure webhook route is registered BEFORE app.use(express.json())."
+        "STRIPE WEBHOOK ERROR: Payload must be a Buffer. Received type: " +
+          typeof payload +
+          ". This usually means express.json() parsed the body before reaching this handler. FIX: Ensure webhook route is registered BEFORE app.use(express.json()).",
       );
     }
     const sync = await getStripeSync();
@@ -1497,7 +1809,7 @@ var TRACKS = [
     category: "Alpha",
     duration: 1800,
     fileUrl: "Alpha/AlphaBinauralBeat_235_12-0_AlphaBetaBorder.wav",
-    thumbnailUrl: null
+    thumbnailUrl: null,
   },
   {
     id: "b8c1bf98-fe3b-4b3a-98fc-eae9958f34a0",
@@ -1507,7 +1819,7 @@ var TRACKS = [
     category: "Alpha",
     duration: 1800,
     fileUrl: "Alpha/AlphaBinauralBeat_205_10-0_GeneralRelaxation.wav",
-    thumbnailUrl: null
+    thumbnailUrl: null,
   },
   {
     id: "5aa11871-0bf2-4276-b55b-e8cb64d936d6",
@@ -1517,7 +1829,7 @@ var TRACKS = [
     category: "Alpha",
     duration: 1800,
     fileUrl: "Alpha/AlphaBinauralBeat_225_11-5_Grounding.wav",
-    thumbnailUrl: null
+    thumbnailUrl: null,
   },
   {
     id: "e79bfae9-8f1c-4615-84df-6229c4840cd1",
@@ -1527,7 +1839,7 @@ var TRACKS = [
     category: "Alpha",
     duration: 1800,
     fileUrl: "Alpha/AlphaBinauralBeat_190_8-5_LightMeditation.wav",
-    thumbnailUrl: null
+    thumbnailUrl: null,
   },
   {
     id: "8fc39a7f-4a1a-4ff7-aeb3-82cafab2f747",
@@ -1537,7 +1849,7 @@ var TRACKS = [
     category: "Alpha",
     duration: 1800,
     fileUrl: "Alpha/AlphaBinauralBeat_210_10-5_Mind%26Body.wav",
-    thumbnailUrl: null
+    thumbnailUrl: null,
   },
   {
     id: "fc569d1b-7c57-47bc-8b0e-c6a5b1aa4ec3",
@@ -1547,7 +1859,7 @@ var TRACKS = [
     category: "Alpha",
     duration: 1800,
     fileUrl: "Alpha/AlphaBinauralBeat_215_11-0_PositiveThinking.wav",
-    thumbnailUrl: null
+    thumbnailUrl: null,
   },
   {
     id: "32bb1f18-8d47-4b97-8a86-ebf1e5b396bd",
@@ -1557,7 +1869,7 @@ var TRACKS = [
     category: "Alpha",
     duration: 1800,
     fileUrl: "Alpha/AlphaBinauralBeat_220_11-3_ProblemSolving.wav",
-    thumbnailUrl: null
+    thumbnailUrl: null,
   },
   {
     id: "27b21daf-9737-4ba1-8590-e7715eab3649",
@@ -1567,7 +1879,7 @@ var TRACKS = [
     category: "Alpha",
     duration: 1800,
     fileUrl: "Alpha/AlphaBinauralBeat_230_11-8_SerotoninRelease.wav",
-    thumbnailUrl: null
+    thumbnailUrl: null,
   },
   {
     id: "455e7877-d629-4c9d-a83a-f2380dadea1f",
@@ -1577,7 +1889,7 @@ var TRACKS = [
     category: "Alpha",
     duration: 1800,
     fileUrl: "Alpha/AlphaBinauralBeat_195_9-0_StressReduction.wav",
-    thumbnailUrl: null
+    thumbnailUrl: null,
   },
   {
     id: "51842208-e2a1-4ac7-b430-c4c9d3f7bf14",
@@ -1587,7 +1899,7 @@ var TRACKS = [
     category: "Alpha",
     duration: 1800,
     fileUrl: "Alpha/AlphaBinauralBeat_200_9-5_TheZone.wav",
-    thumbnailUrl: null
+    thumbnailUrl: null,
   },
   {
     id: "2bb61685-4448-4256-9f96-3de00f2f5b7c",
@@ -1597,7 +1909,7 @@ var TRACKS = [
     category: "Beta",
     duration: 1800,
     fileUrl: "Beta/BetaBinauralBeat_303_30-0_BetaGammaBorder.wav",
-    thumbnailUrl: null
+    thumbnailUrl: null,
   },
   {
     id: "2ca9461d-7cbd-4a1d-a818-f3554d710c63",
@@ -1607,7 +1919,7 @@ var TRACKS = [
     category: "Beta",
     duration: 1800,
     fileUrl: "Beta/BetaBinauralBeat_296_27-0_BrainPerformance.wav",
-    thumbnailUrl: null
+    thumbnailUrl: null,
   },
   {
     id: "ac4b7dee-e1cb-4aed-b35f-c693b0e4ceac",
@@ -1617,7 +1929,7 @@ var TRACKS = [
     category: "Beta",
     duration: 1800,
     fileUrl: "Beta/BetaBinauralBeat_254_15-0_CognitiveProcessing.wav",
-    thumbnailUrl: null
+    thumbnailUrl: null,
   },
   {
     id: "b4efca46-1d32-49ae-aa44-2ea740b0b47b",
@@ -1627,7 +1939,7 @@ var TRACKS = [
     category: "Beta",
     duration: 1800,
     fileUrl: "Beta/BetaBinauralBeat_282_22-0_ComplexMemory.wav",
-    thumbnailUrl: null
+    thumbnailUrl: null,
   },
   {
     id: "ff7a6ec1-4a3c-40e1-8f75-f554cd499a1e",
@@ -1637,7 +1949,7 @@ var TRACKS = [
     category: "Beta",
     duration: 1800,
     fileUrl: "Beta/BetaBinauralBeat_289_24-0_FastThinking.wav",
-    thumbnailUrl: null
+    thumbnailUrl: null,
   },
   {
     id: "29db2d7b-8bd7-4e0c-8769-6f90dbce56ef",
@@ -1647,7 +1959,7 @@ var TRACKS = [
     category: "Beta",
     duration: 1800,
     fileUrl: "Beta/BetaBinauralBeat_240_13-0_FocusedStudy.wav",
-    thumbnailUrl: null
+    thumbnailUrl: null,
   },
   {
     id: "45bd965a-f5d4-47b6-b0e1-36f0be3b1158",
@@ -1657,7 +1969,7 @@ var TRACKS = [
     category: "Beta",
     duration: 1800,
     fileUrl: "Beta/BetaBinauralBeat_268_18-0_HighAlertness.wav",
-    thumbnailUrl: null
+    thumbnailUrl: null,
   },
   {
     id: "162af6d4-c221-46bd-9704-d124e80eb154",
@@ -1667,7 +1979,7 @@ var TRACKS = [
     category: "Beta",
     duration: 1800,
     fileUrl: "Beta/BetaBinauralBeat_247_14-0_Logic%26Reasoning.wav",
-    thumbnailUrl: null
+    thumbnailUrl: null,
   },
   {
     id: "f52460f9-2244-4060-81f9-1fe05ed6a2e3",
@@ -1677,7 +1989,7 @@ var TRACKS = [
     category: "Beta",
     duration: 1800,
     fileUrl: "Beta/BetaBinauralBeat_275_20-0_MentalEnergyBoost.wav",
-    thumbnailUrl: null
+    thumbnailUrl: null,
   },
   {
     id: "dc6eb432-f0ae-479e-8728-e8b5b8b34ee1",
@@ -1687,7 +1999,7 @@ var TRACKS = [
     category: "Beta",
     duration: 1800,
     fileUrl: "Beta/BetaBinauralBeat_261_16-0_ProblemSolving.wav",
-    thumbnailUrl: null
+    thumbnailUrl: null,
   },
   {
     id: "f0c86ff0-9726-41b3-b616-6a70ea81cb50",
@@ -1697,7 +2009,7 @@ var TRACKS = [
     category: "Delta",
     duration: 1800,
     fileUrl: "Delta/DeltaBinauralBeat_105_2-0_AntiAging.wav",
-    thumbnailUrl: null
+    thumbnailUrl: null,
   },
   {
     id: "6b6cac7a-4c38-43b0-8d62-b18a603e0c6e",
@@ -1707,7 +2019,7 @@ var TRACKS = [
     category: "Delta",
     duration: 1800,
     fileUrl: "Delta/DeltaBinauralBeat_95_1-0_BodyRegeneration.wav",
-    thumbnailUrl: null
+    thumbnailUrl: null,
   },
   {
     id: "68bea7b1-43b4-4eeb-b1e5-82281ec126e5",
@@ -1717,7 +2029,7 @@ var TRACKS = [
     category: "Delta",
     duration: 1800,
     fileUrl: "Delta/DeltaBinauralBeat_130_3-5_BridgeToDreaming.wav",
-    thumbnailUrl: null
+    thumbnailUrl: null,
   },
   {
     id: "83a1f500-be74-4ca2-84da-87ccc77cc59a",
@@ -1727,7 +2039,7 @@ var TRACKS = [
     category: "Delta",
     duration: 1800,
     fileUrl: "Delta/DeltaBinauralBeat_90_-5_DeepHumanConsciousness.wav",
-    thumbnailUrl: null
+    thumbnailUrl: null,
   },
   {
     id: "8f6594a2-dfce-4567-aab0-81a43e0e6a55",
@@ -1737,7 +2049,7 @@ var TRACKS = [
     category: "Delta",
     duration: 1800,
     fileUrl: "Delta/DeltaBinauralBeat_110_2-5_DeepSleep.wav",
-    thumbnailUrl: null
+    thumbnailUrl: null,
   },
   {
     id: "e644791c-90a7-4c7a-8fe8-2d86fd6390ff",
@@ -1747,7 +2059,7 @@ var TRACKS = [
     category: "Delta",
     duration: 1800,
     fileUrl: "Delta/DeltaBinauralBeat_135_4-0_DeltaThetaBorder.wav",
-    thumbnailUrl: null
+    thumbnailUrl: null,
   },
   {
     id: "0b7c60dd-0574-45b1-838c-b00c9d6aa92f",
@@ -1757,7 +2069,7 @@ var TRACKS = [
     category: "Delta",
     duration: 1800,
     fileUrl: "Delta/DeltaBinauralBeat_120_3-0_DreamlessVoid.wav",
-    thumbnailUrl: null
+    thumbnailUrl: null,
   },
   {
     id: "37146fe0-6e8e-417a-bffb-6a39a873ff3a",
@@ -1767,7 +2079,7 @@ var TRACKS = [
     category: "Delta",
     duration: 1800,
     fileUrl: "Delta/DeltaBinauralBeat_115_2-8_ImmuneSystemSupport.wav",
-    thumbnailUrl: null
+    thumbnailUrl: null,
   },
   {
     id: "e4e627d7-8f2d-4f55-b911-54e8ae9fa947",
@@ -1777,7 +2089,7 @@ var TRACKS = [
     category: "Delta",
     duration: 1800,
     fileUrl: "Delta/DeltaBinauralBeat_125_3-2_PainRelief.wav",
-    thumbnailUrl: null
+    thumbnailUrl: null,
   },
   {
     id: "b48c0f02-dd3e-416d-a3c4-ccb16da40443",
@@ -1787,7 +2099,7 @@ var TRACKS = [
     category: "Delta",
     duration: 1800,
     fileUrl: "Delta/DeltaBinauralBeat_100_1-5_RestorativeSleep.wav",
-    thumbnailUrl: null
+    thumbnailUrl: null,
   },
   {
     id: "41fd18b1-b53f-486c-b809-e4c43d41b4d0",
@@ -1797,7 +2109,7 @@ var TRACKS = [
     category: "Gamma",
     duration: 1800,
     fileUrl: "Gamma/GammaBinauralBeat_390_48-0_AdvancedPerception.wav",
-    thumbnailUrl: null
+    thumbnailUrl: null,
   },
   {
     id: "2eda635f-b7ed-4cf3-9e5a-ef7a42bd6dea",
@@ -1807,7 +2119,7 @@ var TRACKS = [
     category: "Gamma",
     duration: 1800,
     fileUrl: "Gamma/GammaBinauralBeat_380_46-0_BrainCoherence.wav",
-    thumbnailUrl: null
+    thumbnailUrl: null,
   },
   {
     id: "7b10c7c1-ddab-44a2-94ca-d374bf99a5bb",
@@ -1817,7 +2129,7 @@ var TRACKS = [
     category: "Gamma",
     duration: 1800,
     fileUrl: "Gamma/GammaBinauralBeat_350_40-0_GodFrequency.wav",
-    thumbnailUrl: null
+    thumbnailUrl: null,
   },
   {
     id: "614df82c-1b82-4057-a6f6-791fcf4a31f3",
@@ -1827,7 +2139,7 @@ var TRACKS = [
     category: "Gamma",
     duration: 1800,
     fileUrl: "Gamma/GammaBinauralBeat_370_44-0_HighCognition.wav",
-    thumbnailUrl: null
+    thumbnailUrl: null,
   },
   {
     id: "21f8ca4c-0e2e-4446-9b04-09a6e859ebd1",
@@ -1837,7 +2149,7 @@ var TRACKS = [
     category: "Gamma",
     duration: 1800,
     fileUrl: "Gamma/GammaBinauralBeat_340_38-0_HyperFocus.wav",
-    thumbnailUrl: null
+    thumbnailUrl: null,
   },
   {
     id: "cf52740d-51f3-4aad-90d9-4a8af9d991a3",
@@ -1847,7 +2159,7 @@ var TRACKS = [
     category: "Gamma",
     duration: 1800,
     fileUrl: "Gamma/GammaBinauralBeat_330_35-0_InformationSynthesis.wav",
-    thumbnailUrl: null
+    thumbnailUrl: null,
   },
   {
     id: "dba94370-2ee1-48ac-9ee9-0df6f35d1d4f",
@@ -1857,7 +2169,7 @@ var TRACKS = [
     category: "Gamma",
     duration: 1800,
     fileUrl: "Gamma/GammaBinauralBeat_400_49-0_IntenseAwareness.wav",
-    thumbnailUrl: null
+    thumbnailUrl: null,
   },
   {
     id: "bdee914b-d1c7-4ca7-9600-03a3cbfd9149",
@@ -1867,7 +2179,7 @@ var TRACKS = [
     category: "Gamma",
     duration: 1800,
     fileUrl: "Gamma/GammaBinauralBeat_410_50-0_MaximumEntrainment.wav",
-    thumbnailUrl: null
+    thumbnailUrl: null,
   },
   {
     id: "58d06c59-e498-4d81-a7fb-7037defe54ac",
@@ -1877,7 +2189,7 @@ var TRACKS = [
     category: "Gamma",
     duration: 1800,
     fileUrl: "Gamma/GammaBinauralBeat_360_42-0_MemoryRetrieval.wav",
-    thumbnailUrl: null
+    thumbnailUrl: null,
   },
   {
     id: "d90eb072-997e-4653-a983-4c1d69da36ee",
@@ -1887,7 +2199,7 @@ var TRACKS = [
     category: "Gamma",
     duration: 1800,
     fileUrl: "Gamma/BetaBinauralBeat_320_32-0_PeakConcentration.wav",
-    thumbnailUrl: null
+    thumbnailUrl: null,
   },
   {
     id: "a8e7d05e-c76e-4a6b-aeef-f032764cb7ae",
@@ -1897,7 +2209,7 @@ var TRACKS = [
     category: "Theta",
     duration: 1800,
     fileUrl: "Theta/ThetaBinauralBeat_160_6-3_AstralProjection.wav",
-    thumbnailUrl: null
+    thumbnailUrl: null,
   },
   {
     id: "a88eabbc-4cb0-4772-a3d0-03aa0b304a1c",
@@ -1907,7 +2219,7 @@ var TRACKS = [
     category: "Theta",
     duration: 1800,
     fileUrl: "Theta/ThetaBinauralBeat_175_7-5_CreativeVisualization.wav",
-    thumbnailUrl: null
+    thumbnailUrl: null,
   },
   {
     id: "561534c8-243f-4787-a467-7295ab1abbbc",
@@ -1917,7 +2229,7 @@ var TRACKS = [
     category: "Theta",
     duration: 1800,
     fileUrl: "Theta/ThetaBinauralBeat_155_6-0_DeepMemoryAccess.wav",
-    thumbnailUrl: null
+    thumbnailUrl: null,
   },
   {
     id: "746001a2-67cc-44fd-a8cc-aa297eeadd22",
@@ -1927,7 +2239,7 @@ var TRACKS = [
     category: "Theta",
     duration: 1800,
     fileUrl: "Theta/ThetaBinauralBeat_170_7-0_DeepMentalRelaxation.wav",
-    thumbnailUrl: null
+    thumbnailUrl: null,
   },
   {
     id: "0278cc6c-9f30-4226-9a6a-088b7c06fa57",
@@ -1937,7 +2249,7 @@ var TRACKS = [
     category: "Theta",
     duration: 1800,
     fileUrl: "Theta/ThetaBinauralBeat_180_7-8_EarthsHeartbeat.wav",
-    thumbnailUrl: null
+    thumbnailUrl: null,
   },
   {
     id: "00ec6918-89fa-45df-8cd8-eb031c2acf16",
@@ -1947,7 +2259,7 @@ var TRACKS = [
     category: "Theta",
     duration: 1800,
     fileUrl: "Theta/ThetaBinauralBeat_165_6-8_EmotionalProcessing.wav",
-    thumbnailUrl: null
+    thumbnailUrl: null,
   },
   {
     id: "43aa3dc5-7573-42e5-8d33-8133d090a789",
@@ -1957,7 +2269,7 @@ var TRACKS = [
     category: "Theta",
     duration: 1800,
     fileUrl: "Theta/ThetaBinauralBeat_145_5-0_HypnagogicInduction.wav",
-    thumbnailUrl: null
+    thumbnailUrl: null,
   },
   {
     id: "e34af5d5-8a4a-42f7-bbc5-548cf0bae0c0",
@@ -1967,7 +2279,7 @@ var TRACKS = [
     category: "Theta",
     duration: 1800,
     fileUrl: "Theta/ThetaBinauralBeat_150_5-5_InnerZen.wav",
-    thumbnailUrl: null
+    thumbnailUrl: null,
   },
   {
     id: "09fe78e7-8c26-4cb5-a8a5-ba5ce7784b7b",
@@ -1977,7 +2289,7 @@ var TRACKS = [
     category: "Theta",
     duration: 1800,
     fileUrl: "Theta/ThetaBinauralBeat_140_4-5_ShamanicAstralState.wav",
-    thumbnailUrl: null
+    thumbnailUrl: null,
   },
   {
     id: "518347a7-8217-4646-8d29-dacf5ae918b0",
@@ -1987,15 +2299,19 @@ var TRACKS = [
     category: "Theta",
     duration: 1800,
     fileUrl: "Theta/ThetaBinauralBeat_185_8-0_ThetaAlphaBorder.wav",
-    thumbnailUrl: null
-  }
+    thumbnailUrl: null,
+  },
 ];
 async function seedTracks() {
   try {
-    const inserted = await db.insert(audioTracks).values(TRACKS).onConflictDoNothing({ target: audioTracks.id }).returning({ id: audioTracks.id });
+    const inserted = await db
+      .insert(audioTracks)
+      .values(TRACKS)
+      .onConflictDoNothing({ target: audioTracks.id })
+      .returning({ id: audioTracks.id });
     const skipped = TRACKS.length - inserted.length;
     console.log(
-      `[Tracks] Seeded ${inserted.length} new tracks, ${skipped} already present`
+      `[Tracks] Seeded ${inserted.length} new tracks, ${skipped} already present`,
     );
   } catch (err) {
     console.error("[Tracks] Failed to seed tracks:", err);
@@ -2012,14 +2328,20 @@ async function preCacheAllTrackSizes() {
         cached++;
       } else {
         missing++;
-        console.error(`[Tracks] Could not determine size for: ${track.fileUrl}`);
+        console.error(
+          `[Tracks] Could not determine size for: ${track.fileUrl}`,
+        );
       }
     } catch (err) {
       errors++;
-      console.error(`[Tracks] Error pre-caching ${track.fileUrl}: ${err?.message || err}`);
+      console.error(
+        `[Tracks] Error pre-caching ${track.fileUrl}: ${err?.message || err}`,
+      );
     }
   }
-  console.log(`[Tracks] Pre-cached ${cached} track sizes, ${missing} missing, ${errors} errors`);
+  console.log(
+    `[Tracks] Pre-cached ${cached} track sizes, ${missing} missing, ${errors} errors`,
+  );
 }
 
 // server/generateMissingTracks.ts
@@ -2053,8 +2375,8 @@ function createBinauralWav(baseHz, beatHz) {
   buffer.writeUInt32LE(dataSize, 40);
   const fadeLen = Math.floor(SAMPLE_RATE * FADE_SEC);
   const rightHz = baseHz + beatHz;
-  const leftPhaseInc = 2 * Math.PI * baseHz / SAMPLE_RATE;
-  const rightPhaseInc = 2 * Math.PI * rightHz / SAMPLE_RATE;
+  const leftPhaseInc = (2 * Math.PI * baseHz) / SAMPLE_RATE;
+  const rightPhaseInc = (2 * Math.PI * rightHz) / SAMPLE_RATE;
   let leftPhase = 0;
   let rightPhase = 0;
   for (let i = 0; i < numSamples; i++) {
@@ -2085,14 +2407,14 @@ var MISSING_TRACKS = [
     objectPath: "Alpha/AlphaBinauralBeat_200_9-5_TheZone.wav",
     baseHz: 200,
     beatHz: 9.5,
-    label: "The Zone (Alpha)"
+    label: "The Zone (Alpha)",
   },
   {
     objectPath: "Beta/BetaBinauralBeat_296_27-0_BrainPerformance.wav",
     baseHz: 296,
     beatHz: 27,
-    label: "Brain Performance (Beta)"
-  }
+    label: "Brain Performance (Beta)",
+  },
 ];
 async function ensureMissingTracksExist() {
   for (const track of MISSING_TRACKS) {
@@ -2100,12 +2422,16 @@ async function ensureMissingTracksExist() {
       const check = await client2.downloadAsBytes(track.objectPath);
       if (check.ok && check.value[0].length >= MIN_VALID_SIZE) {
         preCacheFileSize(track.objectPath, check.value[0].length);
-        console.log(`[Audio] ${track.label} already present (${(check.value[0].length / 1024 / 1024).toFixed(0)} MB), skipping`);
+        console.log(
+          `[Audio] ${track.label} already present (${(check.value[0].length / 1024 / 1024).toFixed(0)} MB), skipping`,
+        );
         continue;
       }
       console.log(`[Audio] Generating ${track.label} (30 min, 22050 Hz)...`);
       const wav = createBinauralWav(track.baseHz, track.beatHz);
-      console.log(`[Audio] Uploading ${track.objectPath} (${(wav.length / 1024 / 1024).toFixed(0)} MB)...`);
+      console.log(
+        `[Audio] Uploading ${track.objectPath} (${(wav.length / 1024 / 1024).toFixed(0)} MB)...`,
+      );
       await client2.uploadFromBytes(track.objectPath, wav);
       console.log(`[Audio] Done: ${track.objectPath}`);
     } catch (err) {
@@ -2131,12 +2457,14 @@ function setupCors(app2) {
       });
     }
     const origin = req.header("origin");
-    const isLocalhost = origin?.startsWith("http://localhost:") || origin?.startsWith("http://127.0.0.1:");
+    const isLocalhost =
+      origin?.startsWith("http://localhost:") ||
+      origin?.startsWith("http://127.0.0.1:");
     if (origin && (origins.has(origin) || isLocalhost)) {
       res.header("Access-Control-Allow-Origin", origin);
       res.header(
         "Access-Control-Allow-Methods",
-        "GET, POST, PUT, DELETE, OPTIONS"
+        "GET, POST, PUT, DELETE, OPTIONS",
       );
       res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
       res.header("Access-Control-Allow-Credentials", "true");
@@ -2168,7 +2496,7 @@ function setupStripeWebhook(app2) {
         console.error("Webhook error:", error.message);
         res.status(400).json({ error: "Webhook processing error" });
       }
-    }
+    },
   );
 }
 function setupBodyParsing(app2) {
@@ -2176,8 +2504,8 @@ function setupBodyParsing(app2) {
     express.json({
       verify: (req, _res, buf) => {
         req.rawBody = buf;
-      }
-    })
+      },
+    }),
   );
   app2.use(express.urlencoded({ extended: false }));
 }
@@ -2187,7 +2515,7 @@ function setupRequestLogging(app2) {
     const path3 = req.path;
     let capturedJsonResponse = void 0;
     const originalResJson = res.json;
-    res.json = function(bodyJson, ...args) {
+    res.json = function (bodyJson, ...args) {
       capturedJsonResponse = bodyJson;
       return originalResJson.apply(res, [bodyJson, ...args]);
     };
@@ -2221,10 +2549,12 @@ function serveExpoManifest(platform, res) {
     process.cwd(),
     "static-build",
     platform,
-    "manifest.json"
+    "manifest.json",
   );
   if (!fs3.existsSync(manifestPath)) {
-    return res.status(404).json({ error: `Manifest not found for platform: ${platform}` });
+    return res
+      .status(404)
+      .json({ error: `Manifest not found for platform: ${platform}` });
   }
   res.setHeader("expo-protocol-version", "1");
   res.setHeader("expo-sfv-version", "0");
@@ -2232,12 +2562,7 @@ function serveExpoManifest(platform, res) {
   const manifest = fs3.readFileSync(manifestPath, "utf-8");
   res.send(manifest);
 }
-function serveLandingPage({
-  req,
-  res,
-  landingPageTemplate,
-  appName
-}) {
+function serveLandingPage({ req, res, landingPageTemplate, appName }) {
   const forwardedProto = req.header("x-forwarded-proto");
   const protocol = forwardedProto || req.protocol || "https";
   const forwardedHost = req.header("x-forwarded-host");
@@ -2246,7 +2571,10 @@ function serveLandingPage({
   const expsUrl = `${host}`;
   log(`baseUrl`, baseUrl);
   log(`expsUrl`, expsUrl);
-  const html = landingPageTemplate.replace(/BASE_URL_PLACEHOLDER/g, baseUrl).replace(/EXPS_URL_PLACEHOLDER/g, expsUrl).replace(/APP_NAME_PLACEHOLDER/g, appName);
+  const html = landingPageTemplate
+    .replace(/BASE_URL_PLACEHOLDER/g, baseUrl)
+    .replace(/EXPS_URL_PLACEHOLDER/g, expsUrl)
+    .replace(/APP_NAME_PLACEHOLDER/g, appName);
   res.setHeader("Content-Type", "text/html; charset=utf-8");
   res.status(200).send(html);
 }
@@ -2255,7 +2583,7 @@ function configureExpoAndLanding(app2) {
     process.cwd(),
     "server",
     "templates",
-    "landing-page.html"
+    "landing-page.html",
   );
   const landingPageTemplate = fs3.readFileSync(templatePath, "utf-8");
   const appName = getAppName();
@@ -2263,7 +2591,7 @@ function configureExpoAndLanding(app2) {
     process.cwd(),
     "static-build",
     "web",
-    "index.html"
+    "index.html",
   );
   const hasWebBuild = fs3.existsSync(webIndexPath);
   if (hasWebBuild) {
@@ -2276,7 +2604,7 @@ function configureExpoAndLanding(app2) {
     if (!req.path.startsWith("/api")) {
       res.setHeader(
         "Content-Security-Policy",
-        "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; media-src 'self' blob: data: https:; connect-src 'self' https: wss:; frame-src 'self' https:; worker-src 'self' blob:;"
+        "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; media-src 'self' blob: data: https:; connect-src 'self' https: wss:; frame-src 'self' https:; worker-src 'self' blob:;",
       );
     }
     next();
@@ -2300,7 +2628,7 @@ function configureExpoAndLanding(app2) {
         req,
         res,
         landingPageTemplate,
-        appName
+        appName,
       });
     }
     next();
@@ -2308,7 +2636,7 @@ function configureExpoAndLanding(app2) {
   app2.use("/assets", express.static(path2.resolve(process.cwd(), "assets")));
   if (hasWebBuild) {
     app2.use(
-      express.static(path2.resolve(process.cwd(), "static-build", "web"))
+      express.static(path2.resolve(process.cwd(), "static-build", "web")),
     );
   }
   app2.use(express.static(path2.resolve(process.cwd(), "static-build")));
@@ -2343,17 +2671,19 @@ function setupErrorHandler(app2) {
   await seedDemoUser();
   await seedTracks();
   await ensureMissingTracksExist();
-  preCacheAllTrackSizes().catch((err) => console.error("[Tracks] Pre-cache error:", err));
+  preCacheAllTrackSizes().catch((err) =>
+    console.error("[Tracks] Pre-cache error:", err),
+  );
   setupErrorHandler(app);
   const port = parseInt(process.env.PORT || "5000", 10);
   server.listen(
     {
       port,
       host: "0.0.0.0",
-      reusePort: true
+      reusePort: true,
     },
     () => {
       log(`express server serving on port ${port}`);
-    }
+    },
   );
 })();

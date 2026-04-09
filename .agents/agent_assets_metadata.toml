@@ -1,20 +1,3 @@
 uploads = []
 generated = []
-
-[[outputs]]
-id = "Btp4dLF--1FXvnDt4-qdT"
-uri = "file://public/screenshots/01-home-screen.jpeg"
-type = "image"
-title = "01 — Home Screen (Browse Tracks)"
-
-[[outputs]]
-id = "PKdmpXe11fTquq0RiEq_n"
-uri = "file://public/screenshots/02-player-screen.jpeg"
-type = "image"
-title = "02 — Player Screen (Deep Human Consciousness)"
-
-[[outputs]]
-id = "7mvg9k_G1hg4P7kRi7XS9"
-uri = "file://public/screenshots/03-playlists-screen.jpeg"
-type = "image"
-title = "03 — Playlists Screen (Premium Upsell)"
+outputs = []
