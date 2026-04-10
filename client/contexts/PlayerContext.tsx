@@ -151,6 +151,17 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   }, [loopMode]);
 
   useEffect(() => {
+    if (Platform.OS !== "web") {
+      Audio.setAudioModeAsync({
+        playsInSilentModeIOS: true,
+        staysActiveInBackground: true,
+      }).catch((err) =>
+        console.warn("[Player] Initial audio mode setup failed:", err),
+      );
+    }
+  }, []);
+
+  useEffect(() => {
     queueRef.current = queue;
   }, [queue]);
 
@@ -721,20 +732,36 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
           (loopModeRef.current === "one" || trackQueue.length <= 1);
 
         let sound: Audio.Sound;
+        let usedPrebuffer = false;
 
         if (prebufferedSoundRef.current && prebufferedTrackIdRef.current === track.id) {
-          sound = prebufferedSoundRef.current;
+          const preSound = prebufferedSoundRef.current;
           prebufferedSoundRef.current = null;
           prebufferedTrackIdRef.current = null;
-          sound.setOnPlaybackStatusUpdate(onPlaybackStatusUpdate);
-          await sound.setIsLoopingAsync(shouldLoopSingle);
-          await sound.playAsync();
-        } else {
-          if (prebufferedSoundRef.current) {
-            prebufferedSoundRef.current.unloadAsync().catch(() => {});
-            prebufferedSoundRef.current = null;
-            prebufferedTrackIdRef.current = null;
+
+          try {
+            const status = await preSound.getStatusAsync();
+            if (status.isLoaded && !("error" in status && status.error)) {
+              preSound.setOnPlaybackStatusUpdate(onPlaybackStatusUpdate);
+              await preSound.setIsLoopingAsync(shouldLoopSingle);
+              await preSound.playAsync();
+              sound = preSound;
+              usedPrebuffer = true;
+            } else {
+              console.warn("[Player] Prebuffered sound not loaded, falling back to fresh load");
+              preSound.unloadAsync().catch(() => {});
+            }
+          } catch (prebufErr) {
+            console.warn("[Player] Prebuffered sound failed, falling back to fresh load:", prebufErr);
+            preSound.unloadAsync().catch(() => {});
           }
+        } else if (prebufferedSoundRef.current) {
+          prebufferedSoundRef.current.unloadAsync().catch(() => {});
+          prebufferedSoundRef.current = null;
+          prebufferedTrackIdRef.current = null;
+        }
+
+        if (!usedPrebuffer) {
           const result = await Audio.Sound.createAsync(
             { uri: resolveAudioUrl(track.fileUrl) },
             { shouldPlay: true, isLooping: shouldLoopSingle },
