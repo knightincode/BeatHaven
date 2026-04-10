@@ -14,7 +14,9 @@
       "usesAppleSignIn": true,
       "infoPlist": {
         "NSFaceIDUsageDescription": "Use Face ID to sign in to Beat Haven quickly and securely.",
-        "UIBackgroundModes": ["audio"]
+        "UIBackgroundModes": [
+          "audio"
+        ]
       }
     },
     "android": {
@@ -48,6 +50,12 @@
     ],
     "experiments": {
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "8f866296-25a7-4a1c-82a4-a42b0aae930e"
+      }
+    },
+    "owner": "sdk14"
   }
 }
