@@ -4,7 +4,7 @@
     "slug": "binaural-beats",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/images/Logo_Figma.png",
     "scheme": "beathaven",
     "userInterfaceStyle": "dark",
     "newArchEnabled": true,
@@ -20,7 +20,7 @@
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#0A0E1A",
-        "foregroundImage": "./assets/images/icon.png"
+        "foregroundImage": "./assets/images/Logo_Figma.png"
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
@@ -28,13 +28,13 @@
     },
     "web": {
       "output": "single",
-      "favicon": "./assets/images/favicon.png"
+      "favicon": "./assets/images/Logo_Figma.png"
     },
     "plugins": [
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/icon.png",
+          "image": "./assets/images/Logo_Figma.png",
           "imageWidth": 200,
           "resizeMode": "contain",
           "backgroundColor": "#0A0E1A",
