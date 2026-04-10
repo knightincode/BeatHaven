@@ -40,6 +40,10 @@ author = "agent"
 task = "workflow.run"
 args = "Start App"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Start Frontend"
+
 [[workflows.workflow]]
 name = "Start App"
 author = "agent"
@@ -68,11 +72,13 @@ name = "Start Frontend"
 author = "agent"
 mode = "sequential"
 
+[workflows.workflow.metadata]
+outputType = "console"
+
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "npm run expo:dev"
 waitForPort = 8081
-ensurePreviewReachable = "/status"
 
 [objectStorage]
 defaultBucketID = "replit-objstore-ddf76df7-f3a8-4de2-9598-83fe9d3257ae"
