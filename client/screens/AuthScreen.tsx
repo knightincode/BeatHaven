@@ -241,9 +241,9 @@ export default function AuthScreen() {
         <View style={styles.logoContainer}>
           <View style={styles.logoWrapper}>
             <Image
-              source={require("../../assets/images/icon.png")}
+              source={require("../../assets/images/Logo_Figma.png")}
               style={styles.logo}
-              resizeMode="cover"
+              resizeMode="contain"
             />
           </View>
           <ThemedText type="h1" style={styles.title}>
