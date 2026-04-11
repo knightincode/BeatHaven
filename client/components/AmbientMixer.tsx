@@ -13,10 +13,10 @@ import { Feather } from "@expo/vector-icons";
 import Slider from "@react-native-community/slider";
 import * as Haptics from "expo-haptics";
 import { Audio } from "expo-av";
+import * as FileSystem from "expo-file-system";
 
 import { ThemedText } from "@/components/ThemedText";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
-import { getApiUrl } from "@/lib/query-client";
 
 interface NoiseColor {
   id: string;
@@ -48,6 +48,190 @@ interface AmbientMixerProps {
   visible: boolean;
   onClose: () => void;
   accentColor?: string;
+}
+
+const NATIVE_SAMPLE_RATE = 44100;
+const NATIVE_DURATION_SECS = 10;
+
+function generateNoiseSamples(type: string, sampleRate: number, durationSecs: number): Float32Array {
+  const bufferSize = Math.floor(sampleRate * durationSecs);
+  const data = new Float32Array(bufferSize);
+  const sr = sampleRate;
+
+  switch (type) {
+    case "white": {
+      for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+      break;
+    }
+    case "pink":
+    case "green":
+    case "speech": {
+      let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0;
+      for (let i = 0; i < bufferSize; i++) {
+        const w = Math.random() * 2 - 1;
+        b0 = 0.99886 * b0 + w * 0.0555179;
+        b1 = 0.99332 * b1 + w * 0.0750759;
+        b2 = 0.96900 * b2 + w * 0.1538520;
+        b3 = 0.86650 * b3 + w * 0.3104856;
+        b4 = 0.55000 * b4 + w * 0.5329522;
+        b5 = -0.7616 * b5 - w * 0.0168980;
+        data[i] = (b0 + b1 + b2 + b3 + b4 + b5 + b6 + w * 0.5362) * 0.11;
+        b6 = w * 0.115926;
+      }
+      break;
+    }
+    case "brown": {
+      let prev = 0;
+      for (let i = 0; i < bufferSize; i++) {
+        const w = Math.random() * 2 - 1;
+        prev = (prev + 0.02 * w) / 1.02;
+        data[i] = prev * 3.5;
+      }
+      break;
+    }
+    case "blue": {
+      let prev = 0;
+      for (let i = 0; i < bufferSize; i++) {
+        const w = Math.random() * 2 - 1;
+        data[i] = w - prev;
+        prev = w;
+      }
+      break;
+    }
+    case "violet": {
+      let p1 = 0, p2 = 0;
+      for (let i = 0; i < bufferSize; i++) {
+        const w = Math.random() * 2 - 1;
+        data[i] = w - 2 * p1 + p2;
+        p2 = p1;
+        p1 = w;
+      }
+      break;
+    }
+    case "grey": {
+      let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0;
+      for (let i = 0; i < bufferSize; i++) {
+        const w = Math.random() * 2 - 1;
+        b0 = 0.99886 * b0 + w * 0.0555179;
+        b1 = 0.99332 * b1 + w * 0.0750759;
+        b2 = 0.96900 * b2 + w * 0.1538520;
+        b3 = 0.86650 * b3 + w * 0.3104856;
+        b4 = 0.55000 * b4 + w * 0.5329522;
+        b5 = -0.7616 * b5 - w * 0.0168980;
+        const pink = (b0 + b1 + b2 + b3 + b4 + b5 + b6 + w * 0.5362) * 0.11;
+        b6 = w * 0.115926;
+        const freq = (i % sr) / sr;
+        const isoWeight = 1.0 + 0.4 * Math.sin(freq * Math.PI * 2 * 3.5);
+        data[i] = pink * isoWeight;
+      }
+      break;
+    }
+    case "orange": {
+      const numOsc = 12;
+      const freqs: number[] = [];
+      const baseFreqs = [261.63, 293.66, 329.63, 349.23, 392.00, 440.00];
+      for (let k = 0; k < numOsc; k++) {
+        freqs.push(baseFreqs[k % baseFreqs.length] * (1 + (Math.random() * 0.08 - 0.04)));
+      }
+      for (let i = 0; i < bufferSize; i++) {
+        let sum = 0;
+        const t = i / sr;
+        for (let k = 0; k < numOsc; k++) {
+          sum += Math.sin(2 * Math.PI * freqs[k] * t) * 0.1;
+        }
+        sum += (Math.random() * 2 - 1) * 0.15;
+        data[i] = sum;
+      }
+      break;
+    }
+    case "red": {
+      let prev = 0;
+      for (let i = 0; i < bufferSize; i++) {
+        const w = Math.random() * 2 - 1;
+        prev = (prev + 0.01 * w) / 1.01;
+        data[i] = prev * 5;
+      }
+      break;
+    }
+    case "black": {
+      for (let i = 0; i < bufferSize; i++) {
+        const r1 = Math.random();
+        const r2 = Math.random();
+        const g = Math.sqrt(-2 * Math.log(r1 + 1e-10)) * Math.cos(2 * Math.PI * r2);
+        data[i] = g * 0.003;
+      }
+      break;
+    }
+    case "modulated": {
+      let prev = 0;
+      for (let i = 0; i < bufferSize; i++) {
+        const w = Math.random() * 2 - 1;
+        prev = (prev + 0.02 * w) / 1.02;
+        const t = i / sr;
+        const mod = Math.sin(2 * Math.PI * 0.1 * t) * 0.4 + 0.6;
+        data[i] = prev * 3.5 * mod;
+      }
+      break;
+    }
+    case "dither": {
+      for (let i = 0; i < bufferSize; i++) {
+        const r1 = Math.random();
+        const r2 = Math.random();
+        data[i] = (r1 + r2 - 1) * 0.05;
+      }
+      break;
+    }
+    default: {
+      for (let i = 0; i < bufferSize; i++) data[i] = (Math.random() * 2 - 1) * 0.2;
+    }
+  }
+
+  return data;
+}
+
+function encodeWav(samples: Float32Array, sampleRate: number): Uint8Array {
+  const numChannels = 1;
+  const bitsPerSample = 16;
+  const bytesPerSample = bitsPerSample / 8;
+  const dataLength = samples.length * bytesPerSample;
+  const buffer = new ArrayBuffer(44 + dataLength);
+  const view = new DataView(buffer);
+
+  const writeStr = (offset: number, str: string) => {
+    for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i));
+  };
+
+  writeStr(0, "RIFF");
+  view.setUint32(4, 36 + dataLength, true);
+  writeStr(8, "WAVE");
+  writeStr(12, "fmt ");
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, numChannels, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * numChannels * bytesPerSample, true);
+  view.setUint16(32, numChannels * bytesPerSample, true);
+  view.setUint16(34, bitsPerSample, true);
+  writeStr(36, "data");
+  view.setUint32(40, dataLength, true);
+
+  let offset = 44;
+  for (let i = 0; i < samples.length; i++) {
+    const s = Math.max(-1, Math.min(1, samples[i]));
+    view.setInt16(offset, Math.round(s * 32767), true);
+    offset += 2;
+  }
+
+  return new Uint8Array(buffer);
+}
+
+function uint8ArrayToBase64(bytes: Uint8Array): string {
+  let binary = "";
+  const len = bytes.byteLength;
+  for (let i = 0; i < len; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary);
 }
 
 export function AmbientMixer({ visible, onClose, accentColor = Colors.dark.link }: AmbientMixerProps) {
@@ -283,6 +467,20 @@ export function AmbientMixer({ visible, onClose, accentColor = Colors.dark.link 
     }
   }
 
+  async function getNativeCacheUri(layerId: string): Promise<string> {
+    const cacheUri = `${FileSystem.cacheDirectory}bh_noise_${layerId}.wav`;
+    const info = await FileSystem.getInfoAsync(cacheUri);
+    if (!info.exists) {
+      const samples = generateNoiseSamples(layerId, NATIVE_SAMPLE_RATE, NATIVE_DURATION_SECS);
+      const wavBytes = encodeWav(samples, NATIVE_SAMPLE_RATE);
+      const base64 = uint8ArrayToBase64(wavBytes);
+      await FileSystem.writeAsStringAsync(cacheUri, base64, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+    }
+    return cacheUri;
+  }
+
   async function startNativeLayer(layerId: string, volume: number) {
     await stopNativeLayer(layerId);
 
@@ -293,16 +491,30 @@ export function AmbientMixer({ visible, onClose, accentColor = Colors.dark.link 
     );
 
     try {
-      const baseUrl = getApiUrl();
-      const uri = `${baseUrl}api/audio/ambient/${layerId}.wav`;
+      await Audio.setAudioModeAsync({
+        playsInSilentModeIOS: true,
+        staysActiveInBackground: true,
+      });
+
+      if (!inFlightRef.current[layerId]) {
+        setLayers((prev) =>
+          prev.map((l) => (l.id === layerId ? { ...l, loading: false, active: false } : l))
+        );
+        return;
+      }
+
+      const cacheUri = await getNativeCacheUri(layerId);
+
+      if (!inFlightRef.current[layerId]) {
+        setLayers((prev) =>
+          prev.map((l) => (l.id === layerId ? { ...l, loading: false, active: false } : l))
+        );
+        return;
+      }
 
       const { sound } = await Audio.Sound.createAsync(
-        { uri },
-        {
-          shouldPlay: true,
-          isLooping: true,
-          volume,
-        }
+        { uri: cacheUri },
+        { shouldPlay: true, isLooping: true, volume }
       );
 
       if (!inFlightRef.current[layerId]) {
@@ -318,7 +530,7 @@ export function AmbientMixer({ visible, onClose, accentColor = Colors.dark.link 
         prev.map((l) => (l.id === layerId ? { ...l, loading: false } : l))
       );
     } catch (error) {
-      console.error(`Failed to start native ambient layer ${layerId}:`, error);
+      console.error(`[AmbientMixer] Failed to start native layer ${layerId}:`, error);
       inFlightRef.current[layerId] = false;
       setLayers((prev) =>
         prev.map((l) => (l.id === layerId ? { ...l, loading: false, active: false } : l))
@@ -371,11 +583,11 @@ export function AmbientMixer({ visible, onClose, accentColor = Colors.dark.link 
     if (visible) {
       restartActiveLayers();
     } else if (Platform.OS !== "web") {
-      const ids = Object.keys(nativeSoundsRef.current);
+      const activeIds = Object.keys(nativeSoundsRef.current);
       const inFlightIds = Object.keys(inFlightRef.current).filter(
         (id) => inFlightRef.current[id]
       );
-      const allIds = Array.from(new Set([...ids, ...inFlightIds]));
+      const allIds = Array.from(new Set([...activeIds, ...inFlightIds]));
       allIds.forEach((id) => {
         inFlightRef.current[id] = false;
       });
@@ -395,9 +607,7 @@ export function AmbientMixer({ visible, onClose, accentColor = Colors.dark.link 
 
   function toggleLayer(layerId: string) {
     const layer = layersRef.current.find((l) => l.id === layerId);
-    if (!layer) return;
-
-    if (layer.loading) return;
+    if (!layer || layer.loading) return;
 
     if (Platform.OS !== "web") {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -406,12 +616,7 @@ export function AmbientMixer({ visible, onClose, accentColor = Colors.dark.link 
     const newActive = !layer.active;
 
     setLayers((prev) =>
-      prev.map((l) => {
-        if (l.id === layerId) {
-          return { ...l, active: newActive };
-        }
-        return l;
-      })
+      prev.map((l) => (l.id === layerId ? { ...l, active: newActive } : l))
     );
 
     if (newActive) {
