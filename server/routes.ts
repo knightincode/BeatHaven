@@ -18,6 +18,7 @@ import {
   getAudioFilePath,
   getAudioStreamOrDisk,
   getCachedFileSize,
+  createRangeStream,
   objectExists,
   testStorageConnectivity,
 } from "./objectStorage";
@@ -506,63 +507,109 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const knownSize = getCachedFileSize(objectPath);
 
-      // Handle all rangeStart === 0 requests via getAudioStreamOrDisk.
-      // This covers full-file requests (bytes=0-, bytes=0-N) AND small probes
-      // (bytes=0-1) — eliminating the 7.5s disk-wait for probe requests.
-      if (rangeStart === 0 && knownSize !== undefined) {
-        // How many bytes the client actually wants (null = unlimited)
-        const responseByteLimit = rangeEnd !== null ? rangeEnd + 1 : undefined;
-        const serveResult = await getAudioStreamOrDisk(objectPath, knownSize, responseByteLimit);
-
-        if (serveResult.status === "not_found") {
-          return res.status(404).json({ message: "Audio file not found", path: objectPath });
-        }
-        if (serveResult.status === "error") {
-          const isTransient = /timeout|ECONNRESET|EPIPE|socket hang up/i.test(serveResult.message || "");
-          const statusCode = isTransient ? 503 : 500;
-          console.error(`[Audio] Error (${statusCode}) for ${objectPath}:`, serveResult.message);
-          return res.status(statusCode).json({ message: "Failed to retrieve audio file", path: objectPath });
-        }
-
-        const totalSize = serveResult.size;
+      if (knownSize !== undefined) {
+        const totalSize = knownSize;
         const serveEnd = rangeEnd !== null ? Math.min(rangeEnd, totalSize - 1) : totalSize - 1;
-        const serveBytes = serveEnd + 1; // bytes that will actually be sent to client
-        const isDiskResult = serveResult.status === "disk";
 
+        if (rangeStart >= totalSize || rangeStart < 0) {
+          res.setHeader("Content-Range", `bytes */${totalSize}`);
+          return res.status(416).json({ message: "Range Not Satisfiable" });
+        }
+
+        const serveBytes = serveEnd - rangeStart + 1;
+
+        if (rangeStart === 0) {
+          const responseByteLimit = rangeEnd !== null ? rangeEnd + 1 : undefined;
+          const serveResult = await getAudioStreamOrDisk(objectPath, knownSize, responseByteLimit);
+
+          if (serveResult.status === "not_found") {
+            return res.status(404).json({ message: "Audio file not found", path: objectPath });
+          }
+          if (serveResult.status === "error") {
+            const isTransient = /timeout|ECONNRESET|EPIPE|socket hang up/i.test(serveResult.message || "");
+            const statusCode = isTransient ? 503 : 500;
+            console.error(`[Audio] Error (${statusCode}) for ${objectPath}:`, serveResult.message);
+            return res.status(statusCode).json({ message: "Failed to retrieve audio file", path: objectPath });
+          }
+
+          const isDiskResult = serveResult.status === "disk";
+
+          res.setHeader("Content-Type", "audio/wav");
+          res.setHeader("Accept-Ranges", "bytes");
+          res.setHeader("Access-Control-Allow-Origin", "*");
+          res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+          res.setHeader("Cache-Control", "public, max-age=86400");
+          const isSmallStreamResponse = !isDiskResult && serveBytes <= 10 * 1024 * 1024;
+          if (isDiskResult || isSmallStreamResponse) {
+            res.setHeader("Content-Length", serveBytes);
+          }
+          if (rawRange) {
+            res.setHeader("Content-Range", `bytes 0-${serveEnd}/${totalSize}`);
+            res.writeHead(206);
+          } else {
+            res.writeHead(200);
+          }
+
+          if (isDiskResult) {
+            const readStream = fs.createReadStream(serveResult.filePath, { start: 0, end: serveEnd });
+            readStream.on("error", (err: any) => {
+              console.error(`[Audio] Disk read error for ${objectPath}:`, err?.message);
+              if (!res.writableEnded) res.end();
+            });
+            readStream.pipe(res);
+          } else {
+            serveResult.stream.on("error", (err: any) => {
+              console.error(`[Audio] Tee stream error for ${objectPath}:`, err?.message || err);
+              if (!res.writableEnded) res.end();
+            });
+            serveResult.stream.pipe(res);
+          }
+          return;
+        }
+
+        const cachePath = `/tmp/audio-cache/${objectPath}`;
+        if (fs.existsSync(cachePath)) {
+          const stat = fs.statSync(cachePath);
+          if (stat.size >= totalSize) {
+            res.setHeader("Content-Type", "audio/wav");
+            res.setHeader("Accept-Ranges", "bytes");
+            res.setHeader("Access-Control-Allow-Origin", "*");
+            res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+            res.setHeader("Cache-Control", "public, max-age=86400");
+            if (serveBytes <= 10 * 1024 * 1024) {
+              res.setHeader("Content-Length", serveBytes);
+            }
+            res.setHeader("Content-Range", `bytes ${rangeStart}-${serveEnd}/${totalSize}`);
+            res.writeHead(206);
+
+            const readStream = fs.createReadStream(cachePath, { start: rangeStart, end: serveEnd });
+            readStream.on("error", (err: any) => {
+              console.error(`[Audio] Disk read error for ${objectPath}:`, err?.message);
+              if (!res.writableEnded) res.end();
+            });
+            readStream.pipe(res);
+            return;
+          }
+        }
+
+        console.log(`[Audio] Non-zero range (start=${rangeStart}) for ${objectPath} — streaming with byte skip`);
         res.setHeader("Content-Type", "audio/wav");
         res.setHeader("Accept-Ranges", "bytes");
         res.setHeader("Access-Control-Allow-Origin", "*");
         res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
         res.setHeader("Cache-Control", "public, max-age=86400");
-        // Set Content-Length for disk responses (fast, no proxy buffering concern)
-        // and for small range requests from stream (e.g. bytes=0-1 probe).
-        // Omit for large tee-stream responses so chunked encoding is used,
-        // preventing the proxy from buffering 302MB before forwarding.
-        const isSmallStreamResponse = !isDiskResult && serveBytes <= 10 * 1024 * 1024;
-        if (isDiskResult || isSmallStreamResponse) {
+        res.setHeader("Content-Range", `bytes ${rangeStart}-${serveEnd}/${totalSize}`);
+        if (serveBytes <= 10 * 1024 * 1024) {
           res.setHeader("Content-Length", serveBytes);
         }
-        if (rawRange) {
-          res.setHeader("Content-Range", `bytes 0-${serveEnd}/${totalSize}`);
-          res.writeHead(206);
-        } else {
-          res.writeHead(200);
-        }
+        res.writeHead(206);
 
-        if (isDiskResult) {
-          const readStream = fs.createReadStream(serveResult.filePath, { start: 0, end: serveEnd });
-          readStream.on("error", (err: any) => {
-            console.error(`[Audio] Disk read error for ${objectPath}:`, err?.message);
-            if (!res.writableEnded) res.end();
-          });
-          readStream.pipe(res);
-        } else {
-          serveResult.stream.on("error", (err: any) => {
-            console.error(`[Audio] Tee stream error for ${objectPath}:`, err?.message || err);
-            if (!res.writableEnded) res.end();
-          });
-          serveResult.stream.pipe(res);
-        }
+        const rangeStream = createRangeStream(objectPath, rangeStart, serveBytes);
+        rangeStream.on("error", (err: any) => {
+          console.error(`[Audio] Range stream error for ${objectPath}:`, err?.message || err);
+          if (!res.writableEnded) res.end();
+        });
+        rangeStream.pipe(res);
         return;
       }
 
@@ -578,8 +625,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Audio file not found", path: objectPath });
       }
 
-      const { filePath, size: totalSize } = fileResult;
-      const range = req.headers.range;
+      const { filePath, size: totalSize2 } = fileResult;
 
       res.setHeader("Content-Type", "audio/wav");
       res.setHeader("Accept-Ranges", "bytes");
@@ -587,43 +633,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
       res.setHeader("Cache-Control", "public, max-age=86400");
 
-      if (range) {
-        const parts = range.replace(/bytes=/, "").split("-");
-        const rawStart = parseInt(parts[0], 10);
-        const rawEnd = parts[1] ? parseInt(parts[1], 10) : totalSize - 1;
+      if (rawRange) {
+        const end2 = rangeEnd !== null ? Math.min(rangeEnd, totalSize2 - 1) : totalSize2 - 1;
 
-        if (isNaN(rawStart) || rawStart < 0 || rawStart >= totalSize) {
-          res.setHeader("Content-Range", `bytes */${totalSize}`);
+        if (rangeStart >= totalSize2) {
+          res.setHeader("Content-Range", `bytes */${totalSize2}`);
           return res.status(416).json({ message: "Range Not Satisfiable" });
         }
 
-        const start = rawStart;
-        const end = Math.min(isNaN(rawEnd) || rawEnd < 0 ? totalSize - 1 : rawEnd, totalSize - 1);
-
-        if (start > end) {
-          res.setHeader("Content-Range", `bytes */${totalSize}`);
-          return res.status(416).json({ message: "Range Not Satisfiable" });
-        }
-
-        const chunkSize = end - start + 1;
-        res.setHeader("Content-Range", `bytes ${start}-${end}/${totalSize}`);
-        // Omit Content-Length for large range responses so the production reverse
-        // proxy uses chunked encoding rather than buffering the full payload
-        // before forwarding any audio data to the browser.
+        const chunkSize = end2 - rangeStart + 1;
+        res.setHeader("Content-Range", `bytes ${rangeStart}-${end2}/${totalSize2}`);
         if (chunkSize <= 10 * 1024 * 1024) {
           res.setHeader("Content-Length", chunkSize);
         }
         res.writeHead(206);
 
-        const readStream = fs.createReadStream(filePath, { start, end });
+        const readStream = fs.createReadStream(filePath, { start: rangeStart, end: end2 });
         readStream.on("error", (err: any) => {
           console.error(`[Audio] Disk read error for ${objectPath}:`, err?.message);
           if (!res.writableEnded) res.end();
         });
         readStream.pipe(res);
       } else {
-        if (totalSize <= 10 * 1024 * 1024) {
-          res.setHeader("Content-Length", totalSize);
+        if (totalSize2 <= 10 * 1024 * 1024) {
+          res.setHeader("Content-Length", totalSize2);
         }
         res.writeHead(200);
 

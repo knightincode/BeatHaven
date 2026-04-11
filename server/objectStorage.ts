@@ -447,4 +447,52 @@ export async function testStorageConnectivity(): Promise<{
   return result;
 }
 
+export function createRangeStream(objectName: string, skipBytes: number, maxBytes?: number): Readable {
+  const source = client.downloadAsStream(objectName) as Readable;
+  if (skipBytes <= 0 && maxBytes === undefined) return source;
+
+  const pass = new PassThrough();
+  let toSkip = skipBytes;
+  let bytesWritten = 0;
+
+  source.on("data", (chunk: Buffer) => {
+    if (toSkip > 0) {
+      if (chunk.length <= toSkip) {
+        toSkip -= chunk.length;
+        return;
+      }
+      chunk = chunk.subarray(toSkip);
+      toSkip = 0;
+    }
+
+    if (maxBytes !== undefined) {
+      const allowed = maxBytes - bytesWritten;
+      if (allowed <= 0) {
+        pass.end();
+        source.destroy();
+        return;
+      }
+      if (chunk.length > allowed) {
+        chunk = chunk.subarray(0, allowed);
+      }
+    }
+
+    bytesWritten += chunk.length;
+    if (!pass.write(chunk)) {
+      source.pause();
+      pass.once("drain", () => source.resume());
+    }
+
+    if (maxBytes !== undefined && bytesWritten >= maxBytes) {
+      pass.end();
+      source.destroy();
+    }
+  });
+  source.on("end", () => { if (!pass.writableEnded) pass.end(); });
+  source.on("error", (err) => pass.destroy(err));
+  pass.on("close", () => { if (!source.destroyed) source.destroy(); });
+
+  return pass;
+}
+
 export { client as storageClient };
