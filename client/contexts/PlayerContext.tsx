@@ -378,6 +378,15 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   }
 
   function onPlaybackStatusUpdate(status: AVPlaybackStatus) {
+    if (!status.isLoaded) {
+      if ('error' in status && status.error) {
+        console.error(`[Player] Playback error (not loaded): ${status.error}`);
+        setAudioError(`Audio error: ${status.error}`);
+        setIsPlaying(false);
+        setIsLoading(false);
+      }
+      return;
+    }
     if (status.isLoaded) {
       setProgress(status.positionMillis);
       setDuration(status.durationMillis || 0);
@@ -517,8 +526,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
           });
           if (prebufferGenRef.current !== gen) return;
           const { sound } = await Audio.Sound.createAsync(
-            { uri: audioUrl },
-            { shouldPlay: false },
+            { uri: audioUrl, overrideFileExtensionAndroid: '.wav' },
+            { shouldPlay: false, progressUpdateIntervalMillis: 500 },
           );
           if (prebufferGenRef.current !== gen) {
             sound.unloadAsync().catch(() => {});
@@ -771,14 +780,20 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
           const freshUrl = resolveAudioUrl(track.fileUrl);
           console.log(`[Player] Native: creating fresh sound for '${track.title}', URI: ${freshUrl}`);
           const result = await Audio.Sound.createAsync(
-            { uri: freshUrl },
-            { shouldPlay: true, isLooping: shouldLoopSingle },
+            { uri: freshUrl, overrideFileExtensionAndroid: '.wav' },
+            { shouldPlay: true, isLooping: shouldLoopSingle, progressUpdateIntervalMillis: 500 },
             onPlaybackStatusUpdate,
           );
           sound = result.sound;
+          const initialStatus = result.status;
+          if (initialStatus.isLoaded) {
+            console.log(`[Player] Native: sound loaded for '${track.title}', isPlaying=${initialStatus.isPlaying}, duration=${initialStatus.durationMillis}ms`);
+          } else {
+            console.warn(`[Player] Native: sound NOT loaded for '${track.title}'`, 'error' in initialStatus ? initialStatus.error : 'unknown');
+          }
         }
 
-        soundRef.current = sound;
+        soundRef.current = sound!;
         setIsPlaying(true);
         setIsLoading(false);
       }

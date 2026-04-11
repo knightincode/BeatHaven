@@ -447,6 +447,30 @@ export async function testStorageConnectivity(): Promise<{
   return result;
 }
 
+export async function waitForInflightDownload(objectName: string, timeoutMs: number = 60_000): Promise<string | null> {
+  const existing = inFlightDownloads.get(objectName);
+  if (!existing) return null;
+
+  console.log(`[Audio] Waiting for in-flight download of ${objectName} to complete...`);
+
+  const result = await Promise.race([
+    existing,
+    new Promise<null>((resolve) => setTimeout(() => resolve(null), timeoutMs)),
+  ]);
+
+  if (result && result.status === "ok" && result.filePath) {
+    console.log(`[Audio] In-flight download completed for ${objectName}`);
+    return result.filePath;
+  }
+
+  console.warn(`[Audio] In-flight download wait ended for ${objectName}: ${result ? result.status : 'timeout'}`);
+  return null;
+}
+
+export function hasInflightDownload(objectName: string): boolean {
+  return inFlightDownloads.has(objectName);
+}
+
 export function createRangeStream(objectName: string, skipBytes: number, maxBytes?: number): Readable {
   const source = client.downloadAsStream(objectName) as Readable;
   if (skipBytes <= 0 && maxBytes === undefined) return source;
