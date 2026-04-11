@@ -226,12 +226,19 @@ function encodeWav(samples: Float32Array, sampleRate: number): Uint8Array {
 }
 
 function uint8ArrayToBase64(bytes: Uint8Array): string {
-  let binary = "";
-  const len = bytes.byteLength;
-  for (let i = 0; i < len; i++) {
-    binary += String.fromCharCode(bytes[i]);
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+  let result = "";
+  const len = bytes.length;
+  for (let i = 0; i < len; i += 3) {
+    const b0 = bytes[i];
+    const b1 = i + 1 < len ? bytes[i + 1] : 0;
+    const b2 = i + 2 < len ? bytes[i + 2] : 0;
+    result += chars[b0 >> 2];
+    result += chars[((b0 & 3) << 4) | (b1 >> 4)];
+    result += i + 1 < len ? chars[((b1 & 15) << 2) | (b2 >> 6)] : "=";
+    result += i + 2 < len ? chars[b2 & 63] : "=";
   }
-  return btoa(binary);
+  return result;
 }
 
 export function AmbientMixer({ visible, onClose, accentColor = Colors.dark.link }: AmbientMixerProps) {
