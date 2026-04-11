@@ -151,6 +151,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   }, [loopMode]);
 
   useEffect(() => {
+    const domain = process.env.EXPO_PUBLIC_DOMAIN;
+    console.log(`[Player] Init — platform: ${Platform.OS}, EXPO_PUBLIC_DOMAIN: ${domain || "NOT SET"}`);
     if (Platform.OS !== "web") {
       Audio.setAudioModeAsync({
         playsInSilentModeIOS: true,
@@ -660,8 +662,10 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     // Call play() immediately — no network awaits before this on the initial
     // path so Safari's gesture chain remains intact.
     try {
+      console.log(`[Player] Web: calling play() for '${track.title}', volume=${audio.volume}, muted=${audio.muted}, readyState=${audio.readyState}`);
       await audio.play();
       if (playGenRef.current !== gen) return;
+      console.log(`[Player] Web: play() succeeded for '${track.title}', paused=${audio.paused}, currentTime=${audio.currentTime}`);
       setAudioBlocked(false);
       setIsPlaying(true);
       setIsLoading(false);
@@ -712,9 +716,11 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       setAudioBlocked(false);
       previewEndedRef.current = false;
 
+      const audioUrl = resolveAudioUrl(track.fileUrl);
+      console.log(`[Player] Playing '${track.title}' on ${Platform.OS}, URL: ${audioUrl}`);
+
       if (Platform.OS === "web") {
         const gen = ++playGenRef.current;
-        const audioUrl = resolveAudioUrl(track.fileUrl);
         await attemptWebPlay(track, audioUrl, gen, false);
       } else {
         if (soundRef.current) {
@@ -762,8 +768,10 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         }
 
         if (!usedPrebuffer) {
+          const freshUrl = resolveAudioUrl(track.fileUrl);
+          console.log(`[Player] Native: creating fresh sound for '${track.title}', URI: ${freshUrl}`);
           const result = await Audio.Sound.createAsync(
-            { uri: resolveAudioUrl(track.fileUrl) },
+            { uri: freshUrl },
             { shouldPlay: true, isLooping: shouldLoopSingle },
             onPlaybackStatusUpdate,
           );
