@@ -20,7 +20,6 @@ import {
   getCachedFileSize,
   createRangeStream,
   hasInflightDownload,
-  waitForInflightDownload,
   objectExists,
   testStorageConnectivity,
 } from "./objectStorage";
@@ -612,29 +611,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
             return;
           }
 
-          console.log(`[Audio] Non-zero range (start=${rangeStart}) for ${objectPath} — waiting for in-flight download`);
-          const cachedPath = await waitForInflightDownload(objectPath, 90_000);
-          if (cachedPath && fs.existsSync(cachedPath)) {
-            const stat = fs.statSync(cachedPath);
-            if (stat.size >= totalSize) {
-              res.setHeader("Content-Type", "audio/wav");
-              res.setHeader("Accept-Ranges", "bytes");
-              res.setHeader("Access-Control-Allow-Origin", "*");
-              res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
-              res.setHeader("Cache-Control", "public, max-age=86400");
-              res.setHeader("Content-Length", serveBytes);
-              res.setHeader("Content-Range", `bytes ${rangeStart}-${serveEnd}/${totalSize}`);
-              res.writeHead(206);
-
-              const readStream = fs.createReadStream(cachedPath, { start: rangeStart, end: serveEnd });
-              readStream.on("error", (err: any) => {
-                console.error(`[Audio] Disk read error for ${objectPath}:`, err?.message);
-                if (!res.writableEnded) res.end();
-              });
-              readStream.pipe(res);
-              return;
-            }
-          }
+          // For non-end-probe ranges during in-flight download, fall through to byte-skip immediately.
+          // Don't block iOS — byte-skip is essentially instant for small offsets like 17766.
+          console.log(`[Audio] Non-zero range (start=${rangeStart}) for ${objectPath} — falling through to byte-skip (download in progress)`);
         }
 
         console.log(`[Audio] Non-zero range (start=${rangeStart}) for ${objectPath} — streaming with byte skip`);
