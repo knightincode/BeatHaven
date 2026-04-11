@@ -129,6 +129,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const isDemoRef = useRef<boolean>(isDemo);
   const demoSessionIdRef = useRef<string | null>(demoSessionId);
   const previewEndedRef = useRef<boolean>(false);
+  const waitingForFirstPlayRef = useRef<boolean>(false);
 
   useEffect(() => {
     subscriptionRef.current = hasActiveSubscription;
@@ -390,10 +391,18 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       return;
     }
     if (status.isLoaded) {
-      console.log(`[Player] Status: loaded, isPlaying=${status.isPlaying}, pos=${status.positionMillis}ms, dur=${status.durationMillis}ms, buffered=${status.playableDurationMillis}ms`);
+      console.log(`[Player] Status: loaded, isPlaying=${status.isPlaying}, buffering=${status.isBuffering}, pos=${status.positionMillis}ms, dur=${status.durationMillis}ms`);
       setProgress(status.positionMillis);
       setDuration(status.durationMillis || 0);
       setIsPlaying(status.isPlaying);
+
+      // Keep the loading spinner on until AVPlayer confirms actual playback has started.
+      // This prevents the "flash to play button" race where setIsLoading(false) fires
+      // before the first isPlaying=true status update.
+      if (status.isPlaying && waitingForFirstPlayRef.current) {
+        waitingForFirstPlayRef.current = false;
+        setIsLoading(false);
+      }
 
       if (
         !subscriptionRef.current &&
@@ -762,6 +771,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
             if (status.isLoaded && !("error" in status && status.error)) {
               preSound.setOnPlaybackStatusUpdate(onPlaybackStatusUpdate);
               await preSound.setIsLoopingAsync(shouldLoopSingle);
+              waitingForFirstPlayRef.current = true;
               await preSound.playAsync();
               sound = preSound;
               usedPrebuffer = true;
@@ -783,61 +793,58 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
           const freshUrl = resolveAudioUrl(track.fileUrl);
           console.log(`[Player] Native: creating sound for '${track.title}', URI: ${freshUrl}`);
 
-          const trackGen = playGenRef.current;
+          // Mark that we're waiting for the first isPlaying=true status callback.
+          // setIsLoading(false) is driven from onPlaybackStatusUpdate, NOT from here,
+          // so the spinner stays until AVPlayer confirms audio is actually playing.
+          waitingForFirstPlayRef.current = true;
 
-          // Use shouldPlay: false so we can explicitly play once loaded
+          // Safety timeout: if AVPlayer never fires isPlaying=true within 30s, clear loading.
+          const safetyTimeout = setTimeout(() => {
+            if (waitingForFirstPlayRef.current) {
+              waitingForFirstPlayRef.current = false;
+              setIsLoading(false);
+              console.warn('[Player] Native: 30s safety timeout — audio never confirmed playing');
+            }
+          }, 30_000);
+
           const result = await Audio.Sound.createAsync(
             { uri: freshUrl, overrideFileExtensionAndroid: '.wav' },
-            { shouldPlay: false, isLooping: shouldLoopSingle, progressUpdateIntervalMillis: 1000 },
+            { shouldPlay: true, isLooping: shouldLoopSingle, progressUpdateIntervalMillis: 1000 },
             onPlaybackStatusUpdate,
           );
           sound = result.sound;
+          clearTimeout(safetyTimeout);  // clear the creation-phase safety timeout
+
           const initialStatus = result.status;
-          console.log(`[Player] Native: createAsync resolved, isLoaded=${initialStatus.isLoaded}, error=${'error' in initialStatus ? initialStatus.error : 'none'}`);
+          console.log(`[Player] Native: createAsync resolved, isLoaded=${initialStatus.isLoaded}, isPlaying=${initialStatus.isLoaded ? (initialStatus as any).isPlaying : 'N/A'}`);
 
-          if (initialStatus.isLoaded) {
-            console.log(`[Player] Native: calling playAsync immediately (already loaded)`);
-            await sound.playAsync();
-          } else {
-            // Not immediately loaded — wait for the status callback to fire with isLoaded=true
-            console.log(`[Player] Native: waiting for sound to load...`);
-            await new Promise<void>((resolve, reject) => {
-              const timeoutId = setTimeout(() => {
-                reject(new Error('Audio load timeout after 20 seconds'));
-              }, 20_000);
-
-              const origUpdate = onPlaybackStatusUpdate;
-              sound!.setOnPlaybackStatusUpdate((s) => {
-                origUpdate(s);
-                if (!s.isLoaded) {
-                  const errMsg = 'error' in s ? s.error : undefined;
-                  if (errMsg) {
-                    clearTimeout(timeoutId);
-                    reject(new Error(`AVPlayer error: ${errMsg}`));
-                  }
-                  return;
-                }
-                // Loaded — play if this is still the current track
-                clearTimeout(timeoutId);
-                if (playGenRef.current === trackGen) {
-                  console.log(`[Player] Native: sound loaded, calling playAsync`);
-                  sound!.playAsync().then(resolve).catch(reject);
-                } else {
-                  console.log(`[Player] Native: track changed before load, skipping play`);
-                  resolve();
-                }
-              });
-            });
+          // If already playing on create (e.g. cached), clear the loading state immediately.
+          if (initialStatus.isLoaded && (initialStatus as any).isPlaying) {
+            waitingForFirstPlayRef.current = false;
+            setIsLoading(false);
+          } else if (waitingForFirstPlayRef.current) {
+            // Post-create buffering phase: give AVPlayer 25s to fire isPlaying=true,
+            // then clear the spinner so the user isn't stuck forever.
+            setTimeout(() => {
+              if (waitingForFirstPlayRef.current) {
+                waitingForFirstPlayRef.current = false;
+                setIsLoading(false);
+                console.warn('[Player] Native: 25s buffer timeout — isPlaying=true never fired');
+              }
+            }, 25_000);
           }
         }
 
         soundRef.current = sound!;
         setIsPlaying(true);
-        setIsLoading(false);
+        // NOTE: setIsLoading(false) is intentionally NOT called here.
+        // It is called by onPlaybackStatusUpdate when isPlaying=true is first confirmed,
+        // OR by the safety timeout, OR by the catch block on error.
       }
     } catch (error) {
       const errMsg = error instanceof Error ? error.message : String(error);
       console.error(`[Player] playTrackInternal failed for '${track.title}': ${errMsg}`);
+      waitingForFirstPlayRef.current = false;
       setAudioError(`Could not play '${track.title}'`);
       setIsPlaying(false);
       setIsLoading(false);
