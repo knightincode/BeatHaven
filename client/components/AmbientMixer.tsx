@@ -6,6 +6,7 @@ import {
   Modal,
   Platform,
   ScrollView,
+  ActivityIndicator,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
@@ -24,22 +25,23 @@ interface NoiseColor {
   color: string;
   active: boolean;
   volume: number;
+  loading: boolean;
 }
 
 const NOISE_COLORS: NoiseColor[] = [
-  { id: "white", name: "White", subtitle: "Bright hiss, TV static", color: "#E0E0E0", active: false, volume: 0.5 },
-  { id: "pink", name: "Pink", subtitle: "Balanced, steady rainfall", color: "#F48FB1", active: false, volume: 0.5 },
-  { id: "brown", name: "Brown", subtitle: "Deep rumble, low waterfall", color: "#8D6E63", active: false, volume: 0.5 },
-  { id: "blue", name: "Blue", subtitle: "Shrill, high-pitched hiss", color: "#64B5F6", active: false, volume: 0.5 },
-  { id: "violet", name: "Violet", subtitle: "Sharp, piercing steam", color: "#CE93D8", active: false, volume: 0.5 },
-  { id: "grey", name: "Grey", subtitle: "Perceptually even loudness", color: "#9E9E9E", active: false, volume: 0.5 },
-  { id: "green", name: "Green", subtitle: "Mid-range, lush forest", color: "#81C784", active: false, volume: 0.5 },
-  { id: "orange", name: "Orange", subtitle: "Clashing, out-of-tune", color: "#FFB74D", active: false, volume: 0.5 },
-  { id: "red", name: "Red", subtitle: "Extra deep bass emphasis", color: "#EF5350", active: false, volume: 0.5 },
-  { id: "black", name: "Black", subtitle: "Near silence, deep space", color: "#424242", active: false, volume: 0.5 },
-  { id: "speech", name: "Speech", subtitle: "Blocks nearby voices", color: "#4DD0E1", active: false, volume: 0.5 },
-  { id: "modulated", name: "Modulated", subtitle: "Rhythmic breathing swell", color: "#7986CB", active: false, volume: 0.5 },
-  { id: "dither", name: "Dither", subtitle: "Ultra-subtle, fine grain", color: "#A1887F", active: false, volume: 0.5 },
+  { id: "white", name: "White", subtitle: "Bright hiss, TV static", color: "#E0E0E0", active: false, volume: 0.5, loading: false },
+  { id: "pink", name: "Pink", subtitle: "Balanced, steady rainfall", color: "#F48FB1", active: false, volume: 0.5, loading: false },
+  { id: "brown", name: "Brown", subtitle: "Deep rumble, low waterfall", color: "#8D6E63", active: false, volume: 0.5, loading: false },
+  { id: "blue", name: "Blue", subtitle: "Shrill, high-pitched hiss", color: "#64B5F6", active: false, volume: 0.5, loading: false },
+  { id: "violet", name: "Violet", subtitle: "Sharp, piercing steam", color: "#CE93D8", active: false, volume: 0.5, loading: false },
+  { id: "grey", name: "Grey", subtitle: "Perceptually even loudness", color: "#9E9E9E", active: false, volume: 0.5, loading: false },
+  { id: "green", name: "Green", subtitle: "Mid-range, lush forest", color: "#81C784", active: false, volume: 0.5, loading: false },
+  { id: "orange", name: "Orange", subtitle: "Clashing, out-of-tune", color: "#FFB74D", active: false, volume: 0.5, loading: false },
+  { id: "red", name: "Red", subtitle: "Extra deep bass emphasis", color: "#EF5350", active: false, volume: 0.5, loading: false },
+  { id: "black", name: "Black", subtitle: "Near silence, deep space", color: "#424242", active: false, volume: 0.5, loading: false },
+  { id: "speech", name: "Speech", subtitle: "Blocks nearby voices", color: "#4DD0E1", active: false, volume: 0.5, loading: false },
+  { id: "modulated", name: "Modulated", subtitle: "Rhythmic breathing swell", color: "#7986CB", active: false, volume: 0.5, loading: false },
+  { id: "dither", name: "Dither", subtitle: "Ultra-subtle, fine grain", color: "#A1887F", active: false, volume: 0.5, loading: false },
 ];
 
 interface AmbientMixerProps {
@@ -54,6 +56,7 @@ export function AmbientMixer({ visible, onClose, accentColor = Colors.dark.link 
   const audioContextRef = useRef<any>(null);
   const webNodesRef = useRef<Record<string, { source: any; gain: any }>>({});
   const nativeSoundsRef = useRef<Record<string, Audio.Sound>>({});
+  const inFlightRef = useRef<Record<string, boolean>>({});
   const layersRef = useRef<NoiseColor[]>(NOISE_COLORS);
 
   useEffect(() => {
@@ -283,6 +286,12 @@ export function AmbientMixer({ visible, onClose, accentColor = Colors.dark.link 
   async function startNativeLayer(layerId: string, volume: number) {
     await stopNativeLayer(layerId);
 
+    inFlightRef.current[layerId] = true;
+
+    setLayers((prev) =>
+      prev.map((l) => (l.id === layerId ? { ...l, loading: true } : l))
+    );
+
     try {
       const baseUrl = getApiUrl();
       const uri = `${baseUrl}api/audio/ambient/${layerId}.wav`;
@@ -296,13 +305,29 @@ export function AmbientMixer({ visible, onClose, accentColor = Colors.dark.link 
         }
       );
 
+      if (!inFlightRef.current[layerId]) {
+        sound.unloadAsync().catch(() => {});
+        setLayers((prev) =>
+          prev.map((l) => (l.id === layerId ? { ...l, loading: false, active: false } : l))
+        );
+        return;
+      }
+
       nativeSoundsRef.current[layerId] = sound;
+      setLayers((prev) =>
+        prev.map((l) => (l.id === layerId ? { ...l, loading: false } : l))
+      );
     } catch (error) {
       console.error(`Failed to start native ambient layer ${layerId}:`, error);
+      inFlightRef.current[layerId] = false;
+      setLayers((prev) =>
+        prev.map((l) => (l.id === layerId ? { ...l, loading: false, active: false } : l))
+      );
     }
   }
 
   async function stopNativeLayer(layerId: string) {
+    inFlightRef.current[layerId] = false;
     const sound = nativeSoundsRef.current[layerId];
     if (sound) {
       try {
@@ -345,6 +370,19 @@ export function AmbientMixer({ visible, onClose, accentColor = Colors.dark.link 
   useEffect(() => {
     if (visible) {
       restartActiveLayers();
+    } else if (Platform.OS !== "web") {
+      const ids = Object.keys(nativeSoundsRef.current);
+      const inFlightIds = Object.keys(inFlightRef.current).filter(
+        (id) => inFlightRef.current[id]
+      );
+      const allIds = Array.from(new Set([...ids, ...inFlightIds]));
+      allIds.forEach((id) => {
+        inFlightRef.current[id] = false;
+      });
+      Promise.all(allIds.map((id) => stopNativeLayer(id))).catch(() => {});
+      setLayers((prev) =>
+        prev.map((l) => ({ ...l, active: false, loading: false }))
+      );
     }
   }, [visible]);
 
@@ -356,24 +394,31 @@ export function AmbientMixer({ visible, onClose, accentColor = Colors.dark.link 
   }, []);
 
   function toggleLayer(layerId: string) {
+    const layer = layersRef.current.find((l) => l.id === layerId);
+    if (!layer) return;
+
+    if (layer.loading) return;
+
     if (Platform.OS !== "web") {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
 
+    const newActive = !layer.active;
+
     setLayers((prev) =>
       prev.map((l) => {
         if (l.id === layerId) {
-          const newActive = !l.active;
-          if (newActive) {
-            startLayer(layerId, l.volume);
-          } else {
-            stopLayer(layerId);
-          }
           return { ...l, active: newActive };
         }
         return l;
       })
     );
+
+    if (newActive) {
+      startLayer(layerId, layer.volume);
+    } else {
+      stopLayer(layerId);
+    }
   }
 
   function setLayerVolume(layerId: string, volume: number) {
@@ -444,12 +489,16 @@ export function AmbientMixer({ visible, onClose, accentColor = Colors.dark.link 
                   onPress={() => toggleLayer(layer.id)}
                   testID={`toggle-${layer.id}`}
                 >
-                  <View
-                    style={[
-                      styles.colorDot,
-                      { backgroundColor: layer.active ? layer.color : layer.color + "60" },
-                    ]}
-                  />
+                  {layer.loading ? (
+                    <ActivityIndicator size="small" color={layer.color} />
+                  ) : (
+                    <View
+                      style={[
+                        styles.colorDot,
+                        { backgroundColor: layer.active ? layer.color : layer.color + "60" },
+                      ]}
+                    />
+                  )}
                 </Pressable>
                 <View style={styles.layerInfo}>
                   <View style={styles.layerLabelRow}>
