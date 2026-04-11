@@ -404,6 +404,13 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         setIsLoading(false);
       }
 
+      // Auto-clear any transient error once audio is actually playing.
+      // AVPlayer may briefly emit an error during initial range probing but then
+      // recover and begin playback — the error banner should not linger after that.
+      if (status.isPlaying) {
+        setAudioError(null);
+      }
+
       if (
         !subscriptionRef.current &&
         status.positionMillis >= FREE_PREVIEW_MS &&

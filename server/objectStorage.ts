@@ -222,9 +222,15 @@ export async function getAudioStreamOrDisk(
 
   if (fs.existsSync(cachePath)) {
     const stat = fs.statSync(cachePath);
-    if (stat.size > 0) {
+    // Accept only if the file is at least 99% of the expected size.
+    // Partial files (from a previous aborted download) would poison fileSizeCache
+    // causing 416 errors on every subsequent range request.
+    if (stat.size > 0 && stat.size >= knownSize * 0.99) {
       fileSizeCache.set(objectName, stat.size);
       return { status: "disk", filePath: cachePath, size: stat.size };
+    }
+    if (stat.size > 0) {
+      console.warn(`[Audio] Stale partial cache for ${objectName}: ${stat.size}/${knownSize} bytes — deleting and re-downloading`);
     }
     try { fs.unlinkSync(cachePath); } catch {}
   }
@@ -287,9 +293,11 @@ export async function getAudioStreamOrDisk(
     if (!responseDetached) {
       responseDetached = true;
       passWaiting = false;
-      clearStreamTimeout();
-      console.log(`[Audio] Client disconnected for ${objectName}, aborting Object Storage download`);
-      storageStream.destroy();
+      // Resume so disk-only writes continue without response backpressure.
+      // Do NOT destroy storageStream — let it finish downloading to disk cache.
+      // Do NOT clear streamTimeout — keep the 120s safety timeout running.
+      resumeStorageStream();
+      console.log(`[Audio] Client detached for ${objectName} — disk cache continuing in background`);
     }
   };
   responsePass.on("close", detachResponse);
@@ -348,7 +356,11 @@ export async function getAudioStreamOrDisk(
 
   storageStream.on("end", () => {
     clearStreamTimeout();
-    responsePass.end();
+    // Guard against calling end() on a destroyed stream (responsePass may be
+    // destroyed already if the client disconnected during a background download).
+    if (!responsePass.destroyed && !responsePass.writableEnded) {
+      responsePass.end();
+    }
     fileWrite.end();
   });
 
@@ -364,11 +376,17 @@ export async function getAudioStreamOrDisk(
   fileWrite.on("finish", () => {
     try {
       const stat = fs.statSync(tmpPath);
-      if (stat.size > 0) {
+      if (stat.size >= knownSize * 0.99) {
         fs.renameSync(tmpPath, cachePath);
         fileSizeCache.set(objectName, stat.size);
         console.log(`[Audio] Tee-cached to disk: ${objectName} (${(stat.size / 1024 / 1024).toFixed(1)} MB)`);
         resolveCache({ status: "ok", filePath: cachePath, size: stat.size });
+      } else if (stat.size > 0) {
+        // Partial write — discard rather than cache an incomplete file.
+        // This can happen if the Object Storage stream ended early (rare).
+        console.warn(`[Audio] Partial tee write for ${objectName}: ${stat.size}/${knownSize} bytes — discarding`);
+        cleanupTmp(tmpPath);
+        resolveCache({ status: "error", message: `Partial tee write: ${stat.size}/${knownSize} bytes` });
       } else {
         cleanupTmp(tmpPath);
         resolveCache({ status: "error", message: "Empty file after tee write" });
