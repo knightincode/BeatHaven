@@ -16,7 +16,10 @@
         "NSFaceIDUsageDescription": "Use Face ID to sign in to Beat Haven quickly and securely.",
         "UIBackgroundModes": [
           "audio"
-        ]
+        ],
+        "NSAppTransportSecurity": {
+          "NSAllowsArbitraryLoads": true
+        }
       }
     },
     "android": {

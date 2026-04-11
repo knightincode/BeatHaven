@@ -379,15 +379,18 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
   function onPlaybackStatusUpdate(status: AVPlaybackStatus) {
     if (!status.isLoaded) {
-      if ('error' in status && status.error) {
-        console.error(`[Player] Playback error (not loaded): ${status.error}`);
-        setAudioError(`Audio error: ${status.error}`);
+      const errMsg = 'error' in status ? status.error : undefined;
+      console.log(`[Player] Status: NOT LOADED, error=${errMsg ?? 'none'}`);
+      if (errMsg) {
+        console.error(`[Player] Playback error (not loaded): ${errMsg}`);
+        setAudioError(`Audio error: ${errMsg}`);
         setIsPlaying(false);
         setIsLoading(false);
       }
       return;
     }
     if (status.isLoaded) {
+      console.log(`[Player] Status: loaded, isPlaying=${status.isPlaying}, pos=${status.positionMillis}ms, dur=${status.durationMillis}ms, buffered=${status.playableDurationMillis}ms`);
       setProgress(status.positionMillis);
       setDuration(status.durationMillis || 0);
       setIsPlaying(status.isPlaying);
@@ -778,18 +781,53 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
         if (!usedPrebuffer) {
           const freshUrl = resolveAudioUrl(track.fileUrl);
-          console.log(`[Player] Native: creating fresh sound for '${track.title}', URI: ${freshUrl}`);
+          console.log(`[Player] Native: creating sound for '${track.title}', URI: ${freshUrl}`);
+
+          const trackGen = playGenRef.current;
+
+          // Use shouldPlay: false so we can explicitly play once loaded
           const result = await Audio.Sound.createAsync(
             { uri: freshUrl, overrideFileExtensionAndroid: '.wav' },
-            { shouldPlay: true, isLooping: shouldLoopSingle, progressUpdateIntervalMillis: 500 },
+            { shouldPlay: false, isLooping: shouldLoopSingle, progressUpdateIntervalMillis: 1000 },
             onPlaybackStatusUpdate,
           );
           sound = result.sound;
           const initialStatus = result.status;
+          console.log(`[Player] Native: createAsync resolved, isLoaded=${initialStatus.isLoaded}, error=${'error' in initialStatus ? initialStatus.error : 'none'}`);
+
           if (initialStatus.isLoaded) {
-            console.log(`[Player] Native: sound loaded for '${track.title}', isPlaying=${initialStatus.isPlaying}, duration=${initialStatus.durationMillis}ms`);
+            console.log(`[Player] Native: calling playAsync immediately (already loaded)`);
+            await sound.playAsync();
           } else {
-            console.warn(`[Player] Native: sound NOT loaded for '${track.title}'`, 'error' in initialStatus ? initialStatus.error : 'unknown');
+            // Not immediately loaded — wait for the status callback to fire with isLoaded=true
+            console.log(`[Player] Native: waiting for sound to load...`);
+            await new Promise<void>((resolve, reject) => {
+              const timeoutId = setTimeout(() => {
+                reject(new Error('Audio load timeout after 20 seconds'));
+              }, 20_000);
+
+              const origUpdate = onPlaybackStatusUpdate;
+              sound!.setOnPlaybackStatusUpdate((s) => {
+                origUpdate(s);
+                if (!s.isLoaded) {
+                  const errMsg = 'error' in s ? s.error : undefined;
+                  if (errMsg) {
+                    clearTimeout(timeoutId);
+                    reject(new Error(`AVPlayer error: ${errMsg}`));
+                  }
+                  return;
+                }
+                // Loaded — play if this is still the current track
+                clearTimeout(timeoutId);
+                if (playGenRef.current === trackGen) {
+                  console.log(`[Player] Native: sound loaded, calling playAsync`);
+                  sound!.playAsync().then(resolve).catch(reject);
+                } else {
+                  console.log(`[Player] Native: track changed before load, skipping play`);
+                  resolve();
+                }
+              });
+            });
           }
         }
 

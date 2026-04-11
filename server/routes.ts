@@ -595,6 +595,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
 
         if (hasInflightDownload(objectPath)) {
+          // For probes near the end of the file (>90%), don't wait for 302MB download.
+          // Return silence (zeros) immediately so iOS AVPlayer can proceed.
+          const isEndProbe = rangeStart > totalSize * 0.9;
+          if (isEndProbe) {
+            console.log(`[Audio] End-of-file probe (start=${rangeStart}) for ${objectPath} — returning silence immediately`);
+            res.setHeader("Content-Type", "audio/wav");
+            res.setHeader("Accept-Ranges", "bytes");
+            res.setHeader("Access-Control-Allow-Origin", "*");
+            res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+            res.setHeader("Cache-Control", "no-cache");
+            res.setHeader("Content-Length", serveBytes);
+            res.setHeader("Content-Range", `bytes ${rangeStart}-${serveEnd}/${totalSize}`);
+            res.writeHead(206);
+            res.end(Buffer.alloc(serveBytes, 0));
+            return;
+          }
+
           console.log(`[Audio] Non-zero range (start=${rangeStart}) for ${objectPath} — waiting for in-flight download`);
           const cachedPath = await waitForInflightDownload(objectPath, 90_000);
           if (cachedPath && fs.existsSync(cachedPath)) {
