@@ -52,7 +52,10 @@
       "reactCompiler": true
     },
     "extra": {
-      "eas": {}
-    }
+      "eas": {
+        "projectId": "8f866296-25a7-4a1c-82a4-a42b0aae930e"
+      }
+    },
+    "owner": "sdk14"
   }
 }
