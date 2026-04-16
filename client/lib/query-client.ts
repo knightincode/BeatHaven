@@ -12,10 +12,7 @@ async function getStoredToken(): Promise<string | null> {
 }
 
 export function getApiUrl(): string {
-  const host = process.env.EXPO_PUBLIC_DOMAIN;
-  if (!host) {
-    throw new Error("EXPO_PUBLIC_DOMAIN is not set");
-  }
+  const host = process.env.EXPO_PUBLIC_DOMAIN || "recursionlabs.org";
   return `https://${host}/`;
 }
 
