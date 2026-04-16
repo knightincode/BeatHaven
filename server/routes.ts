@@ -131,6 +131,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           isAdmin: user.isAdmin,
           isDemo: user.isDemo ?? false,
           subscriptionStatus: user.subscriptionStatus,
+          plan: (user as any).plan ?? "none",
+          subscriptionSource: (user as any).subscriptionSource ?? null,
         },
       });
     } catch (error: any) {
@@ -197,6 +199,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           isAdmin: user.isAdmin,
           isDemo: user.isDemo ?? false,
           subscriptionStatus: user.subscriptionStatus,
+          plan: (user as any).plan ?? "none",
+          subscriptionSource: (user as any).subscriptionSource ?? null,
         },
       });
     } catch (error: any) {
@@ -271,6 +275,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           isAdmin: user.isAdmin,
           isDemo: user.isDemo ?? false,
           subscriptionStatus: user.subscriptionStatus,
+          plan: (user as any).plan ?? "none",
+          subscriptionSource: (user as any).subscriptionSource ?? null,
         },
       });
     } catch (error: any) {
@@ -303,6 +309,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           isAdmin: demoUser.isAdmin,
           isDemo: demoUser.isDemo,
           subscriptionStatus: demoUser.subscriptionStatus,
+          plan: (demoUser as any).plan ?? "none",
+          subscriptionSource: (demoUser as any).subscriptionSource ?? null,
         },
       });
     } catch (error: any) {
@@ -344,6 +352,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           isAdmin: user.isAdmin,
           isDemo: user.isDemo ?? false,
           subscriptionStatus: user.subscriptionStatus,
+          plan: (user as any).plan ?? "none",
+          subscriptionSource: (user as any).subscriptionSource ?? null,
         },
       });
     } catch (error: any) {
@@ -455,6 +465,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       isAdmin: user.isAdmin,
       isDemo: user.isDemo,
       subscriptionStatus: user.subscriptionStatus,
+      plan: (user as any).plan ?? "none",
+      subscriptionSource: (user as any).subscriptionSource ?? null,
     });
   });
 
@@ -998,9 +1010,107 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  type PlanTier = "monthly" | "yearly" | "lifetime";
+
+  type PlanConfig = {
+    tier: PlanTier;
+    amount: number;
+    currency: "usd";
+    interval?: "month" | "year";
+    mode: "subscription" | "payment";
+    productName: string;
+    description: string;
+    trialDays?: number;
+  };
+
+  const PLAN_CONFIGS: Record<PlanTier, PlanConfig> = {
+    monthly: {
+      tier: "monthly",
+      amount: 499,
+      currency: "usd",
+      interval: "month",
+      mode: "subscription",
+      productName: "Beat Haven Premium Monthly",
+      description: "Monthly access to Beat Haven Premium.",
+      trialDays: 7,
+    },
+    yearly: {
+      tier: "yearly",
+      amount: 3999,
+      currency: "usd",
+      interval: "year",
+      mode: "subscription",
+      productName: "Beat Haven Premium Yearly",
+      description: "Yearly access to Beat Haven Premium.",
+      trialDays: 7,
+    },
+    lifetime: {
+      tier: "lifetime",
+      amount: 9999,
+      currency: "usd",
+      mode: "payment",
+      productName: "Beat Haven Premium Lifetime",
+      description: "Lifetime access to Beat Haven Premium.",
+    },
+  };
+
+  async function resolveStripePriceForTier(stripe: any, cfg: PlanConfig): Promise<string> {
+    const products = await stripe.products.list({ active: true, limit: 100 });
+    let product = products.data.find((p: any) => p.name === cfg.productName);
+    if (!product) {
+      product = await stripe.products.create({
+        name: cfg.productName,
+        description: cfg.description,
+        metadata: { beathaven_tier: cfg.tier },
+      });
+      console.log(`[Stripe] Created product for ${cfg.tier}:`, product.id);
+    }
+
+    const prices = await stripe.prices.list({ product: product.id, active: true, limit: 20 });
+    const match = prices.data.find((p: any) => {
+      if (p.unit_amount !== cfg.amount || p.currency !== cfg.currency) return false;
+      if (cfg.mode === "subscription") return p.recurring?.interval === cfg.interval;
+      return p.type === "one_time" || !p.recurring;
+    });
+    if (match) return match.id;
+
+    const priceBody: any = {
+      product: product.id,
+      unit_amount: cfg.amount,
+      currency: cfg.currency,
+    };
+    if (cfg.mode === "subscription") priceBody.recurring = { interval: cfg.interval };
+    const newPrice = await stripe.prices.create(priceBody);
+    console.log(`[Stripe] Created ${cfg.tier} price:`, newPrice.id);
+    return newPrice.id;
+  }
+
+  app.get("/api/subscription/prices", async (_req: Request, res: Response) => {
+    const plans = (Object.keys(PLAN_CONFIGS) as PlanTier[]).map((key) => {
+      const cfg = PLAN_CONFIGS[key];
+      return {
+        tier: cfg.tier,
+        amount: cfg.amount,
+        currency: cfg.currency,
+        interval: cfg.interval ?? null,
+        mode: cfg.mode,
+        trialDays: cfg.trialDays ?? 0,
+        productName: cfg.productName,
+        priceString: `$${(cfg.amount / 100).toFixed(2)}`,
+      };
+    });
+    res.json({ plans });
+  });
+
   app.post("/api/checkout", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const user = req.user!;
+      const tier = (req.body?.tier as PlanTier) || "monthly";
+      const cfg = PLAN_CONFIGS[tier];
+      if (!cfg) {
+        return res.status(400).json({ message: "Invalid subscription tier" });
+      }
+
       const stripe = await getUncachableStripeClient();
 
       let customerId = user.stripeCustomerId;
@@ -1014,117 +1124,93 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const baseUrl = `https://${process.env.REPLIT_DOMAINS?.split(",")[0]}`;
+      const priceId = await resolveStripePriceForTier(stripe, cfg);
 
-      const isProduction = process.env.REPLIT_DEPLOYMENT === "1";
-
-      let stripeProductId: string;
-      if (process.env.STRIPE_PRODUCT_ID) {
-        stripeProductId = process.env.STRIPE_PRODUCT_ID;
-      } else if (isProduction) {
-        console.error(
-          "[Stripe] FATAL: STRIPE_PRODUCT_ID is not set in production. " +
-          "Add it as a production environment variable in the Replit Secrets panel."
-        );
-        return res.status(500).json({ message: "Subscription service is not configured. Please contact support." });
-      } else {
-        console.warn("[Dev] STRIPE_PRODUCT_ID not set; using hardcoded test product ID fallback.");
-        stripeProductId = "prod_UHEEX07B2s2U5m";
-      }
-
-      const STRIPE_PRODUCT_ID = stripeProductId;
-      const EXPECTED_AMOUNT = 499;
-      const EXPECTED_CURRENCY = "usd";
-      const EXPECTED_INTERVAL = "month";
-
-      let priceId: string | undefined;
-
-      try {
-        const prices = await stripe.prices.list({
-          product: STRIPE_PRODUCT_ID,
-          active: true,
-          limit: 10,
-        });
-        const match = prices.data.find(
-          (p) =>
-            p.unit_amount === EXPECTED_AMOUNT &&
-            p.currency === EXPECTED_CURRENCY &&
-            p.recurring?.interval === EXPECTED_INTERVAL
-        );
-        priceId = match?.id;
-      } catch (lookupErr: any) {
-        console.warn("Stripe product lookup failed:", lookupErr.message);
-        if (isProduction) {
-          return res.status(500).json({ message: "Subscription product not configured" });
-        }
-      }
-
-      if (!priceId && isProduction) {
-        return res.status(500).json({ message: "No matching subscription price found" });
-      }
-
-      if (!priceId) {
-        console.log("[Dev] Primary product not found; searching by name as fallback");
-        const products = await stripe.products.list({ active: true });
-        const existing = products.data.find(
-          (p) => p.name === "Beat Haven Premium Subscription"
-        );
-        if (existing) {
-          const prices = await stripe.prices.list({
-            product: existing.id,
-            active: true,
-            limit: 10,
-          });
-          const match = prices.data.find(
-            (p) =>
-              p.unit_amount === EXPECTED_AMOUNT &&
-              p.currency === EXPECTED_CURRENCY &&
-              p.recurring?.interval === EXPECTED_INTERVAL
-          );
-          priceId = match?.id;
-        }
-
-        if (!priceId) {
-          console.log("[Dev] No matching price found; creating product and price for test environment");
-          const product = existing ?? await stripe.products.create({
-            name: "Beat Haven Premium Subscription",
-            description: "Your personal meditation sanctuary. Immerse yourself in programmatically-tuned binaural beats to sleep deeper, focus sharper, and find your calm.",
-          });
-          const price = await stripe.prices.create({
-            product: product.id,
-            unit_amount: EXPECTED_AMOUNT,
-            currency: EXPECTED_CURRENCY,
-            recurring: { interval: EXPECTED_INTERVAL },
-          });
-          priceId = price.id;
-          console.log("[Dev] Created Stripe price:", priceId, "for product:", product.id);
-        }
-      }
-
-      console.log("Checkout using price:", priceId);
-
-      const session = await stripe.checkout.sessions.create({
+      const sessionParams: any = {
         customer: customerId,
         payment_method_types: ["card"],
-        line_items: [
-          {
-            price: priceId,
-            quantity: 1,
-          },
-        ],
-        mode: "subscription",
-        success_url: `${baseUrl}?checkout=success`,
+        line_items: [{ price: priceId, quantity: 1 }],
+        mode: cfg.mode,
+        success_url: `${baseUrl}?checkout=success&tier=${cfg.tier}`,
         cancel_url: `${baseUrl}?checkout=cancelled`,
-        subscription_data: {
-          trial_period_days: 7,
-        },
-      });
+        metadata: { userId: user.id, tier: cfg.tier },
+      };
+      if (cfg.mode === "subscription" && cfg.trialDays) {
+        sessionParams.subscription_data = { trial_period_days: cfg.trialDays };
+      }
 
-      res.json({ url: session.url });
+      const session = await stripe.checkout.sessions.create(sessionParams);
+      res.json({ url: session.url, tier: cfg.tier });
     } catch (error: any) {
       console.error("Checkout error:", error);
       res.status(500).json({ message: "Failed to create checkout session" });
     }
   });
+
+  app.post(
+    "/api/webhooks/revenuecat",
+    async (req: Request, res: Response) => {
+      try {
+        const secret = process.env.REVENUECAT_WEBHOOK_SECRET;
+        if (secret) {
+          const authHeader = req.headers.authorization;
+          if (authHeader !== `Bearer ${secret}`) {
+            return res.status(401).json({ message: "Unauthorized" });
+          }
+        }
+
+        const event = req.body?.event;
+        if (!event) return res.status(400).json({ message: "Missing event" });
+
+        const userId = event.app_user_id as string | undefined;
+        const type = event.type as string | undefined;
+        const productId = event.product_id as string | undefined;
+
+        if (!userId || !type) return res.status(200).json({ received: true });
+
+        const user = await storage.getUser(userId);
+        if (!user) {
+          console.warn("[RC Webhook] Unknown user:", userId);
+          return res.status(200).json({ received: true });
+        }
+
+        let plan: string | null = null;
+        if (productId?.includes("monthly")) plan = "monthly";
+        else if (productId?.includes("yearly") || productId?.includes("annual")) plan = "yearly";
+        else if (productId?.includes("lifetime")) plan = "lifetime";
+
+        const activating = [
+          "INITIAL_PURCHASE",
+          "RENEWAL",
+          "PRODUCT_CHANGE",
+          "NON_RENEWING_PURCHASE",
+          "UNCANCELLATION",
+          "TRIAL_STARTED",
+        ].includes(type);
+        const deactivating = ["CANCELLATION", "EXPIRATION", "BILLING_ISSUE"].includes(type);
+
+        if (activating) {
+          await storage.updateUserStripeInfo(user.id, {
+            subscriptionStatus: "active",
+            plan: plan ?? user.plan ?? "monthly",
+            subscriptionSource: "revenuecat",
+          } as any);
+          console.log("[RC Webhook] Activated:", userId, plan);
+        } else if (deactivating) {
+          await storage.updateUserStripeInfo(user.id, {
+            subscriptionStatus: "inactive",
+            plan: "none",
+          } as any);
+          console.log("[RC Webhook] Deactivated:", userId);
+        }
+
+        res.json({ received: true });
+      } catch (err: any) {
+        console.error("[RC Webhook] Error:", err);
+        res.status(500).json({ message: "Webhook processing failed" });
+      }
+    }
+  );
 
   app.post("/api/sync-subscription", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {

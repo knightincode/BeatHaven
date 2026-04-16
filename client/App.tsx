@@ -21,6 +21,14 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { PlayerProvider } from "@/contexts/PlayerContext";
 import { HeadphonesTipProvider } from "@/contexts/HeadphonesTipContext";
 import { OfflineIndicator } from "@/components/OfflineIndicator";
+import { SubscriptionProvider, initializeRevenueCat } from "@/lib/revenuecat";
+import { Platform } from "react-native";
+
+if (Platform.OS !== "web") {
+  initializeRevenueCat().catch((err) => {
+    console.warn("[App] RevenueCat init skipped:", err?.message ?? err);
+  });
+}
 
 SplashScreen.preventAutoHideAsync();
 
@@ -45,6 +53,7 @@ export default function App() {
   return (
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
+        <SubscriptionProvider>
         <AuthProvider>
           <PlayerProvider>
             <HeadphonesTipProvider>
@@ -62,6 +71,7 @@ export default function App() {
             </HeadphonesTipProvider>
           </PlayerProvider>
         </AuthProvider>
+        </SubscriptionProvider>
       </QueryClientProvider>
     </ErrorBoundary>
   );

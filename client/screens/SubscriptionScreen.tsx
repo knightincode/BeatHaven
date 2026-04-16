@@ -1,10 +1,11 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   View,
   StyleSheet,
   ActivityIndicator,
-  Linking,
   Platform,
+  Pressable,
+  Modal,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
@@ -19,17 +20,78 @@ import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { useAuth } from "@/contexts/AuthContext";
-import { apiRequest, getApiUrl } from "@/lib/query-client";
+import { useSubscription } from "@/lib/revenuecat";
+import { getApiUrl } from "@/lib/query-client";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
+
+type PlanTier = "monthly" | "yearly" | "lifetime";
+
+type ServerPlan = {
+  tier: PlanTier;
+  amount: number;
+  currency: string;
+  interval: "month" | "year" | null;
+  mode: "subscription" | "payment";
+  trialDays: number;
+  productName: string;
+  priceString: string;
+};
+
+const TIER_ORDER: PlanTier[] = ["monthly", "yearly", "lifetime"];
+
+const TIER_LABEL: Record<PlanTier, { title: string; sub: string; badge?: string }> = {
+  monthly: { title: "Monthly", sub: "Flexible, billed monthly" },
+  yearly: { title: "Yearly", sub: "Best value — save over 30%", badge: "Most Popular" },
+  lifetime: { title: "Lifetime", sub: "One payment, forever" },
+};
+
+const PREMIUM_FEATURES = [
+  { icon: "headphones" as const, text: "Unlimited binaural beats library" },
+  { icon: "list" as const, text: "Create unlimited playlists" },
+  { icon: "heart" as const, text: "Save your favorite tracks" },
+  { icon: "download" as const, text: "Offline listening" },
+  { icon: "zap" as const, text: "Hi-fi streaming quality" },
+];
 
 export default function SubscriptionScreen() {
   const insets = useSafeAreaInsets();
   const headerHeight = useHeaderHeight();
-  const { hasActiveSubscription, refreshUser, token } = useAuth();
-  const [isLoading, setIsLoading] = useState(false);
+  const { hasActiveSubscription, user, refreshUser, token } = useAuth();
+  const rcSubscription = useSubscription();
 
-  const subscribeMutation = useMutation({
-    mutationFn: async () => {
+  const [selectedTier, setSelectedTier] = useState<PlanTier>("yearly");
+  const [pendingRcPackage, setPendingRcPackage] = useState<any | null>(null);
+
+  const pricesQuery = useQuery<{ plans: ServerPlan[] }>({
+    queryKey: ["/api/subscription/prices"],
+  });
+
+  const serverPlans = pricesQuery.data?.plans ?? [];
+  const planByTier = useMemo(() => {
+    const map: Partial<Record<PlanTier, ServerPlan>> = {};
+    for (const p of serverPlans) map[p.tier] = p;
+    return map;
+  }, [serverPlans]);
+
+  const rcPackages = useMemo(() => {
+    const offering = rcSubscription.offerings?.current;
+    if (!offering) return {} as Partial<Record<PlanTier, any>>;
+    const pkgs: any[] = offering.availablePackages ?? [];
+    const map: Partial<Record<PlanTier, any>> = {};
+    for (const pkg of pkgs) {
+      const id: string | undefined = pkg?.product?.identifier;
+      if (!id) continue;
+      if (id.includes("monthly")) map.monthly = pkg;
+      else if (id.includes("yearly") || id.includes("annual")) map.yearly = pkg;
+      else if (id.includes("lifetime")) map.lifetime = pkg;
+    }
+    return map;
+  }, [rcSubscription.offerings]);
+
+  const useRevenueCat = Platform.OS !== "web" && rcSubscription.available;
+
+  const stripeCheckoutMutation = useMutation({
+    mutationFn: async (tier: PlanTier) => {
       const baseUrl = getApiUrl();
       const res = await fetch(`${baseUrl}api/checkout`, {
         method: "POST",
@@ -37,29 +99,25 @@ export default function SubscriptionScreen() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
+        body: JSON.stringify({ tier }),
       });
-      if (!res.ok) {
-        throw new Error("Failed to create checkout session");
-      }
+      if (!res.ok) throw new Error("Failed to create checkout session");
       return res.json();
     },
     onSuccess: async (data) => {
-      if (data.url) {
-        if (Platform.OS === "web") {
-          window.location.href = data.url;
-        } else {
-          await WebBrowser.openBrowserAsync(data.url);
-          try {
-            const baseUrl = getApiUrl();
-            await fetch(`${baseUrl}api/sync-subscription`, {
-              method: "POST",
-              headers: { Authorization: `Bearer ${token}` },
-            });
-          } catch (e) {
-            console.warn("Subscription sync failed:", e);
-          }
-          await refreshUser();
-        }
+      if (!data.url) return;
+      if (Platform.OS === "web") {
+        window.location.href = data.url;
+      } else {
+        await WebBrowser.openBrowserAsync(data.url);
+        try {
+          const baseUrl = getApiUrl();
+          await fetch(`${baseUrl}api/sync-subscription`, {
+            method: "POST",
+            headers: { Authorization: `Bearer ${token}` },
+          });
+        } catch {}
+        await refreshUser();
       }
     },
   });
@@ -69,51 +127,99 @@ export default function SubscriptionScreen() {
       const baseUrl = getApiUrl();
       const res = await fetch(`${baseUrl}api/billing-portal`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { Authorization: `Bearer ${token}` },
       });
-      if (!res.ok) {
-        throw new Error("Failed to create portal session");
-      }
+      if (!res.ok) throw new Error("Failed to create portal session");
       return res.json();
     },
     onSuccess: async (data) => {
-      if (data.url) {
-        if (Platform.OS === "web") {
-          window.location.href = data.url;
-        } else {
-          await WebBrowser.openBrowserAsync(data.url);
-          await refreshUser();
-        }
+      if (!data.url) return;
+      if (Platform.OS === "web") window.location.href = data.url;
+      else {
+        await WebBrowser.openBrowserAsync(data.url);
+        await refreshUser();
       }
     },
   });
 
-  function handleSubscribe() {
+  function hapticTap() {
     if (Platform.OS !== "web") {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
     }
-    subscribeMutation.mutate();
   }
 
-  function handleManage() {
-    if (Platform.OS !== "web") {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  function handleContinue() {
+    hapticTap();
+    if (useRevenueCat) {
+      const pkg = rcPackages[selectedTier];
+      if (pkg) {
+        if (__DEV__) {
+          setPendingRcPackage(pkg);
+        } else {
+          rcSubscription.purchase(pkg).catch((err: any) => {
+            console.warn("Purchase failed:", err?.message ?? err);
+          });
+        }
+        return;
+      }
     }
-    manageMutation.mutate();
+    stripeCheckoutMutation.mutate(selectedTier);
   }
 
-  const features = [
-    {
-      icon: "headphones" as const,
-      text: "Unlimited access to all binaural beats",
-    },
-    { icon: "list" as const, text: "Create unlimited playlists" },
-    { icon: "heart" as const, text: "Save your favorite tracks" },
-    { icon: "x" as const, text: "Cancel anytime" },
-  ];
+  function confirmRcPurchase() {
+    const pkg = pendingRcPackage;
+    setPendingRcPackage(null);
+    if (pkg) {
+      rcSubscription.purchase(pkg).catch((err: any) => {
+        console.warn("Purchase failed:", err?.message ?? err);
+      });
+    }
+  }
+
+  async function handleRestore() {
+    hapticTap();
+    if (useRevenueCat) {
+      try {
+        await rcSubscription.restore();
+        await refreshUser();
+      } catch (err: any) {
+        console.warn("Restore failed:", err?.message ?? err);
+      }
+    } else {
+      try {
+        const baseUrl = getApiUrl();
+        await fetch(`${baseUrl}api/sync-subscription`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        await refreshUser();
+      } catch {}
+    }
+  }
+
+  const priceForTier = (tier: PlanTier): { price: string; sub: string; trialDays: number } => {
+    if (useRevenueCat && rcPackages[tier]) {
+      const p = rcPackages[tier]?.product;
+      const priceString = p?.priceString ?? "—";
+      const period =
+        tier === "monthly" ? "/month" : tier === "yearly" ? "/year" : "one-time";
+      return {
+        price: priceString,
+        sub: period,
+        trialDays: p?.introPrice?.periodNumberOfUnits ?? (tier === "lifetime" ? 0 : 7),
+      };
+    }
+    const sp = planByTier[tier];
+    if (!sp) return { price: "—", sub: "", trialDays: 0 };
+    const period =
+      sp.interval === "month" ? "/month" : sp.interval === "year" ? "/year" : "one-time";
+    return { price: sp.priceString, sub: period, trialDays: sp.trialDays };
+  };
+
+  const isWorking =
+    stripeCheckoutMutation.isPending ||
+    rcSubscription.isPurchasing ||
+    rcSubscription.isRestoring;
 
   return (
     <ThemedView style={styles.container}>
@@ -123,7 +229,7 @@ export default function SubscriptionScreen() {
           styles.content,
           {
             paddingTop: headerHeight + Spacing.xl,
-            paddingBottom: insets.bottom + Spacing.xl,
+            paddingBottom: insets.bottom + Spacing["2xl"],
           },
         ]}
         scrollIndicatorInsets={{ bottom: insets.bottom }}
@@ -131,144 +237,284 @@ export default function SubscriptionScreen() {
         {hasActiveSubscription ? (
           <>
             <View style={styles.statusCard}>
-              <View style={styles.activeIcon}>
-                <Feather
-                  name="check-circle"
-                  size={48}
-                  color={Colors.dark.success}
-                />
-              </View>
+              <Feather name="check-circle" size={48} color={Colors.dark.success} />
               <ThemedText type="h3" style={styles.statusTitle}>
-                Active Subscription
+                You're Premium
               </ThemedText>
               <ThemedText style={styles.statusText}>
-                You have full access to all Beat Haven features
+                {user?.plan && user.plan !== "none"
+                  ? `Current plan: ${user.plan.charAt(0).toUpperCase() + user.plan.slice(1)}`
+                  : "Full access to all Beat Haven features"}
               </ThemedText>
-            </View>
-
-            <Button
-              onPress={handleManage}
-              disabled={manageMutation.isPending}
-              style={styles.manageButton}
-            >
-              {manageMutation.isPending ? (
-                <ActivityIndicator color="#FFFFFF" />
-              ) : (
-                "Manage Subscription"
-              )}
-            </Button>
-          </>
-        ) : (
-          <>
-            <View style={styles.priceSection}>
-              <ThemedText style={styles.price}>$4.99</ThemedText>
-              <ThemedText style={styles.priceInterval}>per month</ThemedText>
             </View>
 
             <Card style={styles.featuresCard}>
-              {features.map((feature, index) => (
-                <View key={index} style={styles.featureRow}>
-                  <Feather
-                    name={feature.icon}
-                    size={20}
-                    color={Colors.dark.success}
-                  />
-                  <ThemedText style={styles.featureText}>
-                    {feature.text}
-                  </ThemedText>
+              {PREMIUM_FEATURES.map((f) => (
+                <View key={f.text} style={styles.featureRow}>
+                  <Feather name={f.icon} size={20} color={Colors.dark.success} />
+                  <ThemedText style={styles.featureText}>{f.text}</ThemedText>
+                </View>
+              ))}
+            </Card>
+
+            {user?.subscriptionSource !== "revenuecat" && (
+              <Button
+                onPress={() => manageMutation.mutate()}
+                disabled={manageMutation.isPending}
+                style={styles.primaryButton}
+                testID="button-manage-subscription"
+              >
+                {manageMutation.isPending ? (
+                  <ActivityIndicator color="#FFFFFF" />
+                ) : (
+                  "Manage Subscription"
+                )}
+              </Button>
+            )}
+
+            <Pressable onPress={handleRestore} style={styles.restoreLink}>
+              <ThemedText style={styles.restoreText}>Restore Purchases</ThemedText>
+            </Pressable>
+          </>
+        ) : (
+          <>
+            <View style={styles.heroSection}>
+              <ThemedText type="h2" style={styles.heroTitle}>
+                Unlock Beat Haven Premium
+              </ThemedText>
+              <ThemedText style={styles.heroSub}>
+                Choose the plan that fits you
+              </ThemedText>
+            </View>
+
+            <View style={styles.tiersContainer}>
+              {TIER_ORDER.map((tier) => {
+                const info = TIER_LABEL[tier];
+                const p = priceForTier(tier);
+                const isSelected = selectedTier === tier;
+                const hasPrice = p.price !== "—";
+                return (
+                  <Pressable
+                    key={tier}
+                    onPress={() => {
+                      hapticTap();
+                      setSelectedTier(tier);
+                    }}
+                    disabled={!hasPrice}
+                    style={[
+                      styles.tierCard,
+                      isSelected && styles.tierCardSelected,
+                      !hasPrice && styles.tierCardDisabled,
+                    ]}
+                    testID={`tier-${tier}`}
+                  >
+                    {info.badge ? (
+                      <View style={styles.badge}>
+                        <ThemedText style={styles.badgeText}>{info.badge}</ThemedText>
+                      </View>
+                    ) : null}
+                    <View style={styles.tierHeader}>
+                      <View style={styles.radio}>
+                        {isSelected ? <View style={styles.radioDot} /> : null}
+                      </View>
+                      <View style={styles.tierTitleBlock}>
+                        <ThemedText style={styles.tierTitle}>{info.title}</ThemedText>
+                        <ThemedText style={styles.tierSub}>{info.sub}</ThemedText>
+                      </View>
+                      <View style={styles.tierPriceBlock}>
+                        <ThemedText style={styles.tierPrice}>{p.price}</ThemedText>
+                        <ThemedText style={styles.tierPeriod}>{p.sub}</ThemedText>
+                      </View>
+                    </View>
+                    {p.trialDays > 0 && tier !== "lifetime" ? (
+                      <ThemedText style={styles.trialText}>
+                        {p.trialDays}-day free trial
+                      </ThemedText>
+                    ) : null}
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            <Card style={styles.featuresCard}>
+              {PREMIUM_FEATURES.map((f) => (
+                <View key={f.text} style={styles.featureRow}>
+                  <Feather name={f.icon} size={20} color={Colors.dark.success} />
+                  <ThemedText style={styles.featureText}>{f.text}</ThemedText>
                 </View>
               ))}
             </Card>
 
             <Button
-              onPress={handleSubscribe}
-              disabled={subscribeMutation.isPending}
-              style={styles.subscribeButton}
+              onPress={handleContinue}
+              disabled={isWorking}
+              style={styles.primaryButton}
+              testID="button-subscribe"
             >
-              {subscribeMutation.isPending ? (
+              {isWorking ? (
                 <ActivityIndicator color="#FFFFFF" />
+              ) : selectedTier === "lifetime" ? (
+                "Purchase Lifetime Access"
+              ) : priceForTier(selectedTier).trialDays > 0 ? (
+                `Start ${priceForTier(selectedTier).trialDays}-Day Free Trial`
               ) : (
-                "Start 7-Day Free Trial"
+                "Continue"
               )}
             </Button>
 
+            <Pressable onPress={handleRestore} style={styles.restoreLink}>
+              <ThemedText style={styles.restoreText}>Restore Purchases</ThemedText>
+            </Pressable>
+
             <ThemedText style={styles.disclaimer}>
-              After your free trial, you'll be charged $4.99/month. Cancel
-              anytime.
+              {selectedTier === "lifetime"
+                ? "One-time payment. Lifetime access to all features."
+                : `You'll be charged ${priceForTier(selectedTier).price}${priceForTier(selectedTier).sub} after any trial. Cancel anytime.`}
             </ThemedText>
           </>
         )}
       </KeyboardAwareScrollViewCompat>
+
+      <Modal
+        visible={pendingRcPackage !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setPendingRcPackage(null)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <ThemedText type="h3" style={styles.modalTitle}>
+              Confirm Test Purchase
+            </ThemedText>
+            <ThemedText style={styles.modalBody}>
+              You're in dev/test mode. Proceed with a sandbox purchase for{" "}
+              {pendingRcPackage?.product?.title ?? "this package"} at{" "}
+              {pendingRcPackage?.product?.priceString ?? ""}?
+            </ThemedText>
+            <View style={styles.modalButtons}>
+              <Button
+                onPress={() => setPendingRcPackage(null)}
+                style={styles.modalCancel}
+                testID="button-cancel-purchase"
+              >
+                Cancel
+              </Button>
+              <Button
+                onPress={confirmRcPurchase}
+                style={styles.modalConfirm}
+                testID="button-confirm-purchase"
+              >
+                Confirm
+              </Button>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </ThemedView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  content: {
-    paddingHorizontal: Spacing.lg,
-    alignItems: "center",
-  },
-  statusCard: {
-    alignItems: "center",
-    marginBottom: Spacing["2xl"],
-  },
-  activeIcon: {
-    marginBottom: Spacing.lg,
-  },
-  statusTitle: {
-    marginBottom: Spacing.sm,
-    textAlign: "center",
-  },
-  statusText: {
-    color: Colors.dark.textSecondary,
-    textAlign: "center",
-  },
-  manageButton: {
+  container: { flex: 1 },
+  scrollView: { flex: 1 },
+  content: { paddingHorizontal: Spacing.lg },
+  heroSection: { alignItems: "center", marginBottom: Spacing.xl, paddingTop: Spacing.md },
+  heroTitle: { textAlign: "center", marginBottom: Spacing.sm },
+  heroSub: { textAlign: "center", color: Colors.dark.textSecondary, fontSize: 15 },
+  tiersContainer: { width: "100%", marginBottom: Spacing.xl, gap: Spacing.md },
+  tierCard: {
     width: "100%",
+    padding: Spacing.lg,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 2,
+    borderColor: Colors.dark.border ?? "rgba(255,255,255,0.12)",
+    backgroundColor: Colors.dark.backgroundElevated ?? "rgba(255,255,255,0.04)",
+    position: "relative",
   },
-  priceSection: {
+  tierCardSelected: {
+    borderColor: Colors.dark.link,
+    backgroundColor: "rgba(56,139,253,0.08)",
+  },
+  tierCardDisabled: { opacity: 0.4 },
+  badge: {
+    position: "absolute",
+    top: -10,
+    right: Spacing.md,
+    backgroundColor: Colors.dark.link,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.full ?? 999,
+  },
+  badgeText: { color: "#FFFFFF", fontSize: 11, fontWeight: "700" },
+  tierHeader: { flexDirection: "row", alignItems: "center", gap: Spacing.md },
+  radio: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 2,
+    borderColor: Colors.dark.link,
     alignItems: "center",
-    marginBottom: Spacing["2xl"],
-    paddingTop: Spacing.lg,
+    justifyContent: "center",
   },
-  price: {
-    fontSize: 36,
-    fontWeight: "700",
-    color: Colors.dark.link,
-    lineHeight: 44,
+  radioDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: Colors.dark.link,
   },
-  priceInterval: {
-    color: Colors.dark.textSecondary,
-    fontSize: 18,
+  tierTitleBlock: { flex: 1 },
+  tierTitle: { fontSize: 16, fontWeight: "700" },
+  tierSub: { fontSize: 13, color: Colors.dark.textSecondary, marginTop: 2 },
+  tierPriceBlock: { alignItems: "flex-end" },
+  tierPrice: { fontSize: 18, fontWeight: "700", color: Colors.dark.link },
+  tierPeriod: { fontSize: 12, color: Colors.dark.textSecondary },
+  trialText: {
+    marginTop: Spacing.sm,
+    marginLeft: 34,
+    fontSize: 12,
+    color: Colors.dark.success,
+    fontWeight: "600",
   },
-  featuresCard: {
-    width: "100%",
-    marginBottom: Spacing["2xl"],
-    padding: Spacing.xl,
-  },
+  featuresCard: { width: "100%", padding: Spacing.lg, marginBottom: Spacing.xl },
   featureRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.md,
-    paddingVertical: Spacing.md,
+    paddingVertical: Spacing.sm,
   },
-  featureText: {
-    flex: 1,
-    fontSize: 16,
-  },
-  subscribeButton: {
-    width: "100%",
-    marginBottom: Spacing.lg,
+  featureText: { flex: 1, fontSize: 15 },
+  primaryButton: { width: "100%", marginBottom: Spacing.md },
+  restoreLink: { paddingVertical: Spacing.sm, marginBottom: Spacing.md },
+  restoreText: {
+    textAlign: "center",
+    color: Colors.dark.link,
+    fontSize: 14,
+    fontWeight: "600",
   },
   disclaimer: {
     color: Colors.dark.textSecondary,
     textAlign: "center",
-    fontSize: 13,
+    fontSize: 12,
+    marginTop: Spacing.sm,
   },
+  statusCard: { alignItems: "center", marginBottom: Spacing.xl, gap: Spacing.sm },
+  statusTitle: { marginTop: Spacing.md },
+  statusText: { color: Colors.dark.textSecondary, textAlign: "center" },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    justifyContent: "center",
+    padding: Spacing.xl,
+  },
+  modalCard: {
+    backgroundColor: Colors.dark.backgroundElevated ?? "#1a1a1a",
+    padding: Spacing.xl,
+    borderRadius: BorderRadius.lg,
+    gap: Spacing.md,
+  },
+  modalTitle: { textAlign: "center" },
+  modalBody: { textAlign: "center", color: Colors.dark.textSecondary },
+  modalButtons: { flexDirection: "row", gap: Spacing.md, marginTop: Spacing.md },
+  modalCancel: { flex: 1, backgroundColor: "rgba(255,255,255,0.1)" },
+  modalConfirm: { flex: 1 },
 });

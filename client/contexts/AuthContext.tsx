@@ -3,6 +3,7 @@ import * as SecureStore from "expo-secure-store";
 import * as Crypto from "expo-crypto";
 import { Platform } from "react-native";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
+import { useSubscription } from "@/lib/revenuecat";
 import { signInWithApple, isAppleAuthAvailable } from "@/services/appleAuth";
 import {
   isBiometricAvailable,
@@ -21,6 +22,8 @@ interface User {
   isAdmin: boolean;
   isDemo: boolean;
   subscriptionStatus: string;
+  plan?: string | null;
+  subscriptionSource?: string | null;
 }
 
 interface AuthContextType {
@@ -323,10 +326,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await declineBiometric();
   }
 
+  const subscription = useSubscription();
   const isAuthenticated = !!user;
   const isAdmin = user?.isAdmin === true;
   const isDemo = user?.isDemo === true;
-  const hasActiveSubscription = user?.subscriptionStatus === "active";
+  const hasActiveSubscription =
+    user?.subscriptionStatus === "active" || subscription.isSubscribed === true;
 
   return (
     <AuthContext.Provider
