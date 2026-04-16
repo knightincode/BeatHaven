@@ -203,6 +203,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (res.ok) {
         const userData = await res.json();
         setUser(userData);
+        if (!userData.isDemo) {
+          identifyRevenueCatUser(userData.id).catch(() => {});
+        }
         return true;
       } else {
         await removeStoredToken();

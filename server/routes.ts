@@ -1,4 +1,5 @@
 import type { Express, Request, Response } from "express";
+import type Stripe from "stripe";
 import { createServer, type Server } from "node:http";
 import * as fs from "fs";
 import multer from "multer";
@@ -1054,34 +1055,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
     },
   };
 
-  async function resolveStripePriceForTier(stripe: any, cfg: PlanConfig): Promise<string> {
-    const products = await stripe.products.list({ active: true, limit: 100 });
-    let product = products.data.find((p: any) => p.name === cfg.productName);
-    if (!product) {
-      product = await stripe.products.create({
-        name: cfg.productName,
-        description: cfg.description,
-        metadata: { beathaven_tier: cfg.tier },
-      });
-      console.log(`[Stripe] Created product for ${cfg.tier}:`, product.id);
+  async function resolveStripePriceForTier(
+    stripe: Stripe,
+    cfg: PlanConfig
+  ): Promise<string> {
+    const productId = process.env.STRIPE_PRODUCT_ID;
+    if (!productId) {
+      throw new Error("STRIPE_PRODUCT_ID is not configured");
     }
 
-    const prices = await stripe.prices.list({ product: product.id, active: true, limit: 20 });
-    const match = prices.data.find((p: any) => {
+    const prices = await stripe.prices.list({ product: productId, active: true, limit: 100 });
+    const match = prices.data.find((p) => {
       if (p.unit_amount !== cfg.amount || p.currency !== cfg.currency) return false;
       if (cfg.mode === "subscription") return p.recurring?.interval === cfg.interval;
       return p.type === "one_time" || !p.recurring;
     });
     if (match) return match.id;
 
-    const priceBody: any = {
-      product: product.id,
+    const priceBody: Stripe.PriceCreateParams = {
+      product: productId,
       unit_amount: cfg.amount,
       currency: cfg.currency,
+      nickname: cfg.productName,
+      metadata: { beathaven_tier: cfg.tier },
     };
-    if (cfg.mode === "subscription") priceBody.recurring = { interval: cfg.interval };
+    if (cfg.mode === "subscription" && cfg.interval) {
+      priceBody.recurring = { interval: cfg.interval };
+    }
     const newPrice = await stripe.prices.create(priceBody);
-    console.log(`[Stripe] Created ${cfg.tier} price:`, newPrice.id);
+    console.log(`[Stripe] Added ${cfg.tier} price to existing product:`, newPrice.id);
     return newPrice.id;
   }
 
@@ -1126,7 +1128,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const baseUrl = `https://${process.env.REPLIT_DOMAINS?.split(",")[0]}`;
       const priceId = await resolveStripePriceForTier(stripe, cfg);
 
-      const sessionParams: any = {
+      const sessionParams: Stripe.Checkout.SessionCreateParams = {
         customer: customerId,
         payment_method_types: ["card"],
         line_items: [{ price: priceId, quantity: 1 }],
@@ -1152,12 +1154,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     async (req: Request, res: Response) => {
       try {
         const secret = process.env.REVENUECAT_WEBHOOK_SECRET;
-        const isProd = process.env.NODE_ENV === "production";
-        if (!secret && isProd) {
-          console.error("[RC Webhook] REVENUECAT_WEBHOOK_SECRET missing in production; rejecting");
-          return res.status(401).json({ message: "Webhook secret not configured" });
-        }
-        if (secret) {
+        const allowUnauth = process.env.REVENUECAT_WEBHOOK_ALLOW_UNAUTH === "true";
+        if (!secret) {
+          if (!allowUnauth) {
+            console.error(
+              "[RC Webhook] REVENUECAT_WEBHOOK_SECRET missing; rejecting (set REVENUECAT_WEBHOOK_ALLOW_UNAUTH=true to bypass in local dev)"
+            );
+            return res.status(401).json({ message: "Webhook secret not configured" });
+          }
+          console.warn("[RC Webhook] Running UNAUTHENTICATED due to explicit dev override");
+        } else {
           const authHeader = req.headers.authorization;
           if (authHeader !== `Bearer ${secret}`) {
             return res.status(401).json({ message: "Unauthorized" });

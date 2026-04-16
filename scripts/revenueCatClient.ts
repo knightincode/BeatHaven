@@ -1,6 +1,14 @@
 import { createClient } from "@replit/revenuecat-sdk/client";
 
-let connectionSettings: any;
+type ConnectorConnection = {
+  settings?: {
+    expires_at?: string;
+    access_token?: string;
+    oauth?: { credentials?: { access_token?: string } };
+  };
+};
+
+let connectionSettings: ConnectorConnection | undefined;
 
 async function getApiKey(): Promise<string> {
   if (

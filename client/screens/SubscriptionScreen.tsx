@@ -21,7 +21,7 @@ import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { useAuth } from "@/contexts/AuthContext";
-import { useSubscription } from "@/lib/revenuecat";
+import { useSubscription, type PurchasesPackage } from "@/lib/revenuecat";
 import { getApiUrl } from "@/lib/query-client";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 
@@ -61,7 +61,7 @@ export default function SubscriptionScreen() {
   const rcSubscription = useSubscription();
 
   const [selectedTier, setSelectedTier] = useState<PlanTier>("yearly");
-  const [pendingRcPackage, setPendingRcPackage] = useState<any | null>(null);
+  const [pendingRcPackage, setPendingRcPackage] = useState<PurchasesPackage | null>(null);
   const [errorModal, setErrorModal] = useState<{ title: string; message: string } | null>(null);
 
   const pricesQuery = useQuery<{ plans: ServerPlan[] }>({
@@ -75,13 +75,13 @@ export default function SubscriptionScreen() {
     return map;
   }, [serverPlans]);
 
-  const rcPackages = useMemo(() => {
+  const rcPackages = useMemo<Partial<Record<PlanTier, PurchasesPackage>>>(() => {
     const offering = rcSubscription.offerings?.current;
-    if (!offering) return {} as Partial<Record<PlanTier, any>>;
-    const pkgs: any[] = offering.availablePackages ?? [];
-    const map: Partial<Record<PlanTier, any>> = {};
+    if (!offering) return {};
+    const pkgs: PurchasesPackage[] = offering.availablePackages ?? [];
+    const map: Partial<Record<PlanTier, PurchasesPackage>> = {};
     for (const pkg of pkgs) {
-      const id: string | undefined = pkg?.product?.identifier;
+      const id = pkg.product?.identifier;
       if (!id) continue;
       if (id.includes("monthly")) map.monthly = pkg;
       else if (id.includes("yearly") || id.includes("annual")) map.yearly = pkg;
@@ -178,24 +178,23 @@ export default function SubscriptionScreen() {
       return;
     }
     stripeCheckoutMutation.mutate(selectedTier, {
-      onError: (err: any) => {
-        setErrorModal({
-          title: "Checkout Unavailable",
-          message: err?.message ?? "We couldn't start your checkout. Please try again.",
-        });
+      onError: (err: unknown) => {
+        const message = err instanceof Error ? err.message : "We couldn't start your checkout. Please try again.";
+        setErrorModal({ title: "Checkout Unavailable", message });
       },
     });
   }
 
-  async function runRcPurchase(pkg: any) {
+  async function runRcPurchase(pkg: PurchasesPackage) {
     try {
       await rcSubscription.purchase(pkg);
       await refreshUser();
-    } catch (err: any) {
-      if (err?.userCancelled) return;
+    } catch (err: unknown) {
+      const e = err as { userCancelled?: boolean; message?: string } | undefined;
+      if (e?.userCancelled) return;
       setErrorModal({
         title: "Purchase Failed",
-        message: err?.message ?? "The purchase could not be completed. Please try again.",
+        message: e?.message ?? "The purchase could not be completed. Please try again.",
       });
     }
   }
@@ -331,10 +330,10 @@ export default function SubscriptionScreen() {
               <Button
                 onPress={() =>
                   manageMutation.mutate(undefined, {
-                    onError: (err: any) =>
+                    onError: (err: unknown) =>
                       setErrorModal({
                         title: "Unable to Open Billing",
-                        message: err?.message ?? "Please try again shortly.",
+                        message: err instanceof Error ? err.message : "Please try again shortly.",
                       }),
                   })
                 }
