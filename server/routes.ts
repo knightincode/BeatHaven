@@ -1224,8 +1224,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 stripeStillActive = subs.data.some(
                   (s) => s.status === "active" || s.status === "trialing"
                 );
-              } catch (err: any) {
-                console.warn("[RC Webhook] Stripe check failed:", err?.message ?? err);
+              } catch (err: unknown) {
+                const msg = err instanceof Error ? err.message : String(err);
+                console.warn("[RC Webhook] Stripe check failed:", msg);
               }
             }
             if (stripeStillActive) {
@@ -1255,7 +1256,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
 
         res.json({ received: true });
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error("[RC Webhook] Error:", err);
         res.status(500).json({ message: "Webhook processing failed" });
       }
@@ -1303,11 +1304,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           limit: 20,
         });
         const lifetimeSession = sessions.data.find(
-          (s: any) =>
+          (s) =>
             s.mode === "payment" &&
             s.payment_status === "paid" &&
             (s.metadata?.tier === "lifetime" ||
-              (typeof s.metadata?.tier !== "string" && s.amount_total && s.amount_total >= 9000))
+              (typeof s.metadata?.tier !== "string" && !!s.amount_total && s.amount_total >= 9000))
         );
         if (lifetimeSession) {
           await storage.updateUserStripeInfo(user.id, {
@@ -1318,8 +1319,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           console.log("[Sync] Lifetime unlocked:", user.id, lifetimeSession.id);
           return res.json({ subscriptionStatus: "active", plan: "lifetime" });
         }
-      } catch (err: any) {
-        console.warn("[Sync] Lifetime check failed:", err?.message ?? err);
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.warn("[Sync] Lifetime check failed:", msg);
       }
 
       const cancelledOrPast = subscriptions.data.find(

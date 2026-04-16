@@ -10,13 +10,21 @@ type ConnectorConnection = {
 
 let connectionSettings: ConnectorConnection | undefined;
 
+function extractAccessToken(conn: ConnectorConnection | undefined): string | undefined {
+  return (
+    conn?.settings?.access_token ??
+    conn?.settings?.oauth?.credentials?.access_token
+  );
+}
+
 async function getApiKey(): Promise<string> {
+  const cachedToken = extractAccessToken(connectionSettings);
   if (
-    connectionSettings &&
-    connectionSettings.settings?.expires_at &&
+    cachedToken &&
+    connectionSettings?.settings?.expires_at &&
     new Date(connectionSettings.settings.expires_at).getTime() > Date.now()
   ) {
-    return connectionSettings.settings.access_token;
+    return cachedToken;
   }
 
   const hostname = process.env.REPLIT_CONNECTORS_HOSTNAME;
