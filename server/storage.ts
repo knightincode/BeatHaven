@@ -6,6 +6,7 @@ import {
   playlists,
   playlistTracks,
   favorites,
+  passwordResetTokens,
   User,
   AudioTrack,
   Playlist,
@@ -223,6 +224,27 @@ export class Storage {
       .where(and(eq(favorites.userId, userId), eq(favorites.trackId, trackId)));
     return !!favorite;
   }
+  async createPasswordResetToken(userId: string, tokenHash: string, expiresAt: Date): Promise<void> {
+    await db.delete(passwordResetTokens).where(eq(passwordResetTokens.userId, userId));
+    await db.insert(passwordResetTokens).values({ userId, token: tokenHash, expiresAt });
+  }
+
+  async getPasswordResetToken(tokenHash: string): Promise<{ userId: string; expiresAt: Date; used: boolean } | undefined> {
+    const [row] = await db
+      .select()
+      .from(passwordResetTokens)
+      .where(eq(passwordResetTokens.token, tokenHash));
+    if (!row) return undefined;
+    return { userId: row.userId, expiresAt: row.expiresAt, used: row.used };
+  }
+
+  async markPasswordResetTokenUsed(tokenHash: string): Promise<void> {
+    await db
+      .update(passwordResetTokens)
+      .set({ used: true })
+      .where(eq(passwordResetTokens.token, tokenHash));
+  }
+
   async deleteUser(userId: string): Promise<void> {
     await db.transaction(async (tx) => {
       const userPlaylists = await tx.select().from(playlists).where(eq(playlists.userId, userId));

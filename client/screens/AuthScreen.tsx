@@ -20,6 +20,9 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { useGoogleAuth, isRunningInExpoGo } from "@/services/googleAuth";
+import { getApiUrl } from "@/lib/query-client";
+
+type AuthView = "main" | "forgotPassword" | "resetPassword";
 
 const PASSWORD_RULES = [
   { label: "At least 8 characters", test: (p: string) => p.length >= 8 },
@@ -91,6 +94,24 @@ export default function AuthScreen() {
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  const [authState, setAuthState] = useState<{ view: AuthView; serverToken: string }>({
+    view: "main",
+    serverToken: "",
+  });
+  const authView = authState.view;
+  const serverToken = authState.serverToken;
+  const [forgotEmail, setForgotEmail] = useState("");
+  const [forgotLoading, setForgotLoading] = useState(false);
+  const [forgotError, setForgotError] = useState("");
+  const [resetCode, setResetCode] = useState("");
+  const [resetPassword, setResetPassword] = useState("");
+  const [resetConfirmPassword, setResetConfirmPassword] = useState("");
+  const [showResetPassword, setShowResetPassword] = useState(false);
+  const [showResetConfirmPassword, setShowResetConfirmPassword] = useState(false);
+  const [resetLoading, setResetLoading] = useState(false);
+  const [resetError, setResetError] = useState("");
+  const [resetSuccess, setResetSuccess] = useState(false);
 
   useEffect(() => {
     if (pendingAuthMode) {
@@ -213,6 +234,336 @@ export default function AuthScreen() {
     setIsLogin(!isLogin);
     setError("");
     setConfirmPassword("");
+  }
+
+  function openForgotPassword() {
+    setForgotEmail(email);
+    setForgotError("");
+    setResetCode("");
+    setResetPassword("");
+    setResetConfirmPassword("");
+    setResetSuccess(false);
+    setAuthState({ view: "forgotPassword", serverToken: "" });
+  }
+
+  async function handleForgotPassword() {
+    setForgotError("");
+    if (!forgotEmail) {
+      setForgotError("Please enter your email address");
+      return;
+    }
+    setForgotLoading(true);
+    try {
+      const url = new URL("/api/auth/forgot-password", getApiUrl());
+      const response = await fetch(url.toString(), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: forgotEmail }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        setForgotError(data.message || "Something went wrong");
+        return;
+      }
+      const token = data.resetToken || "";
+      setResetCode(token);
+      setAuthState({ view: "resetPassword", serverToken: token });
+      if (Platform.OS !== "web") {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
+    } catch {
+      setForgotError("Could not connect to server. Please try again.");
+    } finally {
+      setForgotLoading(false);
+    }
+  }
+
+  async function handleResetPassword() {
+    setResetError("");
+    const code = resetCode.trim().toUpperCase();
+    if (!code) {
+      setResetError("Please enter the reset code");
+      return;
+    }
+    const pwError = validatePassword(resetPassword);
+    if (pwError) {
+      setResetError(pwError);
+      return;
+    }
+    if (resetPassword !== resetConfirmPassword) {
+      setResetError("Passwords do not match");
+      return;
+    }
+    setResetLoading(true);
+    try {
+      const url = new URL("/api/auth/reset-password", getApiUrl());
+      const response = await fetch(url.toString(), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token: code, newPassword: resetPassword }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        setResetError(data.message || "Reset failed. Please try again.");
+        return;
+      }
+      setResetSuccess(true);
+      if (Platform.OS !== "web") {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
+    } catch {
+      setResetError("Could not connect to server. Please try again.");
+    } finally {
+      setResetLoading(false);
+    }
+  }
+
+  if (authView === "forgotPassword") {
+    return (
+      <LinearGradient
+        colors={["#0A0E1A", "#1A1F2E", "#252B3D"]}
+        style={styles.gradient}
+      >
+        <Pressable
+          onPress={() => setAuthState({ view: "main", serverToken: "" })}
+          style={[styles.backButton, { top: insets.top + 12 }]}
+          testID="button-back-from-forgot"
+        >
+          <Feather name="arrow-left" size={24} color={Colors.dark.text} />
+        </Pressable>
+        <KeyboardAwareScrollViewCompat
+          style={styles.container}
+          contentContainerStyle={[
+            styles.content,
+            { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 12 },
+          ]}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={styles.logoContainer}>
+            <View style={styles.logoWrapper}>
+              <Image
+                source={require("../../assets/images/Logo_Figma.png")}
+                style={styles.logo}
+                resizeMode="contain"
+              />
+            </View>
+            <ThemedText type="h1" style={styles.title}>
+              Forgot Password
+            </ThemedText>
+            <ThemedText style={styles.subtitle}>
+              Enter your email and we will send you a reset code
+            </ThemedText>
+          </View>
+          <View style={styles.form}>
+            <TextInput
+              style={styles.input}
+              placeholder="Email"
+              placeholderTextColor={Colors.dark.textSecondary}
+              value={forgotEmail}
+              onChangeText={setForgotEmail}
+              autoCapitalize="none"
+              keyboardType="email-address"
+              autoComplete="off"
+              testID="input-forgot-email"
+            />
+            {forgotError.length > 0 ? (
+              <ThemedText style={styles.error}>{forgotError}</ThemedText>
+            ) : null}
+            <Button
+              onPress={handleForgotPassword}
+              disabled={forgotLoading}
+              style={styles.button}
+              testID="button-send-reset-code"
+            >
+              {forgotLoading ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : (
+                "Send Reset Code"
+              )}
+            </Button>
+            <Pressable
+              onPress={() => setAuthState({ view: "main", serverToken: "" })}
+              style={styles.toggleContainer}
+              testID="button-back-to-login"
+            >
+              <ThemedText style={styles.toggleText}>
+                {"Remember your password? "}
+                <ThemedText type="link" style={styles.toggleLink}>
+                  Sign In
+                </ThemedText>
+              </ThemedText>
+            </Pressable>
+          </View>
+        </KeyboardAwareScrollViewCompat>
+      </LinearGradient>
+    );
+  }
+
+  if (authView === "resetPassword") {
+    return (
+      <LinearGradient
+        colors={["#0A0E1A", "#1A1F2E", "#252B3D"]}
+        style={styles.gradient}
+      >
+        <Pressable
+          onPress={() => setAuthState({ view: "forgotPassword", serverToken: "" })}
+          style={[styles.backButton, { top: insets.top + 12 }]}
+          testID="button-back-from-reset"
+        >
+          <Feather name="arrow-left" size={24} color={Colors.dark.text} />
+        </Pressable>
+        <KeyboardAwareScrollViewCompat
+          style={styles.container}
+          contentContainerStyle={[
+            styles.content,
+            { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 12 },
+          ]}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={styles.logoContainer}>
+            <View style={styles.logoWrapper}>
+              <Image
+                source={require("../../assets/images/Logo_Figma.png")}
+                style={styles.logo}
+                resizeMode="contain"
+              />
+            </View>
+            <ThemedText type="h1" style={styles.title}>
+              Reset Password
+            </ThemedText>
+            {resetSuccess ? (
+              <ThemedText style={styles.subtitle}>
+                Your password has been reset successfully
+              </ThemedText>
+            ) : (
+              <ThemedText style={styles.subtitle}>
+                Enter the code sent to your email and choose a new password
+              </ThemedText>
+            )}
+          </View>
+
+          {resetSuccess ? (
+            <View style={styles.form}>
+              <View style={styles.successBox}>
+                <Feather name="check-circle" size={32} color={Colors.dark.success} />
+                <ThemedText style={styles.successText}>
+                  Password updated! You can now sign in with your new password.
+                </ThemedText>
+              </View>
+              <Button
+                onPress={() => {
+                  setAuthState({ view: "main", serverToken: "" });
+                  setIsLogin(true);
+                }}
+                style={styles.button}
+                testID="button-go-to-signin"
+              >
+                Sign In
+              </Button>
+            </View>
+          ) : (
+            <View style={styles.form}>
+              {serverToken.length > 0 ? (
+                <View style={styles.tokenBox}>
+                  <Feather name="lock" size={16} color={Colors.dark.accent} />
+                  <ThemedText style={styles.infoBoxText}>
+                    Your reset code:{"\n"}
+                    <ThemedText style={styles.tokenCode} testID="text-reset-token">{serverToken}</ThemedText>
+                  </ThemedText>
+                </View>
+              ) : (
+                <View style={styles.infoBox}>
+                  <Feather name="mail" size={16} color={Colors.dark.accent} />
+                  <ThemedText style={styles.infoBoxText}>
+                    Check your email for the reset code and enter it below.
+                  </ThemedText>
+                </View>
+              )}
+
+              <TextInput
+                style={styles.input}
+                placeholder="Reset Code"
+                placeholderTextColor={Colors.dark.textSecondary}
+                value={resetCode}
+                onChangeText={(t) => setResetCode(t.toUpperCase())}
+                autoCapitalize="characters"
+                autoComplete="off"
+                testID="input-reset-code"
+              />
+
+              <PasswordRulesChecklist password={resetPassword} />
+
+              <View style={styles.inputContainer}>
+                <TextInput
+                  style={styles.inputWithIcon}
+                  placeholder="New Password"
+                  placeholderTextColor={Colors.dark.textSecondary}
+                  value={resetPassword}
+                  onChangeText={(t) => setResetPassword(t.slice(0, 20))}
+                  secureTextEntry={!showResetPassword}
+                  maxLength={20}
+                  autoComplete="off"
+                  testID="input-new-password"
+                />
+                <Pressable
+                  onPress={() => setShowResetPassword((v) => !v)}
+                  style={styles.eyeButton}
+                  testID="button-toggle-new-password"
+                >
+                  <Feather
+                    name={showResetPassword ? "eye-off" : "eye"}
+                    size={18}
+                    color={Colors.dark.textSecondary}
+                  />
+                </Pressable>
+              </View>
+
+              <View style={styles.inputContainer}>
+                <TextInput
+                  style={styles.inputWithIcon}
+                  placeholder="Confirm New Password"
+                  placeholderTextColor={Colors.dark.textSecondary}
+                  value={resetConfirmPassword}
+                  onChangeText={setResetConfirmPassword}
+                  secureTextEntry={!showResetConfirmPassword}
+                  maxLength={20}
+                  autoComplete="off"
+                  testID="input-confirm-new-password"
+                />
+                <Pressable
+                  onPress={() => setShowResetConfirmPassword((v) => !v)}
+                  style={styles.eyeButton}
+                  testID="button-toggle-confirm-new-password"
+                >
+                  <Feather
+                    name={showResetConfirmPassword ? "eye-off" : "eye"}
+                    size={18}
+                    color={Colors.dark.textSecondary}
+                  />
+                </Pressable>
+              </View>
+
+              {resetError.length > 0 ? (
+                <ThemedText style={styles.error}>{resetError}</ThemedText>
+              ) : null}
+
+              <Button
+                onPress={handleResetPassword}
+                disabled={resetLoading}
+                style={styles.button}
+                testID="button-confirm-reset-password"
+              >
+                {resetLoading ? (
+                  <ActivityIndicator color="#FFFFFF" />
+                ) : (
+                  "Reset Password"
+                )}
+              </Button>
+            </View>
+          )}
+        </KeyboardAwareScrollViewCompat>
+      </LinearGradient>
+    );
   }
 
   return (
@@ -433,6 +784,18 @@ export default function AuthScreen() {
               "Create Account"
             )}
           </Button>
+
+          {isLogin ? (
+            <Pressable
+              onPress={openForgotPassword}
+              style={styles.toggleContainer}
+              testID="button-forgot-password"
+            >
+              <ThemedText type="link" style={styles.forgotPasswordLink}>
+                Forgot password?
+              </ThemedText>
+            </Pressable>
+          ) : null}
 
           <Pressable onPress={toggleMode} style={styles.toggleContainer}>
             <ThemedText style={styles.toggleText}>
@@ -660,5 +1023,56 @@ const styles = StyleSheet.create({
     color: Colors.dark.textSecondary,
     marginTop: Spacing.lg,
     fontSize: 12,
+  },
+  forgotPasswordLink: {
+    color: Colors.dark.textSecondary,
+    fontSize: 14,
+    textDecorationLine: "underline" as const,
+  },
+  successBox: {
+    alignItems: "center" as const,
+    gap: Spacing.md,
+    padding: Spacing.xl,
+    backgroundColor: "rgba(52, 199, 89, 0.1)",
+    borderRadius: BorderRadius.sm,
+    borderWidth: 1,
+    borderColor: Colors.dark.success,
+  },
+  successText: {
+    color: Colors.dark.success,
+    textAlign: "center" as const,
+    fontSize: 15,
+  },
+  infoBox: {
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    gap: Spacing.sm,
+    backgroundColor: "rgba(123, 104, 238, 0.12)",
+    borderRadius: BorderRadius.sm,
+    borderWidth: 1,
+    borderColor: Colors.dark.accent,
+    padding: Spacing.md,
+  },
+  infoBoxText: {
+    flex: 1,
+    fontSize: 13,
+    color: Colors.dark.textSecondary,
+    lineHeight: 18,
+  },
+  tokenBox: {
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    gap: Spacing.sm,
+    backgroundColor: "rgba(123, 104, 238, 0.18)",
+    borderRadius: BorderRadius.sm,
+    borderWidth: 1.5,
+    borderColor: Colors.dark.accent,
+    padding: Spacing.md,
+  },
+  tokenCode: {
+    color: Colors.dark.accent,
+    fontWeight: "700" as const,
+    fontSize: 18,
+    letterSpacing: 3,
   },
 });

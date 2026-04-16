@@ -2,6 +2,7 @@ import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "node:http";
 import * as fs from "fs";
 import multer from "multer";
+import crypto from "crypto";
 import { storage } from "./storage";
 import {
   generateToken,
@@ -42,6 +43,26 @@ function checkDemoRateLimit(ip: string): boolean {
   if (entry.count >= limit) return false;
   entry.count++;
   return true;
+}
+
+const passwordResetRateLimit = new Map<string, { count: number; resetAt: number }>();
+
+function checkPasswordResetRateLimit(ip: string): boolean {
+  const now = Date.now();
+  const window = 60 * 60_000;
+  const limit = 10;
+  const entry = passwordResetRateLimit.get(ip);
+  if (!entry || now > entry.resetAt) {
+    passwordResetRateLimit.set(ip, { count: 1, resetAt: now + window });
+    return true;
+  }
+  if (entry.count >= limit) return false;
+  entry.count++;
+  return true;
+}
+
+function hashResetToken(token: string): string {
+  return crypto.createHash("sha256").update(token).digest("hex");
 }
 
 const upload = multer({ storage: multer.memoryStorage() });
@@ -327,6 +348,93 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Login error:", error);
       res.status(500).json({ message: "Login failed" });
+    }
+  });
+
+  app.post("/api/auth/forgot-password", async (req: Request, res: Response) => {
+    try {
+      const ip =
+        (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() ||
+        req.socket.remoteAddress ||
+        "unknown";
+
+      if (!checkPasswordResetRateLimit(ip)) {
+        return res.status(429).json({ message: "Too many reset requests. Please wait an hour and try again." });
+      }
+
+      const { email } = req.body;
+
+      if (!email) {
+        return res.status(400).json({ message: "Email is required" });
+      }
+
+      const user = await storage.getUserByEmail(email);
+
+      const genericResponse = { message: "If an account with that email exists, a reset code has been sent." };
+
+      if (!user || !user.password) {
+        return res.json(genericResponse);
+      }
+
+      const rawToken = crypto.randomBytes(6).toString("hex").toUpperCase();
+      const tokenHash = hashResetToken(rawToken);
+      const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
+
+      await storage.createPasswordResetToken(user.id, tokenHash, expiresAt);
+
+      console.log(`[ForgotPassword] Reset token generated for user ${user.id}`);
+
+      const isDev = process.env.NODE_ENV !== "production";
+      res.json({
+        ...genericResponse,
+        ...(isDev ? { resetToken: rawToken } : {}),
+      });
+    } catch (error: any) {
+      console.error("Forgot password error:", error);
+      res.status(500).json({ message: "Failed to process request" });
+    }
+  });
+
+  app.post("/api/auth/reset-password", async (req: Request, res: Response) => {
+    try {
+      const ip =
+        (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() ||
+        req.socket.remoteAddress ||
+        "unknown";
+
+      if (!checkPasswordResetRateLimit(ip)) {
+        return res.status(429).json({ message: "Too many reset attempts. Please wait an hour and try again." });
+      }
+
+      const { token, newPassword } = req.body;
+
+      if (!token || !newPassword) {
+        return res.status(400).json({ message: "Token and new password are required" });
+      }
+
+      const tokenHash = hashResetToken(token.toUpperCase().trim());
+      const resetRecord = await storage.getPasswordResetToken(tokenHash);
+
+      if (!resetRecord) {
+        return res.status(400).json({ message: "Invalid or expired reset code" });
+      }
+
+      if (resetRecord.used) {
+        return res.status(400).json({ message: "This reset code has already been used" });
+      }
+
+      if (new Date() > resetRecord.expiresAt) {
+        return res.status(400).json({ message: "This reset code has expired. Please request a new one." });
+      }
+
+      const hashedPassword = await hashPassword(newPassword);
+      await storage.updateUser(resetRecord.userId, { password: hashedPassword });
+      await storage.markPasswordResetTokenUsed(tokenHash);
+
+      res.json({ message: "Password reset successfully" });
+    } catch (error: any) {
+      console.error("Reset password error:", error);
+      res.status(500).json({ message: "Failed to reset password" });
     }
   });
 
