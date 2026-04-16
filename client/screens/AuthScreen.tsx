@@ -631,9 +631,6 @@ export default function AuthScreen() {
                 </>
               )}
             </Pressable>
-            <ThemedText style={styles.demoNote}>
-              Browse all tracks and create a playlist in demo mode
-            </ThemedText>
           </View>
         ) : null}
 
