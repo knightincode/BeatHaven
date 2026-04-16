@@ -276,7 +276,7 @@ export default function AuthScreen() {
               ) : (
                 <>
                   <Feather name="play-circle" size={18} color={Colors.dark.accent} />
-                  <ThemedText style={styles.demoButtonText}>Try Free — No sign-up needed</ThemedText>
+                  <ThemedText style={styles.demoButtonText}>Try the App — No sign-up needed</ThemedText>
                 </>
               )}
             </Pressable>
@@ -286,11 +286,13 @@ export default function AuthScreen() {
           </View>
         ) : null}
 
-        <View style={styles.dividerContainer}>
-          <View style={styles.dividerLine} />
-          <ThemedText style={styles.dividerText}>{isLogin ? "or sign in" : "create account"}</ThemedText>
-          <View style={styles.dividerLine} />
-        </View>
+        {isLogin ? (
+          <View style={styles.dividerContainer}>
+            <View style={styles.dividerLine} />
+            <ThemedText style={styles.dividerText}>or sign in</ThemedText>
+            <View style={styles.dividerLine} />
+          </View>
+        ) : null}
 
         <View style={styles.form}>
           <Pressable
