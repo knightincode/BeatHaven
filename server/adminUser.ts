@@ -1,24 +1,15 @@
 import { db } from "./db";
 import { users } from "../shared/schema";
-import bcrypt from "bcryptjs";
+
+const ADMIN_EMAIL = "BeatHavenAdmin@gmail.com";
 
 export async function seedAdminUser(): Promise<void> {
-  const email = process.env.ADMIN_EMAIL?.trim();
-  const password = process.env.ADMIN_PASSWORD?.trim();
-
-  if (!email || !password) {
-    console.log("[Admin] ADMIN_EMAIL or ADMIN_PASSWORD not set — skipping admin seed");
-    return;
-  }
-
   try {
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    const [row] = await db
+    await db
       .insert(users)
       .values({
-        email,
-        password: hashedPassword,
+        email: ADMIN_EMAIL,
+        password: null,
         authProvider: "email",
         isAdmin: true,
         isDemo: false,
@@ -30,10 +21,9 @@ export async function seedAdminUser(): Promise<void> {
           isAdmin: true,
           subscriptionStatus: "active",
         },
-      })
-      .returning();
+      });
 
-    console.log(`[Admin] Admin user ready: ${row.id} (${email})`);
+    console.log(`[Admin] Admin user promoted: ${ADMIN_EMAIL}`);
   } catch (err) {
     console.error("[Admin] Failed to seed admin user:", err);
   }
