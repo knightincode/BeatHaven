@@ -13,6 +13,7 @@ import {
 import { verifyAppleIdentityToken } from "./appleAuth";
 import { verifyGoogleIdToken } from "./googleAuth";
 import { getUncachableStripeClient, getStripePublishableKey } from "./stripeClient";
+import { sendPasswordResetEmail } from "./emailClient";
 import * as path from "path";
 import {
   uploadAudioFile,
@@ -384,11 +385,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       console.log(`[ForgotPassword] Reset token generated for user ${user.id}`);
 
-      const isDev = process.env.NODE_ENV !== "production";
-      res.json({
-        ...genericResponse,
-        ...(isDev ? { resetToken: rawToken } : {}),
-      });
+      try {
+        await sendPasswordResetEmail(user.email, rawToken);
+      } catch (emailError: any) {
+        console.error(
+          `[ForgotPassword] Failed to send email to ${user.email}:`,
+          emailError?.message || emailError,
+        );
+        return res
+          .status(500)
+          .json({ message: "Failed to send reset email. Please try again later." });
+      }
+
+      res.json(genericResponse);
     } catch (error: any) {
       console.error("Forgot password error:", error);
       res.status(500).json({ message: "Failed to process request" });

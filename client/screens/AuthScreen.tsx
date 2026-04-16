@@ -265,9 +265,8 @@ export default function AuthScreen() {
         setForgotError(data.message || "Something went wrong");
         return;
       }
-      const token = data.resetToken || "";
-      setResetCode(token);
-      setAuthState({ view: "resetPassword", serverToken: token });
+      setResetCode("");
+      setAuthState({ view: "resetPassword", serverToken: "" });
       if (Platform.OS !== "web") {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
