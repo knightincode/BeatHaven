@@ -19,7 +19,7 @@ import { Button } from "@/components/Button";
 import { useAuth } from "@/contexts/AuthContext";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
-import { useGoogleAuth, getGoogleAuthSetupInfo, isRunningInExpoGo } from "@/services/googleAuth";
+import { useGoogleAuth, isRunningInExpoGo } from "@/services/googleAuth";
 
 const PASSWORD_RULES = [
   { label: "At least 8 characters", test: (p: string) => p.length >= 8 },
@@ -234,7 +234,7 @@ export default function AuthScreen() {
         style={styles.container}
         contentContainerStyle={[
           styles.content,
-          { paddingTop: insets.top + 60, paddingBottom: insets.bottom + 40 },
+          { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 12 },
         ]}
         keyboardShouldPersistTaps="handled"
       >
@@ -249,9 +249,47 @@ export default function AuthScreen() {
           <ThemedText type="h1" style={styles.title}>
             Beat Haven
           </ThemedText>
-          <ThemedText type= "h2"style={styles.subtitle}>
-            Your personal meditation sanctuary :)
+          <ThemedText style={styles.subtitle}>
+            Your personal meditation sanctuary
           </ThemedText>
+        </View>
+
+        {isLogin ? (
+          <View style={styles.demoSection}>
+            <Pressable
+              onPress={async () => {
+                setIsDemoLoading(true);
+                try {
+                  await loginAsDemo();
+                } catch (err: any) {
+                  setError(err?.message || "Could not enter demo mode. Please try again.");
+                } finally {
+                  setIsDemoLoading(false);
+                }
+              }}
+              disabled={isDemoLoading}
+              style={[styles.demoButton, isDemoLoading ? styles.demoButtonDisabled : null]}
+              testID="button-try-demo"
+            >
+              {isDemoLoading ? (
+                <ActivityIndicator color={Colors.dark.accent} size="small" />
+              ) : (
+                <>
+                  <Feather name="play-circle" size={18} color={Colors.dark.accent} />
+                  <ThemedText style={styles.demoButtonText}>Try Free — No sign-up needed</ThemedText>
+                </>
+              )}
+            </Pressable>
+            <ThemedText style={styles.demoNote}>
+              Browse all tracks and create a playlist in demo mode
+            </ThemedText>
+          </View>
+        ) : null}
+
+        <View style={styles.dividerContainer}>
+          <View style={styles.dividerLine} />
+          <ThemedText style={styles.dividerText}>{isLogin ? "or sign in" : "create account"}</ThemedText>
+          <View style={styles.dividerLine} />
         </View>
 
         <View style={styles.form}>
@@ -304,7 +342,7 @@ export default function AuthScreen() {
             />
           ) : null}
 
-          <View style={styles.dividerContainer}>
+          <View style={styles.emailDividerContainer}>
             <View style={styles.dividerLine} />
             <ThemedText style={styles.dividerText}>or</ThemedText>
             <View style={styles.dividerLine} />
@@ -406,41 +444,6 @@ export default function AuthScreen() {
           </Pressable>
         </View>
 
-        <View style={styles.demoSection}>
-          <View style={styles.demoDividerRow}>
-            <View style={styles.demoDividerLine} />
-            <ThemedText style={styles.demoDividerLabel}>or</ThemedText>
-            <View style={styles.demoDividerLine} />
-          </View>
-          <Pressable
-            onPress={async () => {
-              setIsDemoLoading(true);
-              try {
-                await loginAsDemo();
-              } catch (err: any) {
-                setError(err?.message || "Could not enter demo mode. Please try again.");
-              } finally {
-                setIsDemoLoading(false);
-              }
-            }}
-            disabled={isDemoLoading}
-            style={[styles.demoButton, isDemoLoading ? styles.demoButtonDisabled : null]}
-            testID="button-try-demo"
-          >
-            {isDemoLoading ? (
-              <ActivityIndicator color={Colors.dark.accent} size="small" />
-            ) : (
-              <>
-                <Feather name="play-circle" size={18} color={Colors.dark.accent} />
-                <ThemedText style={styles.demoButtonText}>Try the App — No sign-up needed</ThemedText>
-              </>
-            )}
-          </Pressable>
-          <ThemedText style={styles.demoNote}>
-            Demo mode: browse all tracks, create one playlist. Sign up for the full experience.
-          </ThemedText>
-        </View>
-
         <ThemedText style={styles.priceInfo}>
           Start your 7-day free trial, then $4.99/month
         </ThemedText>
@@ -474,31 +477,80 @@ const styles = StyleSheet.create({
   },
   logoContainer: {
     alignItems: "center",
-    marginBottom: Spacing["4xl"],
-  },
-  logoWrapper: {
-    width: 100,
-    height: 100,
-    borderRadius: 22,
-    overflow: "hidden",
     marginBottom: Spacing.lg,
   },
+  logoWrapper: {
+    width: 68,
+    height: 68,
+    borderRadius: 16,
+    overflow: "hidden",
+    marginBottom: Spacing.sm,
+  },
   logo: {
-    width: 100,
-    height: 100,
-    borderRadius: 22,
+    width: 68,
+    height: 68,
+    borderRadius: 16,
   },
   title: {
     textAlign: "center",
-    marginBottom: Spacing.sm,
+    marginBottom: Spacing.xs,
   },
   subtitle: {
     textAlign: "center",
     color: Colors.dark.textSecondary,
-    fontSize: 16,
+    fontSize: 14,
+  },
+  demoSection: {
+    gap: Spacing.sm,
+    marginBottom: Spacing.md,
+  },
+  demoButton: {
+    height: Spacing.inputHeight,
+    width: "100%",
+    borderRadius: BorderRadius.sm,
+    borderWidth: 1.5,
+    borderColor: Colors.dark.accent,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.md,
+    backgroundColor: "rgba(123, 104, 238, 0.12)",
+  },
+  demoButtonDisabled: {
+    opacity: 0.5,
+  },
+  demoButtonText: {
+    color: Colors.dark.accent,
+    fontSize: 15,
+    fontWeight: "600" as const,
+  },
+  demoNote: {
+    textAlign: "center",
+    color: Colors.dark.textSecondary,
+    fontSize: 12,
+  },
+  dividerContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    marginBottom: Spacing.md,
+  },
+  emailDividerContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: Colors.dark.border,
+  },
+  dividerText: {
+    color: Colors.dark.textSecondary,
+    fontSize: 13,
   },
   form: {
-    gap: Spacing.lg,
+    gap: Spacing.md,
   },
   input: {
     height: Spacing.inputHeight,
@@ -555,21 +607,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   button: {
-    marginTop: Spacing.sm,
-  },
-  dividerContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.md,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: Colors.dark.border,
-  },
-  dividerText: {
-    color: Colors.dark.textSecondary,
-    fontSize: 14,
+    marginTop: Spacing.xs,
   },
   googleButton: {
     height: Spacing.inputHeight,
@@ -606,62 +644,19 @@ const styles = StyleSheet.create({
   },
   toggleContainer: {
     alignItems: "center",
-    marginTop: Spacing.lg,
   },
   toggleText: {
     color: Colors.dark.textSecondary,
+    fontSize: 14,
   },
   toggleLink: {
     color: Colors.dark.link,
+    fontSize: 14,
   },
   priceInfo: {
     textAlign: "center",
     color: Colors.dark.textSecondary,
-    marginTop: Spacing["4xl"],
-    fontSize: 14,
-  },
-  demoSection: {
-    marginTop: Spacing["2xl"],
-    gap: Spacing.md,
-  },
-  demoDividerRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.md,
-  },
-  demoDividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: Colors.dark.border,
-  },
-  demoDividerLabel: {
-    color: Colors.dark.textSecondary,
-    fontSize: 14,
-  },
-  demoButton: {
-    height: Spacing.inputHeight,
-    width: "100%",
-    borderRadius: BorderRadius.sm,
-    borderWidth: 1.5,
-    borderColor: Colors.dark.accent,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: Spacing.md,
-    backgroundColor: "rgba(123, 104, 238, 0.08)",
-  },
-  demoButtonDisabled: {
-    opacity: 0.5,
-  },
-  demoButtonText: {
-    color: Colors.dark.accent,
-    fontSize: 15,
-    fontWeight: "600" as const,
-  },
-  demoNote: {
-    textAlign: "center",
-    color: Colors.dark.textSecondary,
+    marginTop: Spacing.lg,
     fontSize: 12,
-    paddingHorizontal: Spacing.sm,
   },
 });
