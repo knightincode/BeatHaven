@@ -1203,18 +1203,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
           console.log("[RC Webhook] Activated:", userId, plan);
         } else if (deactivating) {
-          if (user.subscriptionSource === "revenuecat") {
-            await storage.updateUserStripeInfo(user.id, {
-              subscriptionStatus: "inactive",
-              plan: "none",
-            });
-            console.log("[RC Webhook] Deactivated:", userId);
+          if (user.plan === "lifetime") {
+            console.log("[RC Webhook] Skip deactivate — user holds lifetime:", userId);
           } else {
-            console.log(
-              "[RC Webhook] Skipped deactivation (another source active):",
-              userId,
-              user.subscriptionSource
-            );
+            let stripeStillActive = false;
+            if (user.stripeCustomerId) {
+              try {
+                const stripe = await getUncachableStripeClient();
+                const subs = await stripe.subscriptions.list({
+                  customer: user.stripeCustomerId,
+                  status: "all",
+                  limit: 5,
+                });
+                stripeStillActive = subs.data.some(
+                  (s) => s.status === "active" || s.status === "trialing"
+                );
+              } catch (err: any) {
+                console.warn("[RC Webhook] Stripe check failed:", err?.message ?? err);
+              }
+            }
+            if (stripeStillActive) {
+              await storage.updateUserStripeInfo(user.id, {
+                subscriptionSource: "stripe",
+              });
+              console.log("[RC Webhook] Kept active via Stripe:", userId);
+            } else if (user.subscriptionSource === "revenuecat") {
+              await storage.updateUserStripeInfo(user.id, {
+                subscriptionStatus: "inactive",
+                plan: "none",
+              });
+              console.log("[RC Webhook] Deactivated:", userId);
+            } else {
+              console.log(
+                "[RC Webhook] Skipped deactivation (source not revenuecat):",
+                userId,
+                user.subscriptionSource
+              );
+            }
           }
         } else if (cancellationScheduled) {
           console.log(

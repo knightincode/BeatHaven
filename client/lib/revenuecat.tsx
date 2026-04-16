@@ -2,6 +2,25 @@ import React, { createContext, useContext, useEffect, useState } from "react";
 import { Platform } from "react-native";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import Constants from "expo-constants";
+import type {
+  CustomerInfo,
+  PurchasesOfferings,
+  PurchasesPackage,
+  PurchasesStoreProduct,
+  MakePurchaseResult,
+} from "react-native-purchases";
+
+type PurchasesSdk = {
+  configure: (options: { apiKey: string }) => void;
+  setLogLevel?: (level: unknown) => void;
+  LOG_LEVEL?: { INFO: unknown };
+  logIn: (userId: string) => Promise<unknown>;
+  logOut: () => Promise<unknown>;
+  getCustomerInfo: () => Promise<CustomerInfo>;
+  getOfferings: () => Promise<PurchasesOfferings>;
+  purchasePackage: (pkg: PurchasesPackage) => Promise<MakePurchaseResult>;
+  restorePurchases: () => Promise<CustomerInfo>;
+};
 
 const REVENUECAT_TEST_API_KEY = process.env.EXPO_PUBLIC_REVENUECAT_TEST_API_KEY;
 const REVENUECAT_IOS_API_KEY = process.env.EXPO_PUBLIC_REVENUECAT_IOS_API_KEY;
@@ -24,14 +43,15 @@ function getRevenueCatApiKey(): string | null {
   return REVENUECAT_TEST_API_KEY ?? null;
 }
 
-let purchasesModule: any = null;
+let purchasesModule: PurchasesSdk | null = null;
 let initialized = false;
 
-async function loadPurchasesModule() {
+async function loadPurchasesModule(): Promise<PurchasesSdk | null> {
   if (purchasesModule) return purchasesModule;
   try {
     const mod = await import("react-native-purchases");
-    purchasesModule = mod.default ?? mod;
+    const resolved = (mod as unknown as { default?: PurchasesSdk }).default ?? (mod as unknown as PurchasesSdk);
+    purchasesModule = resolved;
     return purchasesModule;
   } catch (err) {
     console.warn("[RevenueCat] Failed to load react-native-purchases:", err);
@@ -79,7 +99,7 @@ export async function resetRevenueCatUser(): Promise<void> {
   if (!Purchases) return;
   try {
     await Purchases.logOut();
-  } catch (err) {
+  } catch {
     // logOut throws if user is anonymous — safe to ignore
   }
 }
@@ -87,11 +107,11 @@ export async function resetRevenueCatUser(): Promise<void> {
 type SubscriptionContextValue = {
   available: boolean;
   isSubscribed: boolean;
-  customerInfo: any;
-  offerings: any;
+  customerInfo: CustomerInfo | null;
+  offerings: PurchasesOfferings | null;
   isLoading: boolean;
-  purchase: (pkg: any) => Promise<any>;
-  restore: () => Promise<any>;
+  purchase: (pkg: PurchasesPackage) => Promise<MakePurchaseResult>;
+  restore: () => Promise<CustomerInfo>;
   isPurchasing: boolean;
   isRestoring: boolean;
   refetch: () => void;
@@ -100,66 +120,65 @@ type SubscriptionContextValue = {
 const Context = createContext<SubscriptionContextValue | null>(null);
 
 export function SubscriptionProvider({ children }: { children: React.ReactNode }) {
-  const [ready, setReady] = useState(REVENUECAT_AVAILABLE && Platform.OS !== "web");
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
     if (!REVENUECAT_AVAILABLE) return;
     if (Platform.OS === "web") return;
+    let cancelled = false;
     (async () => {
       const ok = await initializeRevenueCat();
-      setReady(ok);
+      if (!cancelled) setReady(ok);
     })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  const customerInfoQuery = useQuery({
+  const customerInfoQuery = useQuery<CustomerInfo>({
     queryKey: ["revenuecat", "customer-info"],
     enabled: ready,
     staleTime: 60 * 1000,
+    retry: 2,
     queryFn: async () => {
       const Purchases = await loadPurchasesModule();
-      if (!Purchases) return null;
-      try {
-        return await Purchases.getCustomerInfo();
-      } catch (err) {
-        console.warn("[RevenueCat] getCustomerInfo failed:", err);
-        return null;
-      }
+      if (!Purchases) throw new Error("RevenueCat SDK unavailable");
+      return Purchases.getCustomerInfo();
     },
   });
 
-  const offeringsQuery = useQuery({
+  const offeringsQuery = useQuery<PurchasesOfferings>({
     queryKey: ["revenuecat", "offerings"],
     enabled: ready,
     staleTime: 300 * 1000,
+    retry: 2,
     queryFn: async () => {
       const Purchases = await loadPurchasesModule();
-      if (!Purchases) return null;
-      try {
-        return await Purchases.getOfferings();
-      } catch (err) {
-        console.warn("[RevenueCat] getOfferings failed:", err);
-        return null;
-      }
+      if (!Purchases) throw new Error("RevenueCat SDK unavailable");
+      return Purchases.getOfferings();
     },
   });
 
-  const purchaseMutation = useMutation({
-    mutationFn: async (pkg: any) => {
+  const purchaseMutation = useMutation<MakePurchaseResult, Error, PurchasesPackage>({
+    mutationFn: async (pkg) => {
       const Purchases = await loadPurchasesModule();
       if (!Purchases) throw new Error("RevenueCat unavailable");
-      const result = await Purchases.purchasePackage(pkg);
-      return result?.customerInfo ?? result;
+      return Purchases.purchasePackage(pkg);
     },
-    onSuccess: () => customerInfoQuery.refetch(),
+    onSuccess: () => {
+      customerInfoQuery.refetch();
+    },
   });
 
-  const restoreMutation = useMutation({
+  const restoreMutation = useMutation<CustomerInfo>({
     mutationFn: async () => {
       const Purchases = await loadPurchasesModule();
       if (!Purchases) throw new Error("RevenueCat unavailable");
       return Purchases.restorePurchases();
     },
-    onSuccess: () => customerInfoQuery.refetch(),
+    onSuccess: () => {
+      customerInfoQuery.refetch();
+    },
   });
 
   const isSubscribed =
@@ -168,8 +187,8 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
   const value: SubscriptionContextValue = {
     available: ready,
     isSubscribed,
-    customerInfo: customerInfoQuery.data,
-    offerings: offeringsQuery.data,
+    customerInfo: customerInfoQuery.data ?? null,
+    offerings: offeringsQuery.data ?? null,
     isLoading: ready && (customerInfoQuery.isLoading || offeringsQuery.isLoading),
     purchase: purchaseMutation.mutateAsync,
     restore: restoreMutation.mutateAsync,
@@ -191,3 +210,5 @@ export function useSubscription() {
   }
   return ctx;
 }
+
+export type { CustomerInfo, PurchasesOfferings, PurchasesPackage, PurchasesStoreProduct };
