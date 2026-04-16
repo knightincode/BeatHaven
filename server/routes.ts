@@ -1252,7 +1252,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       );
 
       if (activeSub) {
-        const interval = (activeSub as any).items?.data?.[0]?.price?.recurring?.interval;
+        const interval = activeSub.items?.data?.[0]?.price?.recurring?.interval;
         const inferredPlan =
           interval === "year" ? "yearly" : interval === "month" ? "monthly" : user.plan || "monthly";
         await storage.updateUserStripeInfo(user.id, {

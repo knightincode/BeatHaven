@@ -1,5 +1,8 @@
+import type Stripe from "stripe";
 import { getStripeSync, getUncachableStripeClient } from "./stripeClient";
 import { storage } from "./storage";
+
+type PlanTier = "monthly" | "yearly" | "lifetime";
 
 function inferPlanFromName(name?: string | null): string | null {
   if (!name) return null;
@@ -10,6 +13,15 @@ function inferPlanFromName(name?: string | null): string | null {
   return null;
 }
 
+function extractCustomerId(obj: Stripe.Event.Data.Object): string | undefined {
+  if ("customer" in obj) {
+    const c = (obj as { customer: string | Stripe.Customer | null }).customer;
+    if (typeof c === "string") return c;
+    if (c && "id" in c) return c.id;
+  }
+  return undefined;
+}
+
 async function persistPlanForStripeEvent(payload: Buffer, signature: string): Promise<void> {
   try {
     const secret = process.env.STRIPE_WEBHOOK_SECRET;
@@ -18,36 +30,51 @@ async function persistPlanForStripeEvent(payload: Buffer, signature: string): Pr
     const event = stripe.webhooks.constructEvent(payload, signature, secret);
 
     const type = event.type;
-    const obj: any = event.data?.object ?? {};
-    const customerId: string | undefined =
-      obj.customer ?? obj.customer_id ?? obj?.subscription?.customer;
+    const obj = event.data.object;
+    const customerId = extractCustomerId(obj);
     if (!customerId) return;
 
     const user = await storage.getUserByStripeCustomerId(customerId);
     if (!user) return;
 
-    let plan: string | null = null;
+    let plan: PlanTier | null = null;
     let mode: "subscription" | "payment" | null = null;
+    let subStatus: string | null = null;
 
     if (type === "checkout.session.completed") {
-      mode = obj.mode === "payment" ? "payment" : "subscription";
+      const session = obj as Stripe.Checkout.Session;
+      mode = session.mode === "payment" ? "payment" : "subscription";
       try {
-        const items = await stripe.checkout.sessions.listLineItems(obj.id, { limit: 5 });
+        const items = await stripe.checkout.sessions.listLineItems(session.id, { limit: 5 });
         for (const li of items.data) {
-          const pname = (li as any)?.price?.product?.name ?? li?.description;
+          const priceProduct = li.price?.product;
+          const pname =
+            typeof priceProduct === "object" && priceProduct && "name" in priceProduct
+              ? priceProduct.name
+              : li.description;
           const inferred = inferPlanFromName(pname);
-          if (inferred) { plan = inferred; break; }
+          if (inferred) { plan = inferred as PlanTier; break; }
         }
       } catch {}
-      if (!plan && obj?.metadata?.tier) plan = obj.metadata.tier;
+      const metaTier = session.metadata?.tier;
+      if (!plan && (metaTier === "monthly" || metaTier === "yearly" || metaTier === "lifetime")) {
+        plan = metaTier;
+      }
     } else if (
       type === "customer.subscription.created" ||
       type === "customer.subscription.updated" ||
-      type === "invoice.paid"
+      type === "customer.subscription.deleted"
     ) {
+      const sub = obj as Stripe.Subscription;
       mode = "subscription";
-      const item = obj?.items?.data?.[0] ?? obj?.lines?.data?.[0];
-      const interval = item?.price?.recurring?.interval ?? item?.plan?.interval;
+      subStatus = sub.status;
+      const interval = sub.items?.data?.[0]?.price?.recurring?.interval;
+      if (interval === "month") plan = "monthly";
+      else if (interval === "year") plan = "yearly";
+    } else if (type === "invoice.paid") {
+      const invoice = obj as Stripe.Invoice;
+      mode = "subscription";
+      const interval = invoice.lines?.data?.[0]?.price?.recurring?.interval;
       if (interval === "month") plan = "monthly";
       else if (interval === "year") plan = "yearly";
     }
@@ -56,12 +83,14 @@ async function persistPlanForStripeEvent(payload: Buffer, signature: string): Pr
       type === "checkout.session.completed" ||
       type === "invoice.paid" ||
       (type.startsWith("customer.subscription.") &&
-        ["active", "trialing"].includes(obj.status));
+        subStatus !== null &&
+        ["active", "trialing"].includes(subStatus));
 
     const deactivating =
       type === "customer.subscription.deleted" ||
       (type === "customer.subscription.updated" &&
-        ["canceled", "unpaid", "incomplete_expired"].includes(obj.status));
+        subStatus !== null &&
+        ["canceled", "unpaid", "incomplete_expired"].includes(subStatus));
 
     if (activating && plan) {
       await storage.updateUserStripeInfo(user.id, {
@@ -70,12 +99,18 @@ async function persistPlanForStripeEvent(payload: Buffer, signature: string): Pr
         subscriptionSource: "stripe",
       });
       console.log("[Stripe Webhook] Plan set:", user.id, plan, "mode:", mode);
-    } else if (deactivating && user.subscriptionSource !== "revenuecat") {
-      await storage.updateUserStripeInfo(user.id, {
-        subscriptionStatus: "inactive",
-        plan: "none",
-      });
-      console.log("[Stripe Webhook] Deactivated:", user.id);
+    } else if (deactivating) {
+      if (user.plan === "lifetime") {
+        console.log("[Stripe Webhook] Skip deactivate — user holds lifetime:", user.id);
+      } else if (user.subscriptionSource === "revenuecat") {
+        console.log("[Stripe Webhook] Skip deactivate — active RevenueCat source:", user.id);
+      } else {
+        await storage.updateUserStripeInfo(user.id, {
+          subscriptionStatus: "inactive",
+          plan: "none",
+        });
+        console.log("[Stripe Webhook] Deactivated:", user.id);
+      }
     }
   } catch (err: any) {
     console.error("[Stripe Webhook] Plan persistence skipped:", err?.message ?? err);

@@ -22,6 +22,13 @@
       "when": 1776361200000,
       "tag": "0002_add_password_reset_tokens",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1776381810028,
+      "tag": "0003_mean_baron_zemo",
+      "breakpoints": true
     }
   ]
 }
