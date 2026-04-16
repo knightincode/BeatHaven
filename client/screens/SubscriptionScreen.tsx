@@ -152,16 +152,30 @@ export default function SubscriptionScreen() {
 
   function handleContinue() {
     hapticTap();
-    if (useRevenueCat) {
-      const pkg = rcPackages[selectedTier];
-      if (pkg) {
-        if (__DEV__) {
-          setPendingRcPackage(pkg);
-        } else {
-          runRcPurchase(pkg);
-        }
+    if (Platform.OS !== "web") {
+      if (!rcSubscription.available) {
+        setErrorModal({
+          title: "Store Unavailable",
+          message:
+            "In-app purchases are not available right now. Please try again in a moment or restart the app.",
+        });
         return;
       }
+      const pkg = rcPackages[selectedTier];
+      if (!pkg) {
+        setErrorModal({
+          title: "Product Not Available",
+          message:
+            "This plan isn't available on your device yet. Please try again shortly or restore a previous purchase.",
+        });
+        return;
+      }
+      if (__DEV__) {
+        setPendingRcPackage(pkg);
+      } else {
+        runRcPurchase(pkg);
+      }
+      return;
     }
     stripeCheckoutMutation.mutate(selectedTier, {
       onError: (err: any) => {

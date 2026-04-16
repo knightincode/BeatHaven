@@ -1193,6 +1193,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           "TRIAL_STARTED",
         ].includes(type);
         const deactivating = ["EXPIRATION", "REFUND", "SUBSCRIPTION_PAUSED"].includes(type);
+        const cancellationScheduled = type === "CANCELLATION";
 
         if (activating) {
           await storage.updateUserStripeInfo(user.id, {
@@ -1202,11 +1203,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
           console.log("[RC Webhook] Activated:", userId, plan);
         } else if (deactivating) {
-          await storage.updateUserStripeInfo(user.id, {
-            subscriptionStatus: "inactive",
-            plan: "none",
-          });
-          console.log("[RC Webhook] Deactivated:", userId);
+          if (user.subscriptionSource === "revenuecat") {
+            await storage.updateUserStripeInfo(user.id, {
+              subscriptionStatus: "inactive",
+              plan: "none",
+            });
+            console.log("[RC Webhook] Deactivated:", userId);
+          } else {
+            console.log(
+              "[RC Webhook] Skipped deactivation (another source active):",
+              userId,
+              user.subscriptionSource
+            );
+          }
+        } else if (cancellationScheduled) {
+          console.log(
+            "[RC Webhook] Cancellation scheduled — access retained until period end:",
+            userId
+          );
         }
 
         res.json({ received: true });
@@ -1238,22 +1252,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
       );
 
       if (activeSub) {
+        const interval = (activeSub as any).items?.data?.[0]?.price?.recurring?.interval;
+        const inferredPlan =
+          interval === "year" ? "yearly" : interval === "month" ? "monthly" : user.plan || "monthly";
         await storage.updateUserStripeInfo(user.id, {
           stripeSubscriptionId: activeSub.id,
           subscriptionStatus: "active",
+          plan: inferredPlan,
+          subscriptionSource: "stripe",
         });
-        console.log("[Sync] Subscription synced to active for user:", user.id, "sub:", activeSub.id);
-        return res.json({ subscriptionStatus: "active" });
+        console.log("[Sync] Subscription active:", user.id, "plan:", inferredPlan);
+        return res.json({ subscriptionStatus: "active", plan: inferredPlan });
+      }
+
+      // Check for one-time lifetime purchase via completed checkout sessions (mode=payment)
+      try {
+        const sessions = await stripe.checkout.sessions.list({
+          customer: user.stripeCustomerId,
+          limit: 20,
+        });
+        const lifetimeSession = sessions.data.find(
+          (s: any) =>
+            s.mode === "payment" &&
+            s.payment_status === "paid" &&
+            (s.metadata?.tier === "lifetime" ||
+              (typeof s.metadata?.tier !== "string" && s.amount_total && s.amount_total >= 9000))
+        );
+        if (lifetimeSession) {
+          await storage.updateUserStripeInfo(user.id, {
+            subscriptionStatus: "active",
+            plan: "lifetime",
+            subscriptionSource: "stripe",
+          });
+          console.log("[Sync] Lifetime unlocked:", user.id, lifetimeSession.id);
+          return res.json({ subscriptionStatus: "active", plan: "lifetime" });
+        }
+      } catch (err: any) {
+        console.warn("[Sync] Lifetime check failed:", err?.message ?? err);
       }
 
       const cancelledOrPast = subscriptions.data.find(
         (s) => s.status === "canceled" || s.status === "past_due" || s.status === "unpaid"
       );
-      if (cancelledOrPast && user.subscriptionStatus === "active") {
+      if (
+        cancelledOrPast &&
+        user.subscriptionStatus === "active" &&
+        user.subscriptionSource !== "revenuecat" &&
+        user.plan !== "lifetime"
+      ) {
         await storage.updateUserStripeInfo(user.id, {
           subscriptionStatus: "inactive",
+          plan: "none",
         });
-        console.log("[Sync] Subscription synced to inactive for user:", user.id);
+        console.log("[Sync] Subscription inactive:", user.id);
         return res.json({ subscriptionStatus: "inactive" });
       }
 

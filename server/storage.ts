@@ -40,6 +40,11 @@ export class Storage {
     return user;
   }
 
+  async getUserByStripeCustomerId(stripeCustomerId: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.stripeCustomerId, stripeCustomerId));
+    return user;
+  }
+
   async createUser(
     email: string,
     hashedPassword: string | null,
