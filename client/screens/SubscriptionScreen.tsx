@@ -6,6 +6,7 @@ import {
   Platform,
   Pressable,
   Modal,
+  Linking,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
@@ -61,6 +62,7 @@ export default function SubscriptionScreen() {
 
   const [selectedTier, setSelectedTier] = useState<PlanTier>("yearly");
   const [pendingRcPackage, setPendingRcPackage] = useState<any | null>(null);
+  const [errorModal, setErrorModal] = useState<{ title: string; message: string } | null>(null);
 
   const pricesQuery = useQuery<{ plans: ServerPlan[] }>({
     queryKey: ["/api/subscription/prices"],
@@ -156,24 +158,38 @@ export default function SubscriptionScreen() {
         if (__DEV__) {
           setPendingRcPackage(pkg);
         } else {
-          rcSubscription.purchase(pkg).catch((err: any) => {
-            console.warn("Purchase failed:", err?.message ?? err);
-          });
+          runRcPurchase(pkg);
         }
         return;
       }
     }
-    stripeCheckoutMutation.mutate(selectedTier);
+    stripeCheckoutMutation.mutate(selectedTier, {
+      onError: (err: any) => {
+        setErrorModal({
+          title: "Checkout Unavailable",
+          message: err?.message ?? "We couldn't start your checkout. Please try again.",
+        });
+      },
+    });
+  }
+
+  async function runRcPurchase(pkg: any) {
+    try {
+      await rcSubscription.purchase(pkg);
+      await refreshUser();
+    } catch (err: any) {
+      if (err?.userCancelled) return;
+      setErrorModal({
+        title: "Purchase Failed",
+        message: err?.message ?? "The purchase could not be completed. Please try again.",
+      });
+    }
   }
 
   function confirmRcPurchase() {
     const pkg = pendingRcPackage;
     setPendingRcPackage(null);
-    if (pkg) {
-      rcSubscription.purchase(pkg).catch((err: any) => {
-        console.warn("Purchase failed:", err?.message ?? err);
-      });
-    }
+    if (pkg) runRcPurchase(pkg);
   }
 
   async function handleRestore() {
@@ -182,8 +198,15 @@ export default function SubscriptionScreen() {
       try {
         await rcSubscription.restore();
         await refreshUser();
+        setErrorModal({
+          title: "Restore Complete",
+          message: "Your purchases have been restored.",
+        });
       } catch (err: any) {
-        console.warn("Restore failed:", err?.message ?? err);
+        setErrorModal({
+          title: "Restore Failed",
+          message: err?.message ?? "We couldn't restore your purchases.",
+        });
       }
     } else {
       try {
@@ -193,7 +216,28 @@ export default function SubscriptionScreen() {
           headers: { Authorization: `Bearer ${token}` },
         });
         await refreshUser();
-      } catch {}
+      } catch (err: any) {
+        setErrorModal({
+          title: "Restore Failed",
+          message: err?.message ?? "We couldn't sync your subscription.",
+        });
+      }
+    }
+  }
+
+  async function openStoreManagement() {
+    hapticTap();
+    const url =
+      Platform.OS === "ios"
+        ? "https://apps.apple.com/account/subscriptions"
+        : "https://play.google.com/store/account/subscriptions";
+    try {
+      await Linking.openURL(url);
+    } catch {
+      setErrorModal({
+        title: "Unable to Open",
+        message: "Please manage your subscription from your device's store app.",
+      });
     }
   }
 
@@ -257,9 +301,29 @@ export default function SubscriptionScreen() {
               ))}
             </Card>
 
-            {user?.subscriptionSource !== "revenuecat" && (
+            {user?.plan === "lifetime" ? null : user?.subscriptionSource === "revenuecat" ? (
               <Button
-                onPress={() => manageMutation.mutate()}
+                onPress={openStoreManagement}
+                style={styles.primaryButton}
+                testID="button-manage-subscription"
+              >
+                {Platform.OS === "ios"
+                  ? "Manage in App Store"
+                  : Platform.OS === "android"
+                    ? "Manage in Google Play"
+                    : "Manage Subscription"}
+              </Button>
+            ) : (
+              <Button
+                onPress={() =>
+                  manageMutation.mutate(undefined, {
+                    onError: (err: any) =>
+                      setErrorModal({
+                        title: "Unable to Open Billing",
+                        message: err?.message ?? "Please try again shortly.",
+                      }),
+                  })
+                }
                 disabled={manageMutation.isPending}
                 style={styles.primaryButton}
                 testID="button-manage-subscription"
@@ -405,6 +469,33 @@ export default function SubscriptionScreen() {
                 testID="button-confirm-purchase"
               >
                 Confirm
+              </Button>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={errorModal !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setErrorModal(null)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <ThemedText type="h3" style={styles.modalTitle}>
+              {errorModal?.title ?? ""}
+            </ThemedText>
+            <ThemedText style={styles.modalBody}>
+              {errorModal?.message ?? ""}
+            </ThemedText>
+            <View style={styles.modalButtons}>
+              <Button
+                onPress={() => setErrorModal(null)}
+                style={styles.modalConfirm}
+                testID="button-dismiss-error"
+              >
+                OK
               </Button>
             </View>
           </View>

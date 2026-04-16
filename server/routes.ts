@@ -131,8 +131,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           isAdmin: user.isAdmin,
           isDemo: user.isDemo ?? false,
           subscriptionStatus: user.subscriptionStatus,
-          plan: (user as any).plan ?? "none",
-          subscriptionSource: (user as any).subscriptionSource ?? null,
+          plan: user.plan ?? "none",
+          subscriptionSource: user.subscriptionSource ?? null,
         },
       });
     } catch (error: any) {
@@ -199,8 +199,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           isAdmin: user.isAdmin,
           isDemo: user.isDemo ?? false,
           subscriptionStatus: user.subscriptionStatus,
-          plan: (user as any).plan ?? "none",
-          subscriptionSource: (user as any).subscriptionSource ?? null,
+          plan: user.plan ?? "none",
+          subscriptionSource: user.subscriptionSource ?? null,
         },
       });
     } catch (error: any) {
@@ -275,8 +275,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           isAdmin: user.isAdmin,
           isDemo: user.isDemo ?? false,
           subscriptionStatus: user.subscriptionStatus,
-          plan: (user as any).plan ?? "none",
-          subscriptionSource: (user as any).subscriptionSource ?? null,
+          plan: user.plan ?? "none",
+          subscriptionSource: user.subscriptionSource ?? null,
         },
       });
     } catch (error: any) {
@@ -309,8 +309,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           isAdmin: demoUser.isAdmin,
           isDemo: demoUser.isDemo,
           subscriptionStatus: demoUser.subscriptionStatus,
-          plan: (demoUser as any).plan ?? "none",
-          subscriptionSource: (demoUser as any).subscriptionSource ?? null,
+          plan: demoUser.plan ?? "none",
+          subscriptionSource: demoUser.subscriptionSource ?? null,
         },
       });
     } catch (error: any) {
@@ -352,8 +352,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           isAdmin: user.isAdmin,
           isDemo: user.isDemo ?? false,
           subscriptionStatus: user.subscriptionStatus,
-          plan: (user as any).plan ?? "none",
-          subscriptionSource: (user as any).subscriptionSource ?? null,
+          plan: user.plan ?? "none",
+          subscriptionSource: user.subscriptionSource ?? null,
         },
       });
     } catch (error: any) {
@@ -465,8 +465,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       isAdmin: user.isAdmin,
       isDemo: user.isDemo,
       subscriptionStatus: user.subscriptionStatus,
-      plan: (user as any).plan ?? "none",
-      subscriptionSource: (user as any).subscriptionSource ?? null,
+      plan: user.plan ?? "none",
+      subscriptionSource: user.subscriptionSource ?? null,
     });
   });
 
@@ -1199,13 +1199,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
             subscriptionStatus: "active",
             plan: plan ?? user.plan ?? "monthly",
             subscriptionSource: "revenuecat",
-          } as any);
+          });
           console.log("[RC Webhook] Activated:", userId, plan);
         } else if (deactivating) {
           await storage.updateUserStripeInfo(user.id, {
             subscriptionStatus: "inactive",
             plan: "none",
-          } as any);
+          });
           console.log("[RC Webhook] Deactivated:", userId);
         }
 

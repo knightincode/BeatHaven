@@ -77,6 +77,8 @@ export class Storage {
       stripeCustomerId?: string;
       stripeSubscriptionId?: string;
       subscriptionStatus?: string;
+      plan?: string | null;
+      subscriptionSource?: string | null;
     }
   ): Promise<User | undefined> {
     const [user] = await db
