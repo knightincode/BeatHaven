@@ -3,6 +3,7 @@ import type { Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { WebhookHandlers } from "./webhookHandlers";
 import { seedDemoUser } from "./demoUser";
+import { seedAdminUser } from "./adminUser";
 import { seedTracks, preCacheAllTrackSizes } from "./seedTracks";
 import { getStripePublishableKey } from "./stripeClient";
 
@@ -322,6 +323,7 @@ function setupErrorHandler(app: express.Application) {
   const server = await registerRoutes(app);
 
   await seedDemoUser();
+  await seedAdminUser();
   await seedTracks();
   preCacheAllTrackSizes();
 
