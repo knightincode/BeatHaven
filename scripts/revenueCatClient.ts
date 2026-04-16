@@ -1,19 +1,16 @@
-import { createClient } from "@replit/revenuecat-sdk";
+import { createClient } from "@replit/revenuecat-sdk/client";
 
 let connectionSettings: any;
 
-async function fetchConnection(hostname: string, token: string): Promise<any> {
-  const url = new URL(`https://${hostname}/api/v2/connection`);
-  url.searchParams.set("include_secrets", "true");
-  url.searchParams.set("connector_names", "revenuecat");
-  const resp = await fetch(url.toString(), {
-    headers: { Accept: "application/json", X_REPLIT_TOKEN: token },
-  });
-  const data = await resp.json();
-  return data.items?.[0];
-}
+async function getApiKey(): Promise<string> {
+  if (
+    connectionSettings &&
+    connectionSettings.settings?.expires_at &&
+    new Date(connectionSettings.settings.expires_at).getTime() > Date.now()
+  ) {
+    return connectionSettings.settings.access_token;
+  }
 
-export async function getUncachableRevenueCatClient() {
   const hostname = process.env.REPLIT_CONNECTORS_HOSTNAME;
   const xReplitToken = process.env.REPL_IDENTITY
     ? "repl " + process.env.REPL_IDENTITY
@@ -23,22 +20,31 @@ export async function getUncachableRevenueCatClient() {
 
   if (!xReplitToken || !hostname) {
     throw new Error(
-      "RevenueCat connection unavailable: missing Replit connectors env. Connect the RevenueCat integration from the Integrations panel."
+      "RevenueCat connection unavailable: missing Replit connectors env."
     );
   }
 
-  connectionSettings = await fetchConnection(hostname, xReplitToken);
-  if (!connectionSettings) {
-    throw new Error("No RevenueCat connection found. Connect the RevenueCat integration from the Integrations panel.");
-  }
+  connectionSettings = await fetch(
+    "https://" + hostname + "/api/v2/connection?include_secrets=true&connector_names=revenuecat",
+    { headers: { Accept: "application/json", "X-Replit-Token": xReplitToken } }
+  )
+    .then((r) => r.json())
+    .then((d) => d.items?.[0]);
 
-  const apiKey =
-    connectionSettings.settings?.secret_api_key ??
-    connectionSettings.settings?.api_key ??
-    connectionSettings.settings?.access_token;
-  if (!apiKey) {
-    throw new Error("RevenueCat connection returned no API key.");
-  }
+  const accessToken =
+    connectionSettings?.settings?.access_token ||
+    connectionSettings?.settings?.oauth?.credentials?.access_token;
 
-  return createClient({ auth: apiKey as string });
+  if (!connectionSettings || !accessToken) {
+    throw new Error("RevenueCat not connected");
+  }
+  return accessToken;
+}
+
+export async function getUncachableRevenueCatClient() {
+  const apiKey = await getApiKey();
+  return createClient({
+    baseUrl: "https://api.revenuecat.com/v2",
+    headers: { Authorization: "Bearer " + apiKey },
+  });
 }

@@ -44,7 +44,7 @@ type TierConfig = {
   playStoreIdentifier: string;
   displayName: string;
   userFacingTitle: string;
-  productType: "subscription" | "non_subscription";
+  productType: "subscription" | "non_consumable";
   duration?: "P1W" | "P1M" | "P2M" | "P3M" | "P6M" | "P1Y";
   priceMicros: number;
   packageIdentifier: string;
@@ -82,7 +82,7 @@ const TIERS: TierConfig[] = [
     playStoreIdentifier: "premium_lifetime",
     displayName: "Premium Lifetime",
     userFacingTitle: "Premium Lifetime",
-    productType: "non_subscription",
+    productType: "non_consumable",
     priceMicros: 99_990_000,
     packageIdentifier: "$rc_lifetime",
     packageDisplayName: "Lifetime Access",

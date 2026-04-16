@@ -1152,6 +1152,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     async (req: Request, res: Response) => {
       try {
         const secret = process.env.REVENUECAT_WEBHOOK_SECRET;
+        const isProd = process.env.NODE_ENV === "production";
+        if (!secret && isProd) {
+          console.error("[RC Webhook] REVENUECAT_WEBHOOK_SECRET missing in production; rejecting");
+          return res.status(401).json({ message: "Webhook secret not configured" });
+        }
         if (secret) {
           const authHeader = req.headers.authorization;
           if (authHeader !== `Bearer ${secret}`) {
@@ -1187,7 +1192,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           "UNCANCELLATION",
           "TRIAL_STARTED",
         ].includes(type);
-        const deactivating = ["CANCELLATION", "EXPIRATION", "BILLING_ISSUE"].includes(type);
+        const deactivating = ["EXPIRATION", "REFUND", "SUBSCRIPTION_PAUSED"].includes(type);
 
         if (activating) {
           await storage.updateUserStripeInfo(user.id, {

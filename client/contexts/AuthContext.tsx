@@ -3,7 +3,7 @@ import * as SecureStore from "expo-secure-store";
 import * as Crypto from "expo-crypto";
 import { Platform } from "react-native";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
-import { useSubscription } from "@/lib/revenuecat";
+import { useSubscription, identifyRevenueCatUser, resetRevenueCatUser } from "@/lib/revenuecat";
 import { signInWithApple, isAppleAuthAvailable } from "@/services/appleAuth";
 import {
   isBiometricAvailable,
@@ -221,6 +221,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setToken(authToken);
     setUser(userData);
 
+    if (!userData.isDemo) {
+      identifyRevenueCatUser(userData.id).catch(() => {});
+    }
+
     if (userData.isDemo) return;
 
     const biometricAvail = await isBiometricAvailable();
@@ -292,6 +296,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (err) {
       console.warn("Failed to clear biometric data on logout:", err);
     }
+    resetRevenueCatUser().catch(() => {});
     setToken(null);
     setUser(null);
   }
