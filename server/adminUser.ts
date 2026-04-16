@@ -3,8 +3,8 @@ import { users } from "../shared/schema";
 import bcrypt from "bcryptjs";
 
 export async function seedAdminUser(): Promise<void> {
-  const email = process.env.ADMIN_EMAIL;
-  const password = process.env.ADMIN_PASSWORD;
+  const email = process.env.ADMIN_EMAIL?.trim();
+  const password = process.env.ADMIN_PASSWORD?.trim();
 
   if (!email || !password) {
     console.log("[Admin] ADMIN_EMAIL or ADMIN_PASSWORD not set — skipping admin seed");
@@ -28,7 +28,6 @@ export async function seedAdminUser(): Promise<void> {
         target: users.email,
         set: {
           isAdmin: true,
-          password: hashedPassword,
           subscriptionStatus: "active",
         },
       })
