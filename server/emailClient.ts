@@ -2,7 +2,7 @@ import { Resend } from "resend";
 
 function getCredentials(): { apiKey: string; fromEmail: string } {
   const apiKey = process.env.RESEND_API_KEY;
-  const fromEmail = process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev";
+  const fromEmail = process.env.RESEND_FROM_EMAIL || "noreply@recursionlabs.org";
 
   if (!apiKey) {
     throw new Error(
