@@ -14,6 +14,10 @@ import {
   Favorite,
 } from "../shared/schema";
 
+export function normalizeEmail(email: string): string {
+  return email.trim().toLowerCase();
+}
+
 export class Storage {
   async getUser(id: string): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.id, id));
@@ -21,7 +25,8 @@ export class Storage {
   }
 
   async getUserByEmail(email: string): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.email, email));
+    const normalized = normalizeEmail(email);
+    const [user] = await db.select().from(users).where(eq(users.email, normalized));
     return user;
   }
 
@@ -43,7 +48,7 @@ export class Storage {
     const [user] = await db
       .insert(users)
       .values({
-        email,
+        email: normalizeEmail(email),
         password: hashedPassword,
         authProvider: options?.authProvider || "email",
         appleUserId: options?.appleUserId || null,
@@ -54,9 +59,13 @@ export class Storage {
   }
 
   async updateUser(id: string, data: Partial<User>): Promise<User | undefined> {
+    const normalized: Partial<User> =
+      typeof data.email === "string"
+        ? { ...data, email: normalizeEmail(data.email) }
+        : data;
     const [user] = await db
       .update(users)
-      .set(data)
+      .set(normalized)
       .where(eq(users.id, id))
       .returning();
     return user;
