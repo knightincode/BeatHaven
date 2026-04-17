@@ -378,10 +378,8 @@ async function seedRevenueCat() {
   console.log("==============================");
   console.log("Set these environment variables:\n");
   console.log("REVENUECAT_PROJECT_ID=" + project.id);
-  console.log("REVENUECAT_TEST_STORE_APP_ID=" + testApp.id);
   console.log("REVENUECAT_APPLE_APP_STORE_APP_ID=" + appStoreApp.id);
   console.log("REVENUECAT_GOOGLE_PLAY_STORE_APP_ID=" + playStoreApp.id);
-  console.log("EXPO_PUBLIC_REVENUECAT_TEST_API_KEY=" + (testKeys?.items[0]?.key ?? "N/A"));
   console.log("EXPO_PUBLIC_REVENUECAT_IOS_API_KEY=" + (iosKeys?.items[0]?.key ?? "N/A"));
   console.log("EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY=" + (androidKeys?.items[0]?.key ?? "N/A"));
   console.log("==============================\n");
