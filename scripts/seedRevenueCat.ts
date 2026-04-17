@@ -360,10 +360,6 @@ async function seedRevenueCat() {
     }
   }
 
-  const { data: testKeys } = await listAppPublicApiKeys({
-    client,
-    path: { project_id: project.id, app_id: testApp.id },
-  });
   const { data: iosKeys } = await listAppPublicApiKeys({
     client,
     path: { project_id: project.id, app_id: appStoreApp.id },
