@@ -14,7 +14,7 @@ Beat Haven is a React Native/Expo app for binaural beats and ambient audio strea
 ## Subscription model
 
 ### Stripe web
-- Monthly: $0.99/month
+- Monthly: $4.99/month
 - Handles live checkout, billing portal, and webhook sync
 
 ### RevenueCat mobile
