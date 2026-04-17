@@ -29,9 +29,11 @@ The app expects these public RevenueCat API keys:
 
 - `EXPO_PUBLIC_REVENUECAT_IOS_API_KEY`
 - `EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY`
-- `EXPO_PUBLIC_REVENUECAT_TEST_API_KEY`
 
 The native paywall uses the RevenueCat SDK on iOS and Android when these values are present.
+
+The backend also requires `REVENUECAT_WEBHOOK_SECRET` to be set, matching the Bearer
+authorization secret configured on the RevenueCat dashboard webhook.
 
 ## Environment variables
 
@@ -45,7 +47,7 @@ Required runtime values include:
 - `EXPO_PUBLIC_GOOGLE_CLIENT_ID`
 - `EXPO_PUBLIC_REVENUECAT_IOS_API_KEY`
 - `EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY`
-- `EXPO_PUBLIC_REVENUECAT_TEST_API_KEY`
+- `REVENUECAT_WEBHOOK_SECRET`
 - Stripe credentials from Replit connectors
 
 ## Local development

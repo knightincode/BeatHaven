@@ -61,7 +61,6 @@ export default function SubscriptionScreen() {
   const rcSubscription = useSubscription();
 
   const [selectedTier, setSelectedTier] = useState<PlanTier>("yearly");
-  const [pendingRcPackage, setPendingRcPackage] = useState<PurchasesPackage | null>(null);
   const [errorModal, setErrorModal] = useState<{ title: string; message: string } | null>(null);
 
   const pricesQuery = useQuery<{ plans: ServerPlan[] }>({
@@ -170,11 +169,7 @@ export default function SubscriptionScreen() {
         });
         return;
       }
-      if (__DEV__) {
-        setPendingRcPackage(pkg);
-      } else {
-        runRcPurchase(pkg);
-      }
+      runRcPurchase(pkg);
       return;
     }
     stripeCheckoutMutation.mutate(selectedTier, {
@@ -197,12 +192,6 @@ export default function SubscriptionScreen() {
         message: e?.message ?? "The purchase could not be completed. Please try again.",
       });
     }
-  }
-
-  function confirmRcPurchase() {
-    const pkg = pendingRcPackage;
-    setPendingRcPackage(null);
-    if (pkg) runRcPurchase(pkg);
   }
 
   async function handleRestore() {
@@ -451,42 +440,6 @@ export default function SubscriptionScreen() {
           </>
         )}
       </KeyboardAwareScrollViewCompat>
-
-      <Modal
-        visible={pendingRcPackage !== null}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setPendingRcPackage(null)}
-      >
-        <View style={styles.modalBackdrop}>
-          <View style={styles.modalCard}>
-            <ThemedText type="h3" style={styles.modalTitle}>
-              Confirm Test Purchase
-            </ThemedText>
-            <ThemedText style={styles.modalBody}>
-              You're in dev/test mode. Proceed with a sandbox purchase for{" "}
-              {pendingRcPackage?.product?.title ?? "this package"} at{" "}
-              {pendingRcPackage?.product?.priceString ?? ""}?
-            </ThemedText>
-            <View style={styles.modalButtons}>
-              <Button
-                onPress={() => setPendingRcPackage(null)}
-                style={styles.modalCancel}
-                testID="button-cancel-purchase"
-              >
-                Cancel
-              </Button>
-              <Button
-                onPress={confirmRcPurchase}
-                style={styles.modalConfirm}
-                testID="button-confirm-purchase"
-              >
-                Confirm
-              </Button>
-            </View>
-          </View>
-        </View>
-      </Modal>
 
       <Modal
         visible={errorModal !== null}

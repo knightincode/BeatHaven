@@ -1154,20 +1154,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     async (req: Request, res: Response) => {
       try {
         const secret = process.env.REVENUECAT_WEBHOOK_SECRET;
-        const allowUnauth = process.env.REVENUECAT_WEBHOOK_ALLOW_UNAUTH === "true";
         if (!secret) {
-          if (!allowUnauth) {
-            console.error(
-              "[RC Webhook] REVENUECAT_WEBHOOK_SECRET missing; rejecting (set REVENUECAT_WEBHOOK_ALLOW_UNAUTH=true to bypass in local dev)"
-            );
-            return res.status(401).json({ message: "Webhook secret not configured" });
-          }
-          console.warn("[RC Webhook] Running UNAUTHENTICATED due to explicit dev override");
-        } else {
-          const authHeader = req.headers.authorization;
-          if (authHeader !== `Bearer ${secret}`) {
-            return res.status(401).json({ message: "Unauthorized" });
-          }
+          console.error("[RC Webhook] REVENUECAT_WEBHOOK_SECRET missing; rejecting");
+          return res.status(401).json({ message: "Webhook secret not configured" });
+        }
+        const authHeader = req.headers.authorization;
+        if (authHeader !== `Bearer ${secret}`) {
+          return res.status(401).json({ message: "Unauthorized" });
         }
 
         const event = req.body?.event;
