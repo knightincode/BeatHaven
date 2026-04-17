@@ -6,9 +6,6 @@ import { seedDemoUser } from "./demoUser";
 import { seedAdminUser } from "./adminUser";
 import { seedTracks, preCacheAllTrackSizes } from "./seedTracks";
 import { getStripePublishableKey } from "./stripeClient";
-import { db } from "./db";
-import { sql } from "drizzle-orm";
-
 import * as fs from "fs";
 import * as path from "path";
 
@@ -323,18 +320,6 @@ function setupErrorHandler(app: express.Application) {
   configureExpoAndLanding(app);
 
   const server = await registerRoutes(app);
-
-  try {
-    const result = await db.execute(
-      sql`UPDATE users SET email = LOWER(email) WHERE email <> LOWER(email) RETURNING id`,
-    );
-    const rowCount = (result as any).rowCount ?? (result as any).rows?.length ?? 0;
-    if (rowCount > 0) {
-      log(`[Startup] Normalized ${rowCount} user email(s) to lowercase`);
-    }
-  } catch (err: any) {
-    console.warn("[Startup] Email normalization skipped:", err?.message || err);
-  }
 
   await seedDemoUser();
   await seedAdminUser();
