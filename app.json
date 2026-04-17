@@ -9,6 +9,7 @@
     "userInterfaceStyle": "dark",
     "newArchEnabled": true,
     "ios": {
+      "icon": "./assets/images/Logo_Figma_iOS.png",
       "supportsTablet": true,
       "bundleIdentifier": "com.beathaven.app",
       "usesAppleSignIn": true,
