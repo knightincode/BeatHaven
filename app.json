@@ -9,15 +9,13 @@
     "userInterfaceStyle": "dark",
     "newArchEnabled": true,
     "ios": {
-      "icon": "./assets/images/Logo_Figma_iOS.png",
+      "icon": "./assets/images/Logo_Figma.png",
       "supportsTablet": true,
       "bundleIdentifier": "com.beathaven.ios",
       "usesAppleSignIn": true,
       "infoPlist": {
         "NSFaceIDUsageDescription": "Use Face ID to sign in to Beat Haven quickly and securely.",
-        "UIBackgroundModes": [
-          "audio"
-        ],
+        "UIBackgroundModes": ["audio"],
         "NSAppTransportSecurity": {
           "NSAllowsArbitraryLoads": true
         }
@@ -30,7 +28,7 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.beathaven.app"
+      "package": "com.beathaven.ios"
     },
     "web": {
       "output": "single",
