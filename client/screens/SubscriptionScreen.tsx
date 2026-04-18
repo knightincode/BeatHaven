@@ -40,9 +40,16 @@ type ServerPlan = {
 
 const TIER_ORDER: PlanTier[] = ["monthly", "yearly", "lifetime"];
 
-const TIER_LABEL: Record<PlanTier, { title: string; sub: string; badge?: string }> = {
+const TIER_LABEL: Record<
+  PlanTier,
+  { title: string; sub: string; badge?: string }
+> = {
   monthly: { title: "Monthly", sub: "Flexible, billed monthly" },
-  yearly: { title: "Yearly", sub: "Best value — save over 30%", badge: "Most Popular" },
+  yearly: {
+    title: "Yearly",
+    sub: "Best value — save over 30%",
+    badge: "Most Popular",
+  },
   lifetime: { title: "Lifetime", sub: "One payment, forever" },
 };
 
@@ -50,7 +57,6 @@ const PREMIUM_FEATURES = [
   { icon: "headphones" as const, text: "Unlimited binaural beats library" },
   { icon: "list" as const, text: "Create unlimited playlists" },
   { icon: "heart" as const, text: "Save your favorite tracks" },
-  { icon: "download" as const, text: "Offline listening" },
   { icon: "zap" as const, text: "Hi-fi streaming quality" },
 ];
 
@@ -61,7 +67,10 @@ export default function SubscriptionScreen() {
   const rcSubscription = useSubscription();
 
   const [selectedTier, setSelectedTier] = useState<PlanTier>("yearly");
-  const [errorModal, setErrorModal] = useState<{ title: string; message: string } | null>(null);
+  const [errorModal, setErrorModal] = useState<{
+    title: string;
+    message: string;
+  } | null>(null);
 
   const pricesQuery = useQuery<{ plans: ServerPlan[] }>({
     queryKey: ["/api/subscription/prices"],
@@ -74,7 +83,9 @@ export default function SubscriptionScreen() {
     return map;
   }, [serverPlans]);
 
-  const rcPackages = useMemo<Partial<Record<PlanTier, PurchasesPackage>>>(() => {
+  const rcPackages = useMemo<
+    Partial<Record<PlanTier, PurchasesPackage>>
+  >(() => {
     const offering = rcSubscription.offerings?.current;
     if (!offering) return {};
     const pkgs: PurchasesPackage[] = offering.availablePackages ?? [];
@@ -174,7 +185,10 @@ export default function SubscriptionScreen() {
     }
     stripeCheckoutMutation.mutate(selectedTier, {
       onError: (err: unknown) => {
-        const message = err instanceof Error ? err.message : "We couldn't start your checkout. Please try again.";
+        const message =
+          err instanceof Error
+            ? err.message
+            : "We couldn't start your checkout. Please try again.";
         setErrorModal({ title: "Checkout Unavailable", message });
       },
     });
@@ -185,11 +199,15 @@ export default function SubscriptionScreen() {
       await rcSubscription.purchase(pkg);
       await refreshUser();
     } catch (err: unknown) {
-      const e = err as { userCancelled?: boolean; message?: string } | undefined;
+      const e = err as
+        | { userCancelled?: boolean; message?: string }
+        | undefined;
       if (e?.userCancelled) return;
       setErrorModal({
         title: "Purchase Failed",
-        message: e?.message ?? "The purchase could not be completed. Please try again.",
+        message:
+          e?.message ??
+          "The purchase could not be completed. Please try again.",
       });
     }
   }
@@ -238,27 +256,39 @@ export default function SubscriptionScreen() {
     } catch {
       setErrorModal({
         title: "Unable to Open",
-        message: "Please manage your subscription from your device's store app.",
+        message:
+          "Please manage your subscription from your device's store app.",
       });
     }
   }
 
-  const priceForTier = (tier: PlanTier): { price: string; sub: string; trialDays: number } => {
+  const priceForTier = (
+    tier: PlanTier,
+  ): { price: string; sub: string; trialDays: number } => {
     if (useRevenueCat && rcPackages[tier]) {
       const p = rcPackages[tier]?.product;
       const priceString = p?.priceString ?? "—";
       const period =
-        tier === "monthly" ? "/month" : tier === "yearly" ? "/year" : "one-time";
+        tier === "monthly"
+          ? "/month"
+          : tier === "yearly"
+            ? "/year"
+            : "one-time";
       return {
         price: priceString,
         sub: period,
-        trialDays: p?.introPrice?.periodNumberOfUnits ?? (tier === "lifetime" ? 0 : 7),
+        trialDays:
+          p?.introPrice?.periodNumberOfUnits ?? (tier === "lifetime" ? 0 : 7),
       };
     }
     const sp = planByTier[tier];
     if (!sp) return { price: "—", sub: "", trialDays: 0 };
     const period =
-      sp.interval === "month" ? "/month" : sp.interval === "year" ? "/year" : "one-time";
+      sp.interval === "month"
+        ? "/month"
+        : sp.interval === "year"
+          ? "/year"
+          : "one-time";
     return { price: sp.priceString, sub: period, trialDays: sp.trialDays };
   };
 
@@ -283,7 +313,11 @@ export default function SubscriptionScreen() {
         {hasActiveSubscription ? (
           <>
             <View style={styles.statusCard}>
-              <Feather name="check-circle" size={48} color={Colors.dark.success} />
+              <Feather
+                name="check-circle"
+                size={48}
+                color={Colors.dark.success}
+              />
               <ThemedText type="h3" style={styles.statusTitle}>
                 You're Premium
               </ThemedText>
@@ -297,13 +331,18 @@ export default function SubscriptionScreen() {
             <Card style={styles.featuresCard}>
               {PREMIUM_FEATURES.map((f) => (
                 <View key={f.text} style={styles.featureRow}>
-                  <Feather name={f.icon} size={20} color={Colors.dark.success} />
+                  <Feather
+                    name={f.icon}
+                    size={20}
+                    color={Colors.dark.success}
+                  />
                   <ThemedText style={styles.featureText}>{f.text}</ThemedText>
                 </View>
               ))}
             </Card>
 
-            {user?.plan === "lifetime" ? null : user?.subscriptionSource === "revenuecat" ? (
+            {user?.plan === "lifetime" ? null : user?.subscriptionSource ===
+              "revenuecat" ? (
               <Button
                 onPress={openStoreManagement}
                 style={styles.primaryButton}
@@ -322,7 +361,10 @@ export default function SubscriptionScreen() {
                     onError: (err: unknown) =>
                       setErrorModal({
                         title: "Unable to Open Billing",
-                        message: err instanceof Error ? err.message : "Please try again shortly.",
+                        message:
+                          err instanceof Error
+                            ? err.message
+                            : "Please try again shortly.",
                       }),
                   })
                 }
@@ -339,7 +381,9 @@ export default function SubscriptionScreen() {
             )}
 
             <Pressable onPress={handleRestore} style={styles.restoreLink}>
-              <ThemedText style={styles.restoreText}>Restore Purchases</ThemedText>
+              <ThemedText style={styles.restoreText}>
+                Restore Purchases
+              </ThemedText>
             </Pressable>
           </>
         ) : (
@@ -376,7 +420,9 @@ export default function SubscriptionScreen() {
                   >
                     {info.badge ? (
                       <View style={styles.badge}>
-                        <ThemedText style={styles.badgeText}>{info.badge}</ThemedText>
+                        <ThemedText style={styles.badgeText}>
+                          {info.badge}
+                        </ThemedText>
                       </View>
                     ) : null}
                     <View style={styles.tierHeader}>
@@ -384,12 +430,20 @@ export default function SubscriptionScreen() {
                         {isSelected ? <View style={styles.radioDot} /> : null}
                       </View>
                       <View style={styles.tierTitleBlock}>
-                        <ThemedText style={styles.tierTitle}>{info.title}</ThemedText>
-                        <ThemedText style={styles.tierSub}>{info.sub}</ThemedText>
+                        <ThemedText style={styles.tierTitle}>
+                          {info.title}
+                        </ThemedText>
+                        <ThemedText style={styles.tierSub}>
+                          {info.sub}
+                        </ThemedText>
                       </View>
                       <View style={styles.tierPriceBlock}>
-                        <ThemedText style={styles.tierPrice}>{p.price}</ThemedText>
-                        <ThemedText style={styles.tierPeriod}>{p.sub}</ThemedText>
+                        <ThemedText style={styles.tierPrice}>
+                          {p.price}
+                        </ThemedText>
+                        <ThemedText style={styles.tierPeriod}>
+                          {p.sub}
+                        </ThemedText>
                       </View>
                     </View>
                     {p.trialDays > 0 && tier !== "lifetime" ? (
@@ -405,7 +459,11 @@ export default function SubscriptionScreen() {
             <Card style={styles.featuresCard}>
               {PREMIUM_FEATURES.map((f) => (
                 <View key={f.text} style={styles.featureRow}>
-                  <Feather name={f.icon} size={20} color={Colors.dark.success} />
+                  <Feather
+                    name={f.icon}
+                    size={20}
+                    color={Colors.dark.success}
+                  />
                   <ThemedText style={styles.featureText}>{f.text}</ThemedText>
                 </View>
               ))}
@@ -429,7 +487,9 @@ export default function SubscriptionScreen() {
             </Button>
 
             <Pressable onPress={handleRestore} style={styles.restoreLink}>
-              <ThemedText style={styles.restoreText}>Restore Purchases</ThemedText>
+              <ThemedText style={styles.restoreText}>
+                Restore Purchases
+              </ThemedText>
             </Pressable>
 
             <ThemedText style={styles.disclaimer}>
@@ -475,9 +535,17 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   scrollView: { flex: 1 },
   content: { paddingHorizontal: Spacing.lg },
-  heroSection: { alignItems: "center", marginBottom: Spacing.xl, paddingTop: Spacing.md },
+  heroSection: {
+    alignItems: "center",
+    marginBottom: Spacing.xl,
+    paddingTop: Spacing.md,
+  },
   heroTitle: { textAlign: "center", marginBottom: Spacing.sm },
-  heroSub: { textAlign: "center", color: Colors.dark.textSecondary, fontSize: 15 },
+  heroSub: {
+    textAlign: "center",
+    color: Colors.dark.textSecondary,
+    fontSize: 15,
+  },
   tiersContainer: { width: "100%", marginBottom: Spacing.xl, gap: Spacing.md },
   tierCard: {
     width: "100%",
@@ -532,7 +600,11 @@ const styles = StyleSheet.create({
     color: Colors.dark.success,
     fontWeight: "600",
   },
-  featuresCard: { width: "100%", padding: Spacing.lg, marginBottom: Spacing.xl },
+  featuresCard: {
+    width: "100%",
+    padding: Spacing.lg,
+    marginBottom: Spacing.xl,
+  },
   featureRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -554,7 +626,11 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: Spacing.sm,
   },
-  statusCard: { alignItems: "center", marginBottom: Spacing.xl, gap: Spacing.sm },
+  statusCard: {
+    alignItems: "center",
+    marginBottom: Spacing.xl,
+    gap: Spacing.sm,
+  },
   statusTitle: { marginTop: Spacing.md },
   statusText: { color: Colors.dark.textSecondary, textAlign: "center" },
   modalBackdrop: {
@@ -571,7 +647,11 @@ const styles = StyleSheet.create({
   },
   modalTitle: { textAlign: "center" },
   modalBody: { textAlign: "center", color: Colors.dark.textSecondary },
-  modalButtons: { flexDirection: "row", gap: Spacing.md, marginTop: Spacing.md },
+  modalButtons: {
+    flexDirection: "row",
+    gap: Spacing.md,
+    marginTop: Spacing.md,
+  },
   modalCancel: { flex: 1, backgroundColor: "rgba(255,255,255,0.1)" },
   modalConfirm: { flex: 1 },
 });
