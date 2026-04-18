@@ -11,7 +11,7 @@
     "ios": {
       "icon": "./assets/images/Logo_Figma_iOS.png",
       "supportsTablet": true,
-      "bundleIdentifier": "com.beathaven.app",
+      "bundleIdentifier": "com.beathaven.ios",
       "usesAppleSignIn": true,
       "infoPlist": {
         "NSFaceIDUsageDescription": "Use Face ID to sign in to Beat Haven quickly and securely.",

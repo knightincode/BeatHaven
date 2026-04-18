@@ -28,7 +28,7 @@ import {
 const PROJECT_NAME = "Beat Haven";
 
 const APP_STORE_APP_NAME = "Beat Haven iOS";
-const APP_STORE_BUNDLE_ID = "com.beathaven.app";
+const APP_STORE_BUNDLE_ID = "com.beathaven.ios";
 const PLAY_STORE_APP_NAME = "Beat Haven Android";
 const PLAY_STORE_PACKAGE_NAME = "com.beathaven.app";
 
