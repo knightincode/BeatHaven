@@ -10,7 +10,7 @@
         "EXPO_PUBLIC_DOMAIN": "recursionlabs.org"
       },
       "ios": {
-        "image": "macos-sequoia-15.2-xcode-16.2"
+        "image": "macos-sequoia-15.3-xcode-16.2"
       }
     },
     "preview": {
@@ -19,7 +19,7 @@
         "EXPO_PUBLIC_DOMAIN": "recursionlabs.org"
       },
       "ios": {
-        "image": "macos-sequoia-15.2-xcode-16.2"
+        "image": "macos-sequoia-15.3-xcode-16.2"
       }
     },
     "production": {
@@ -27,7 +27,7 @@
         "EXPO_PUBLIC_DOMAIN": "recursionlabs.org"
       },
       "ios": {
-        "image": "macos-sequoia-15.2-xcode-16.2"
+        "image": "macos-sequoia-15.3-xcode-16.2"
       },
       "android": {
         "buildType": "apk"
