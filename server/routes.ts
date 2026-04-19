@@ -1256,6 +1256,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   );
 
+  app.post("/api/webhooks/apple", async (req: Request, res: Response) => {
+    try {
+      console.log("[Apple ASN] Event:", JSON.stringify(req.body));
+      res.status(200).json({ received: true });
+    } catch (err: unknown) {
+      console.error("[Apple ASN] Error:", err);
+      res.status(500).json({ message: "Apple notification processing failed" });
+    }
+  });
+
   app.post("/api/sync-subscription", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const user = req.user!;
