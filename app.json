@@ -2,7 +2,7 @@
   "expo": {
     "name": "Beat Haven",
     "slug": "binaural-beats",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "orientation": "portrait",
     "icon": "./assets/images/Logo_Figma.png",
     "scheme": "beathaven",
@@ -15,10 +15,7 @@
       "usesAppleSignIn": true,
       "infoPlist": {
         "NSFaceIDUsageDescription": "Use Face ID to sign in to Beat Haven quickly and securely.",
-        "UIBackgroundModes": [
-          "audio",
-          "audio"
-        ],
+        "UIBackgroundModes": ["audio", "audio"],
         "NSAppTransportSecurity": {
           "NSAllowsArbitraryLoads": true
         },
