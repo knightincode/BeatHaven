@@ -1,10 +1,4 @@
-import { useEffect, useState } from "react";
-import {
-  useAuthRequest,
-  makeRedirectUri,
-  exchangeCodeAsync,
-  AuthSessionResult,
-} from "expo-auth-session";
+import { useAuthRequest, makeRedirectUri } from "expo-auth-session";
 import * as WebBrowser from "expo-web-browser";
 import { Platform } from "react-native";
 import Constants, { ExecutionEnvironment } from "expo-constants";
@@ -23,10 +17,6 @@ const discovery = {
 
 export function isRunningInExpoGo(): boolean {
   return Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
-}
-
-function isNativeBuild(): boolean {
-  return Platform.OS !== "web" && !isRunningInExpoGo();
 }
 
 function getClientId(): string {
@@ -76,18 +66,14 @@ function getRedirectUri(): string {
 export function useGoogleAuth() {
   const clientId = getClientId();
   const redirectUri = getRedirectUri();
-  const native = isNativeBuild();
 
   const [request, response, promptAsync] = useAuthRequest(
     {
       clientId,
       redirectUri,
       scopes: ["openid", "profile", "email"],
-      // Native Google OAuth clients do NOT support responseType=id_token.
-      // Use authorization code flow with PKCE on native, then exchange code -> id_token.
-      // Web/Expo Go uses the Web client which supports the implicit id_token flow.
-      responseType: native ? "code" : "id_token",
-      usePKCE: native,
+      responseType: "id_token",
+      usePKCE: false,
       extraParams: {
         nonce: Date.now().toString(36) + Math.random().toString(36).substring(2),
         prompt: "select_account",
@@ -96,95 +82,14 @@ export function useGoogleAuth() {
     discovery
   );
 
-  const [processedResponse, setProcessedResponse] = useState<AuthSessionResult | null>(null);
-
-  useEffect(() => {
-    if (!response) {
-      setProcessedResponse(null);
-      return;
-    }
-
-    // Web / Expo Go: id_token already lives in response.params
-    if (!native) {
-      setProcessedResponse(response);
-      return;
-    }
-
-    // Native: only success-with-code requires exchange; pass through other states
-    if (response.type !== "success" || !response.params?.code) {
-      setProcessedResponse(response);
-      return;
-    }
-
-    let cancelled = false;
-    (async () => {
-      try {
-        const code = response.params.code;
-        const codeVerifier = request?.codeVerifier;
-
-        if (__DEV__) {
-          console.log("[GoogleAuth] Exchanging authorization code for tokens (native PKCE flow)");
-        }
-
-        const tokenResult = await exchangeCodeAsync(
-          {
-            clientId,
-            code,
-            redirectUri,
-            extraParams: codeVerifier ? { code_verifier: codeVerifier } : undefined,
-          },
-          discovery
-        );
-
-        if (cancelled) return;
-
-        const idToken = (tokenResult as any).idToken;
-        if (!idToken) {
-          console.error("[GoogleAuth] Token exchange succeeded but no id_token returned:", JSON.stringify(tokenResult));
-          setProcessedResponse({
-            type: "error",
-            error: new Error("Token exchange returned no id_token"),
-            errorCode: "no_id_token",
-            params: {},
-            url: response.url ?? "",
-            authentication: null,
-          } as unknown as AuthSessionResult);
-          return;
-        }
-
-        setProcessedResponse({
-          ...response,
-          params: { ...response.params, id_token: idToken },
-        } as AuthSessionResult);
-      } catch (err) {
-        if (cancelled) return;
-        console.error("[GoogleAuth] Code exchange failed:", err);
-        setProcessedResponse({
-          type: "error",
-          error: err as Error,
-          errorCode: "exchange_failed",
-          params: {},
-          url: response.url ?? "",
-          authentication: null,
-        } as unknown as AuthSessionResult);
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [response, native, clientId, redirectUri, request?.codeVerifier]);
-
   if (__DEV__) {
     console.log("[GoogleAuth] Platform:", Platform.OS);
     console.log("[GoogleAuth] Expo Go:", isRunningInExpoGo());
-    console.log("[GoogleAuth] Native build:", native);
     console.log("[GoogleAuth] Client ID:", clientId.substring(0, 20) + "...");
     console.log("[GoogleAuth] Redirect URI:", redirectUri);
-    console.log("[GoogleAuth] Response type:", native ? "code+PKCE" : "id_token");
   }
 
-  return { request, response: processedResponse, promptAsync };
+  return { request, response, promptAsync };
 }
 
 export function getGoogleAuthSetupInfo(): { redirectUri: string; clientId: string; platform: string } {
