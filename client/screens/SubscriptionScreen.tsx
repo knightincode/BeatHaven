@@ -167,20 +167,7 @@ export default function SubscriptionScreen() {
 
   function handleContinue() {
     hapticTap();
-    if (Platform.OS !== "web") {
-      if (!rcSubscription.available) {
-        const reason = getRevenueCatInitFailureReason();
-        const detail = getRevenueCatInitFailureDetail();
-        console.warn(
-          `[SubscriptionScreen] Store Unavailable shown — reason=${reason ?? "unknown"} detail=${detail ?? "n/a"} platform=${Platform.OS}`,
-        );
-        setErrorModal({
-          title: "Store Unavailable",
-          message:
-            "In-app purchases are not available right now. Please try again in a moment or restart the app.",
-        });
-        return;
-      }
+    if (Platform.OS !== "web" && rcSubscription.available) {
       const pkg = rcPackages[selectedTier];
       if (!pkg) {
         setErrorModal({
@@ -192,6 +179,13 @@ export default function SubscriptionScreen() {
       }
       runRcPurchase(pkg);
       return;
+    }
+    if (Platform.OS !== "web") {
+      const reason = getRevenueCatInitFailureReason();
+      const detail = getRevenueCatInitFailureDetail();
+      console.log(
+        `[SubscriptionScreen] RevenueCat unavailable — falling back to Stripe checkout (reason=${reason ?? "unknown"} detail=${detail ?? "n/a"} platform=${Platform.OS})`,
+      );
     }
     stripeCheckoutMutation.mutate(selectedTier, {
       onError: (err: unknown) => {

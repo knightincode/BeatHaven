@@ -168,13 +168,6 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
 
   useEffect(() => {
     if (Platform.OS === "web") return;
-    if (isRunningInExpoGo()) {
-      lastInitFailureReason = "expo_go_unsupported";
-      lastInitFailureDetail =
-        "react-native-purchases requires a development or production build (EAS build). It cannot run in Expo Go. RevenueCat features are disabled in this preview.";
-      setReady(true);
-      return;
-    }
     let cancelled = false;
     (async () => {
       const ok = await initializeRevenueCat();
