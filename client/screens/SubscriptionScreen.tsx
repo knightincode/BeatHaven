@@ -96,11 +96,15 @@ export default function SubscriptionScreen() {
     const pkgs: PurchasesPackage[] = offering.availablePackages ?? [];
     const map: Partial<Record<PlanTier, PurchasesPackage>> = {};
     for (const pkg of pkgs) {
-      const id = pkg.product?.identifier;
-      if (!id) continue;
-      if (id.includes("monthly")) map.monthly = pkg;
-      else if (id.includes("yearly") || id.includes("annual")) map.yearly = pkg;
-      else if (id.includes("lifetime")) map.lifetime = pkg;
+      const type = (pkg.packageType as string | undefined)?.toUpperCase();
+      const id = (pkg.product?.identifier ?? "").toLowerCase();
+      if (type === "MONTHLY" || id.includes("monthly")) {
+        map.monthly = pkg;
+      } else if (type === "ANNUAL" || type === "YEARLY" || id.includes("yearly") || id.includes("annual")) {
+        map.yearly = pkg;
+      } else if (type === "LIFETIME" || id.includes("lifetime")) {
+        map.lifetime = pkg;
+      }
     }
     return map;
   }, [rcSubscription.offerings]);
