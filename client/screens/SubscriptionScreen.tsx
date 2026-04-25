@@ -167,7 +167,19 @@ export default function SubscriptionScreen() {
 
   function handleContinue() {
     hapticTap();
-    if (Platform.OS !== "web" && rcSubscription.available) {
+    if (Platform.OS !== "web") {
+      if (!rcSubscription.available) {
+        const reason = getRevenueCatInitFailureReason();
+        console.log(
+          `[SubscriptionScreen] RevenueCat unavailable — reason=${reason ?? "unknown"} platform=${Platform.OS}`,
+        );
+        setErrorModal({
+          title: "Purchases Not Available",
+          message:
+            "In-app purchases are only available in the App Store build. Download Beat Haven from the App Store to subscribe.",
+        });
+        return;
+      }
       const pkg = rcPackages[selectedTier];
       if (!pkg) {
         setErrorModal({
@@ -179,13 +191,6 @@ export default function SubscriptionScreen() {
       }
       runRcPurchase(pkg);
       return;
-    }
-    if (Platform.OS !== "web") {
-      const reason = getRevenueCatInitFailureReason();
-      const detail = getRevenueCatInitFailureDetail();
-      console.log(
-        `[SubscriptionScreen] RevenueCat unavailable — falling back to Stripe checkout (reason=${reason ?? "unknown"} detail=${detail ?? "n/a"} platform=${Platform.OS})`,
-      );
     }
     stripeCheckoutMutation.mutate(selectedTier, {
       onError: (err: unknown) => {
