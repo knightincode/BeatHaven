@@ -98,9 +98,19 @@ export default function SubscriptionScreen() {
     for (const pkg of pkgs) {
       const type = (pkg.packageType as string | undefined)?.toUpperCase();
       const id = (pkg.product?.identifier ?? "").toLowerCase();
-      if (id === "premium_month" || type === "MONTHLY" || id.includes("monthly")) {
+      if (
+        id === "premium_month" ||
+        type === "MONTHLY" ||
+        id.includes("monthly") ||
+        id.includes("month")
+      ) {
         map.monthly = pkg;
-      } else if (type === "ANNUAL" || type === "YEARLY" || id.includes("yearly") || id.includes("annual")) {
+      } else if (
+        type === "ANNUAL" ||
+        type === "YEARLY" ||
+        id.includes("yearly") ||
+        id.includes("annual")
+      ) {
         map.yearly = pkg;
       } else if (type === "LIFETIME" || id.includes("lifetime")) {
         map.lifetime = pkg;
