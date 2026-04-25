@@ -1141,7 +1141,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         sessionParams.subscription_data = { trial_period_days: cfg.trialDays };
       }
 
-      const session = await stripe.checkout.sessions.create(sessionParams);
+      let session;
+      try {
+        session = await stripe.checkout.sessions.create(sessionParams);
+      } catch (error: any) {
+        if (error?.code === "resource_missing" && error?.param === "customer") {
+          const customer = await stripe.customers.create({
+            email: user.email,
+            metadata: { userId: user.id },
+          });
+          customerId = customer.id;
+          await storage.updateUserStripeInfo(user.id, { stripeCustomerId: customerId });
+          session = await stripe.checkout.sessions.create({
+            ...sessionParams,
+            customer: customerId,
+          });
+        } else {
+          throw error;
+        }
+      }
       res.json({ url: session.url, tier: cfg.tier });
     } catch (error: any) {
       console.error("Checkout error:", error);
