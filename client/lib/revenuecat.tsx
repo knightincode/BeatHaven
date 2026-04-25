@@ -56,24 +56,59 @@ async function loadPurchasesModule(): Promise<PurchasesSdk | null> {
   }
 }
 
+export type RevenueCatInitFailureReason =
+  | "missing_api_key"
+  | "sdk_load_failed"
+  | "configure_failed"
+  | null;
+
+let lastInitFailureReason: RevenueCatInitFailureReason = null;
+let lastInitFailureDetail: string | null = null;
+
+export function getRevenueCatInitFailureReason(): RevenueCatInitFailureReason {
+  return lastInitFailureReason;
+}
+
+export function getRevenueCatInitFailureDetail(): string | null {
+  return lastInitFailureDetail;
+}
+
 export async function initializeRevenueCat(): Promise<boolean> {
   if (initialized) return true;
   const apiKey = getRevenueCatApiKey();
   if (!apiKey) {
-    console.log("[RevenueCat] API keys not configured; skipping init");
+    lastInitFailureReason = "missing_api_key";
+    lastInitFailureDetail = `EXPO_PUBLIC_REVENUECAT_${Platform.OS === "ios" ? "IOS" : "ANDROID"}_API_KEY was not bundled into this build. Add it to eas.json env for the build profile and rebuild.`;
+    console.warn(
+      `[RevenueCat] init aborted: ${lastInitFailureDetail} (platform=${Platform.OS})`,
+    );
     return false;
   }
   const Purchases = await loadPurchasesModule();
-  if (!Purchases) return false;
+  if (!Purchases) {
+    lastInitFailureReason = "sdk_load_failed";
+    lastInitFailureDetail =
+      "react-native-purchases failed to load. The native module may not be linked in this build.";
+    console.warn(`[RevenueCat] init aborted: ${lastInitFailureDetail}`);
+    return false;
+  }
   try {
     if (Purchases.setLogLevel && Purchases.LOG_LEVEL) {
       Purchases.setLogLevel(Purchases.LOG_LEVEL.INFO);
     }
     Purchases.configure({ apiKey });
     initialized = true;
-    console.log("[RevenueCat] Configured");
+    lastInitFailureReason = null;
+    lastInitFailureDetail = null;
+    const keyHint = `${apiKey.slice(0, 5)}…${apiKey.slice(-4)}`;
+    console.log(
+      `[RevenueCat] Configured (platform=${Platform.OS} key=${keyHint})`,
+    );
     return true;
   } catch (err) {
+    lastInitFailureReason = "configure_failed";
+    lastInitFailureDetail =
+      err instanceof Error ? err.message : "Purchases.configure() threw";
     console.warn("[RevenueCat] configure() failed:", err);
     return false;
   }
@@ -120,10 +155,12 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    if (!REVENUECAT_AVAILABLE) return;
     if (Platform.OS === "web") return;
     let cancelled = false;
     (async () => {
+      // Always call initializeRevenueCat() on native so that, when the API key
+      // is missing from the build, the failure reason is recorded and surfaced
+      // by getRevenueCatInitFailureReason() / Detail() for one-step diagnosis.
       const ok = await initializeRevenueCat();
       if (!cancelled) setReady(ok);
     })();

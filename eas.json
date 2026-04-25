@@ -7,7 +7,9 @@
       "developmentClient": true,
       "distribution": "internal",
       "env": {
-        "EXPO_PUBLIC_DOMAIN": "recursionlabs.org"
+        "EXPO_PUBLIC_DOMAIN": "recursionlabs.org",
+        "EXPO_PUBLIC_REVENUECAT_IOS_API_KEY": "appl_zkVJPWwgUrjpFAbAXgvmcHshPKx",
+        "EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY": "goog_RyAxSJAFFyBbtrirCcZuGxDWORG"
       },
       "ios": {
         "image": "latest"
@@ -16,7 +18,9 @@
     "preview": {
       "distribution": "internal",
       "env": {
-        "EXPO_PUBLIC_DOMAIN": "recursionlabs.org"
+        "EXPO_PUBLIC_DOMAIN": "recursionlabs.org",
+        "EXPO_PUBLIC_REVENUECAT_IOS_API_KEY": "appl_zkVJPWwgUrjpFAbAXgvmcHshPKx",
+        "EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY": "goog_RyAxSJAFFyBbtrirCcZuGxDWORG"
       },
       "ios": {
         "image": "latest"
@@ -24,7 +28,9 @@
     },
     "production": {
       "env": {
-        "EXPO_PUBLIC_DOMAIN": "recursionlabs.org"
+        "EXPO_PUBLIC_DOMAIN": "recursionlabs.org",
+        "EXPO_PUBLIC_REVENUECAT_IOS_API_KEY": "appl_zkVJPWwgUrjpFAbAXgvmcHshPKx",
+        "EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY": "goog_RyAxSJAFFyBbtrirCcZuGxDWORG"
       },
       "ios": {
         "image": "latest"

@@ -21,7 +21,12 @@ import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { useAuth } from "@/contexts/AuthContext";
-import { useSubscription, type PurchasesPackage } from "@/lib/revenuecat";
+import {
+  useSubscription,
+  type PurchasesPackage,
+  getRevenueCatInitFailureReason,
+  getRevenueCatInitFailureDetail,
+} from "@/lib/revenuecat";
 import { getApiUrl } from "@/lib/query-client";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 
@@ -164,6 +169,11 @@ export default function SubscriptionScreen() {
     hapticTap();
     if (Platform.OS !== "web") {
       if (!rcSubscription.available) {
+        const reason = getRevenueCatInitFailureReason();
+        const detail = getRevenueCatInitFailureDetail();
+        console.warn(
+          `[SubscriptionScreen] Store Unavailable shown — reason=${reason ?? "unknown"} detail=${detail ?? "n/a"} platform=${Platform.OS}`,
+        );
         setErrorModal({
           title: "Store Unavailable",
           message:
