@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { Platform } from "react-native";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import Constants from "expo-constants";
+import Constants, { ExecutionEnvironment } from "expo-constants";
 import type {
   CustomerInfo,
   PurchasesOfferings,
@@ -58,9 +58,14 @@ async function loadPurchasesModule(): Promise<PurchasesSdk | null> {
 
 export type RevenueCatInitFailureReason =
   | "missing_api_key"
+  | "expo_go_unsupported"
   | "sdk_load_failed"
   | "configure_failed"
   | null;
+
+function isRunningInExpoGo(): boolean {
+  return Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
+}
 
 let lastInitFailureReason: RevenueCatInitFailureReason = null;
 let lastInitFailureDetail: string | null = null;
@@ -75,6 +80,13 @@ export function getRevenueCatInitFailureDetail(): string | null {
 
 export async function initializeRevenueCat(): Promise<boolean> {
   if (initialized) return true;
+  if (isRunningInExpoGo()) {
+    lastInitFailureReason = "expo_go_unsupported";
+    lastInitFailureDetail =
+      "react-native-purchases requires a development or production build (EAS build). It cannot run in Expo Go. RevenueCat features are disabled in this preview.";
+    console.log(`[RevenueCat] ${lastInitFailureDetail}`);
+    return false;
+  }
   const apiKey = getRevenueCatApiKey();
   if (!apiKey) {
     lastInitFailureReason = "missing_api_key";
